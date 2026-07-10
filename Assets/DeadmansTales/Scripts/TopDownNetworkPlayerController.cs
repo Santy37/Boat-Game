@@ -28,10 +28,10 @@ public class TopDownNetworkPlayerController : NetworkBehaviour
         {
             Vector3[] spawnPositions =
             {
-                new Vector3(-2f, 1f, -2f),
-                new Vector3( 2f, 1f, -2f),
-                new Vector3(-2f, 1f,  2f),
-                new Vector3( 2f, 1f,  2f)
+                new Vector3(-5f, 1f, -5f),
+                new Vector3( 5f, 1f, -5f),
+                new Vector3(-5f, 1f,  5f),
+                new Vector3( 5f, 1f,  5f)
             };
 
             int spawnIndex = (int)(OwnerClientId % 4);
