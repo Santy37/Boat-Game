@@ -1,0 +1,10 @@
+{
+  "configVersion": 1,
+  "id": "boat_default",
+  "minimumObstacleCount": 3,
+  "maximumObstacleCount": 8,
+  "minimumObstacleSpacing": 2.0,
+  "maximumPlacementAttemptsPerObstacle": 50,
+  "enemySpawnChance": 0.25,
+  "lootSpawnChance": 0.20
+}
