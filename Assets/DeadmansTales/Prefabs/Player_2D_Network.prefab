@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 4664613439806395301}
   - component: {fileID: 4970602273254707485}
   - component: {fileID: 93961699430243165}
+  - component: {fileID: 1262089826811194947}
   m_Layer: 0
   m_Name: Player_2D_Network
   m_TagString: Untagged
@@ -187,6 +188,20 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   moveSpeed: 5
   emergencyFallbackSpawn: {x: 2, y: 12}
+--- !u!114 &1262089826811194947
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5438845180987550581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b3172988e9c0b44da72299ada6e9f12, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimation2D
+  animator: {fileID: 128342377273715214}
+  movementThreshold: 0.0005
 --- !u!1 &5720608091619663548
 GameObject:
   m_ObjectHideFlags: 0
@@ -197,6 +212,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3849753735699051631}
   - component: {fileID: 234379710230593865}
+  - component: {fileID: 128342377273715214}
   m_Layer: 0
   m_Name: Visual
   m_TagString: Untagged
@@ -278,3 +294,25 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!95 &128342377273715214
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5720608091619663548}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: b09b22dc7cd5b2343a6c60209303aa47, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
