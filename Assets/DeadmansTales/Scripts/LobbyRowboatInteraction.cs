@@ -1,22 +1,35 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Collider2D))]
 public class LobbyRowboatInteraction : MonoBehaviour
 {
     [Header("Interaction")]
-    [SerializeField] private KeyCode interactionKey = KeyCode.E;
+    [SerializeField]
+    private KeyCode interactionKey =
+        KeyCode.E;
 
-    private TopDownNetworkPlayer2D localPlayerInRange;
+    [Header("Destination")]
+    [SerializeField]
+    private string gameplaySceneName =
+        "Boat_Gameplay_2D";
+
+    private TopDownNetworkPlayer2D
+        localPlayerInRange;
+
+    private bool sceneLoadRequested;
 
     private void Awake()
     {
-        Collider2D triggerCollider = GetComponent<Collider2D>();
+        Collider2D triggerCollider =
+            GetComponent<Collider2D>();
 
         if (!triggerCollider.isTrigger)
         {
             Debug.LogError(
-                "[Rowboat] The collider on InteractionTrigger must have Is Trigger enabled.",
+                "[Rowboat] InteractionTrigger collider " +
+                "must have Is Trigger enabled.",
                 this
             );
         }
@@ -29,6 +42,11 @@ public class LobbyRowboatInteraction : MonoBehaviour
             return;
         }
 
+        if (sceneLoadRequested)
+        {
+            return;
+        }
+
         if (!Input.GetKeyDown(interactionKey))
         {
             return;
@@ -37,17 +55,20 @@ public class LobbyRowboatInteraction : MonoBehaviour
         TrySetSail();
     }
 
-    private void OnTriggerEnter2D(Collider2D other)
+    private void OnTriggerEnter2D(
+        Collider2D other
+    )
     {
         TopDownNetworkPlayer2D player =
-            other.GetComponentInParent<TopDownNetworkPlayer2D>();
+            other.GetComponentInParent<
+                TopDownNetworkPlayer2D
+            >();
 
         if (player == null)
         {
             return;
         }
 
-        // Each game instance should only react to its own local player.
         if (!player.IsOwner)
         {
             return;
@@ -56,15 +77,20 @@ public class LobbyRowboatInteraction : MonoBehaviour
         localPlayerInRange = player;
 
         Debug.Log(
-            "[Rowboat] Local player entered the rowboat interaction area.",
+            "[Rowboat] Local player entered " +
+            "the rowboat interaction area.",
             this
         );
     }
 
-    private void OnTriggerExit2D(Collider2D other)
+    private void OnTriggerExit2D(
+        Collider2D other
+    )
     {
         TopDownNetworkPlayer2D player =
-            other.GetComponentInParent<TopDownNetworkPlayer2D>();
+            other.GetComponentInParent<
+                TopDownNetworkPlayer2D
+            >();
 
         if (player == null)
         {
@@ -79,7 +105,8 @@ public class LobbyRowboatInteraction : MonoBehaviour
         localPlayerInRange = null;
 
         Debug.Log(
-            "[Rowboat] Local player left the rowboat interaction area.",
+            "[Rowboat] Local player left " +
+            "the rowboat interaction area.",
             this
         );
     }
@@ -89,7 +116,7 @@ public class LobbyRowboatInteraction : MonoBehaviour
         if (NetworkManager.Singleton == null)
         {
             Debug.LogError(
-                "[Rowboat] No NetworkManager was found.",
+                "[Rowboat] No NetworkManager exists.",
                 this
             );
 
@@ -99,7 +126,7 @@ public class LobbyRowboatInteraction : MonoBehaviour
         if (!NetworkManager.Singleton.IsListening)
         {
             Debug.LogWarning(
-                "[Rowboat] Networking has not started yet.",
+                "[Rowboat] Networking has not started.",
                 this
             );
 
@@ -109,20 +136,50 @@ public class LobbyRowboatInteraction : MonoBehaviour
         if (!NetworkManager.Singleton.IsServer)
         {
             Debug.Log(
-                "[Rowboat] Only the host can start the voyage.",
+                "[Rowboat] Only the host can " +
+                "start the voyage.",
                 this
             );
 
             return;
         }
 
-        Debug.Log(
-            "[Rowboat] HOST PRESSED E — READY TO SET SAIL!",
-            this
-        );
+        if (sceneLoadRequested)
+        {
+            return;
+        }
 
-        // The networked gameplay scene transition will go here
-        // after Gameplay_Island_2D is created and configured.
+        SceneEventProgressStatus status =
+            NetworkManager
+                .Singleton
+                .SceneManager
+                .LoadScene(
+                    gameplaySceneName,
+                    LoadSceneMode.Single
+                );
+
+        if (
+            status ==
+            SceneEventProgressStatus.Started
+        )
+        {
+            sceneLoadRequested = true;
+
+            Debug.Log(
+                $"[Rowboat] Voyage started. " +
+                $"Loading {gameplaySceneName}.",
+                this
+            );
+        }
+        else
+        {
+            Debug.LogError(
+                $"[Rowboat] Failed to load " +
+                $"{gameplaySceneName}. " +
+                $"Status: {status}",
+                this
+            );
+        }
     }
 
     private void OnGUI()
@@ -134,7 +191,11 @@ public class LobbyRowboatInteraction : MonoBehaviour
 
         string message;
 
-        if (
+        if (sceneLoadRequested)
+        {
+            message = "Setting Sail...";
+        }
+        else if (
             NetworkManager.Singleton != null &&
             NetworkManager.Singleton.IsServer
         )
@@ -143,19 +204,24 @@ public class LobbyRowboatInteraction : MonoBehaviour
         }
         else
         {
-            message = "Waiting for the Host to Set Sail";
+            message =
+                "Waiting for the Host to Set Sail";
         }
 
         const float width = 320f;
         const float height = 50f;
 
-        Rect promptRect = new Rect(
-            (Screen.width - width) * 0.5f,
-            Screen.height - 100f,
-            width,
-            height
-        );
+        Rect promptRect =
+            new Rect(
+                (Screen.width - width) * 0.5f,
+                Screen.height - 100f,
+                width,
+                height
+            );
 
-        GUI.Box(promptRect, message);
+        GUI.Box(
+            promptRect,
+            message
+        );
     }
 }
