@@ -1,10 +1,18 @@
 using UnityEngine;
 
+[RequireComponent(typeof(Camera))]
 public class Camera2DFollow : MonoBehaviour
 {
+    [Header("Camera Mode")]
+    [Tooltip("Leave this disabled to keep the camera centered on the island.")]
+    [SerializeField] private bool followLocalPlayer = false;
+
+    [Tooltip("The world-space center of the island.")]
+    [SerializeField] private Vector2 islandCenter = new Vector2(2f, 12f);
+
     [Header("Camera")]
     [SerializeField] private float zOffset = -10f;
-    [SerializeField] private float orthographicSize = 12f;
+    [SerializeField] private float orthographicSize = 11f;
 
     [Header("Pixel Snapping")]
     [SerializeField] private bool snapToPixels = true;
@@ -16,40 +24,66 @@ public class Camera2DFollow : MonoBehaviour
     private void Awake()
     {
         cam = GetComponent<Camera>();
-    }
-
-    private void Start()
-    {
         ApplyCameraSettings();
     }
 
     private void LateUpdate()
     {
-        if (target == null)
-        {
-            TryFindLocalPlayer();
-        }
-
         Vector3 desiredPosition;
 
-        if (target == null)
+        if (!followLocalPlayer)
         {
-            desiredPosition = new Vector3(0f, 0f, zOffset);
+            // Fixed island view.
+            desiredPosition = new Vector3(
+                islandCenter.x,
+                islandCenter.y,
+                zOffset
+            );
         }
         else
         {
-            desiredPosition = new Vector3(target.position.x, target.position.y, zOffset);
+            // Only search for a player when player-following is enabled.
+            if (target == null)
+            {
+                TryFindLocalPlayer();
+            }
+
+            if (target != null)
+            {
+                desiredPosition = new Vector3(
+                    target.position.x,
+                    target.position.y,
+                    zOffset
+                );
+            }
+            else
+            {
+                // Before the host/client starts, stay on the island.
+                desiredPosition = new Vector3(
+                    islandCenter.x,
+                    islandCenter.y,
+                    zOffset
+                );
+            }
         }
 
-        if (snapToPixels)
+        if (snapToPixels && pixelsPerUnit > 0f)
         {
-            float unit = 1f / pixelsPerUnit;
-            desiredPosition.x = Mathf.Round(desiredPosition.x / unit) * unit;
-            desiredPosition.y = Mathf.Round(desiredPosition.y / unit) * unit;
+            float worldUnitsPerPixel = 1f / pixelsPerUnit;
+
+            desiredPosition.x =
+                Mathf.Round(desiredPosition.x / worldUnitsPerPixel)
+                * worldUnitsPerPixel;
+
+            desiredPosition.y =
+                Mathf.Round(desiredPosition.y / worldUnitsPerPixel)
+                * worldUnitsPerPixel;
         }
 
-        transform.position = desiredPosition;
-        transform.rotation = Quaternion.identity;
+        transform.SetPositionAndRotation(
+            desiredPosition,
+            Quaternion.identity
+        );
 
         ApplyCameraSettings();
     }
@@ -68,7 +102,9 @@ public class Camera2DFollow : MonoBehaviour
     private void TryFindLocalPlayer()
     {
         TopDownNetworkPlayer2D[] players =
-            FindObjectsByType<TopDownNetworkPlayer2D>(FindObjectsSortMode.None);
+            FindObjectsByType<TopDownNetworkPlayer2D>(
+                FindObjectsSortMode.None
+            );
 
         foreach (TopDownNetworkPlayer2D player in players)
         {
