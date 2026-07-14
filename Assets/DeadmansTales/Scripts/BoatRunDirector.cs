@@ -110,7 +110,7 @@ public class BoatRunDirector : NetworkBehaviour
         Instance = this;
     }
 
-    protected override void OnDestroy()
+    public override void OnDestroy()
     {
         if (Instance == this)
         {
