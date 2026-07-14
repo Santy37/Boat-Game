@@ -124,7 +124,7 @@ namespace DeadmansTales.Configuration
             base.OnNetworkDespawn();
         }
 
-        protected override void OnDestroy()
+        public override void OnDestroy()
         {
             if (Instance == this)
             {
