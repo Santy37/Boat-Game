@@ -110,12 +110,14 @@ public class BoatRunDirector : NetworkBehaviour
         Instance = this;
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
         if (Instance == this)
         {
             Instance = null;
         }
+
+        base.OnDestroy();
     }
 
     public override void OnNetworkSpawn()
