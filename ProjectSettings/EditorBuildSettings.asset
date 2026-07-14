@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/DeadmansTales/Scenes/MainMenu.unity
+    guid: 72002d976adc88e4ab50fe25ed961848
+  - enabled: 1
     path: Assets/DeadmansTales/Scenes/Lobby_Island_2D.unity
     guid: 357575cec6e1f124e8e029b8559f530d
   - enabled: 1
