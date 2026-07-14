@@ -116,8 +116,17 @@ internal static class TechnicalRuntimeTestSceneBuilder
         );
 
         services.AddComponent<NetworkObject>();
-        services.AddComponent<NetworkRunState>();
-        services.AddComponent<NetworkRunConfigAuthority>();
+
+        NetworkRunState runState =
+            services.AddComponent<NetworkRunState>();
+
+        NetworkRunConfigAuthority configAuthority =
+            services.AddComponent<NetworkRunConfigAuthority>();
+
+        // Keep the generated test object in this scene while the host starts.
+        // The production integration will use a dedicated bootstrap strategy.
+        SetSerializedBool(runState, "persistAcrossScenes", false);
+        SetSerializedBool(configAuthority, "persistAcrossScenes", false);
     }
 
     private static void CreateStageSeedProvider()
@@ -146,5 +155,28 @@ internal static class TechnicalRuntimeTestSceneBuilder
 
         driver.AddComponent<TechnicalRuntimeTestDriver>();
         return driver;
+    }
+
+    private static void SetSerializedBool(
+        Object target,
+        string propertyName,
+        bool value
+    )
+    {
+        SerializedObject serializedObject = new SerializedObject(target);
+        SerializedProperty property =
+            serializedObject.FindProperty(propertyName);
+
+        if (property == null)
+        {
+            Debug.LogWarning(
+                $"Could not find serialized property '{propertyName}' on " +
+                $"{target.GetType().Name}."
+            );
+            return;
+        }
+
+        property.boolValue = value;
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
     }
 }
