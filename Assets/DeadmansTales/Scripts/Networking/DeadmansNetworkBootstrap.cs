@@ -98,7 +98,6 @@ namespace DeadmansTales.Networking
             networkManager.NetworkConfig.EnableSceneManagement = true;
             networkManager.NetworkConfig.ForceSamePrefabs = true;
             networkManager.NetworkConfig.ConnectionApproval = false;
-            networkManager.NetworkConfig.AutoSpawnPlayerPrefabClientSide = true;
 
             RegisterNetworkPrefab(
                 networkManager,
