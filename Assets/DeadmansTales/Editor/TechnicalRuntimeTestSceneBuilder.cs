@@ -46,6 +46,7 @@ internal static class TechnicalRuntimeTestSceneBuilder
         CreatePersistentNetworkServices();
         CreateStageSeedProvider();
         CreatePlaytestLogger();
+        CreatePlayerSpawnPoint();
         GameObject driver = CreateRuntimeTestDriver();
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -145,6 +146,16 @@ internal static class TechnicalRuntimeTestSceneBuilder
         );
 
         logger.AddComponent<PlaytestEventLogger>();
+    }
+
+    private static void CreatePlayerSpawnPoint()
+    {
+        GameObject spawnPoint = new GameObject(
+            "Technical Player Spawn Point"
+        );
+
+        spawnPoint.transform.position = new Vector3(2f, 12f, 0f);
+        spawnPoint.AddComponent<PlayerSpawnPoint2D>();
     }
 
     private static GameObject CreateRuntimeTestDriver()
