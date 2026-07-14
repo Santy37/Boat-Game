@@ -16,6 +16,9 @@ internal static class LegacyTemplateCleanupValidator
         "Assets/DeadmansTales/Resources/Networking/" +
         "DeadmansNetworkBootstrapSettings.asset";
 
+    private const string GeneratedNetworkPrefabsPath =
+        "Assets/DefaultNetworkPrefabs.asset";
+
     private static readonly string[] LegacyPaths =
     {
         "Assets/Blocks",
@@ -23,8 +26,7 @@ internal static class LegacyTemplateCleanupValidator
         "Assets/Platformer",
         "Assets/Shooter",
         "Assets/TutorialInfo",
-        "Assets/Readme.asset",
-        "Assets/DefaultNetworkPrefabs.asset"
+        "Assets/Readme.asset"
     };
 
     [MenuItem(MenuPath)]
@@ -122,50 +124,110 @@ internal static class LegacyTemplateCleanupValidator
             );
         }
 
-        GameObject playerPrefab = settings.PlayerPrefab;
-        if (playerPrefab == null)
-        {
-            throw new InvalidOperationException(
-                "The bootstrap settings do not reference a player prefab."
-            );
-        }
-
-        string playerPath = AssetDatabase.GetAssetPath(playerPrefab);
-        if (!playerPath.StartsWith("Assets/DeadmansTales/", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                $"The player prefab is outside DeadmansTales: {playerPath}"
-            );
-        }
-
-        if (playerPrefab.GetComponent<NetworkObject>() == null)
-        {
-            throw new InvalidOperationException(
-                $"The player prefab has no NetworkObject: {playerPath}"
-            );
-        }
-
-        if (playerPrefab.GetComponent<TopDownNetworkPlayer2D>() == null)
-        {
-            throw new InvalidOperationException(
-                $"The bootstrap player is not the custom 2D player: {playerPath}"
-            );
-        }
+        ValidateNetworkPrefab(
+            settings.PlayerPrefab,
+            "bootstrap player",
+            requireCustomPlayer: true
+        );
 
         foreach (GameObject additionalPrefab in settings.AdditionalNetworkPrefabs)
         {
-            if (additionalPrefab == null)
+            ValidateNetworkPrefab(
+                additionalPrefab,
+                "additional network prefab",
+                requireCustomPlayer: false
+            );
+        }
+
+        ValidateGeneratedNetworkPrefabRegistry();
+    }
+
+    private static void ValidateNetworkPrefab(
+        GameObject prefab,
+        string description,
+        bool requireCustomPlayer
+    )
+    {
+        if (prefab == null)
+        {
+            throw new InvalidOperationException(
+                $"The {description} reference is empty."
+            );
+        }
+
+        string prefabPath = AssetDatabase.GetAssetPath(prefab);
+        if (!prefabPath.StartsWith("Assets/DeadmansTales/", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"The {description} is outside DeadmansTales: {prefabPath}"
+            );
+        }
+
+        if (prefab.GetComponent<NetworkObject>() == null)
+        {
+            throw new InvalidOperationException(
+                $"The {description} has no NetworkObject: {prefabPath}"
+            );
+        }
+
+        if (
+            requireCustomPlayer &&
+            prefab.GetComponent<TopDownNetworkPlayer2D>() == null
+        )
+        {
+            throw new InvalidOperationException(
+                $"The bootstrap player is not the custom 2D player: {prefabPath}"
+            );
+        }
+    }
+
+    private static void ValidateGeneratedNetworkPrefabRegistry()
+    {
+        UnityEngine.Object registry =
+            AssetDatabase.LoadMainAssetAtPath(GeneratedNetworkPrefabsPath);
+
+        // NGO may create this registry automatically. The runtime bootstrap does
+        // not require the file, so its absence is also valid.
+        if (registry == null)
+        {
+            return;
+        }
+
+        ValidateSerializedObjectReferences(
+            registry,
+            GeneratedNetworkPrefabsPath,
+            registry.name
+        );
+
+        foreach (
+            string dependency in
+            AssetDatabase.GetDependencies(GeneratedNetworkPrefabsPath, true)
+        )
+        {
+            if (dependency.Equals(GeneratedNetworkPrefabsPath, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (IsLegacyPath(dependency))
             {
                 throw new InvalidOperationException(
-                    "The additional network-prefab list contains an empty slot."
+                    $"The generated NGO prefab registry still references " +
+                    $"deleted sample content: {dependency}"
                 );
             }
 
-            if (additionalPrefab.GetComponent<NetworkObject>() == null)
+            if (
+                dependency.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase) &&
+                !dependency.StartsWith(
+                    "Assets/DeadmansTales/",
+                    StringComparison.Ordinal
+                )
+            )
             {
                 throw new InvalidOperationException(
-                    $"Additional prefab '{additionalPrefab.name}' has no " +
-                    "NetworkObject component."
+                    $"The generated NGO prefab registry references a prefab " +
+                    $"outside DeadmansTales: {dependency}"
                 );
             }
         }
@@ -285,25 +347,25 @@ internal static class LegacyTemplateCleanupValidator
                     continue;
                 }
 
-                ValidateSerializedReferences(
+                ValidateSerializedObjectReferences(
                     component,
                     assetPath,
-                    GetHierarchyPath(transform)
+                    GetHierarchyPath(transform) + "/" + component.GetType().Name
                 );
             }
         }
     }
 
-    private static void ValidateSerializedReferences(
-        Component component,
+    private static void ValidateSerializedObjectReferences(
+        UnityEngine.Object target,
         string assetPath,
-        string hierarchyPath
+        string context
     )
     {
         SerializedObject serializedObject;
         try
         {
-            serializedObject = new SerializedObject(component);
+            serializedObject = new SerializedObject(target);
         }
         catch
         {
@@ -325,8 +387,7 @@ internal static class LegacyTemplateCleanupValidator
             {
                 throw new InvalidOperationException(
                     $"{assetPath} has a missing reference at " +
-                    $"'{hierarchyPath}/{component.GetType().Name}." +
-                    $"{property.propertyPath}'."
+                    $"'{context}.{property.propertyPath}'."
                 );
             }
         }
