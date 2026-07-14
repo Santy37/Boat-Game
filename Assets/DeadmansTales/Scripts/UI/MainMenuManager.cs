@@ -10,6 +10,10 @@ public class MainMenuManager : MonoBehaviour
     public GameObject hostOptions;
     public GameObject joinCodeOptions;
     public TMP_InputField lobbyCodeInput;
+    public TMP_Text lobbyCodeText;
+    public TMP_Text createOrJoinText;
+    public TMP_Text playerListText;
+    public TMP_Text enterCodeText;
 
     private void Start()
     {
@@ -35,6 +39,7 @@ public class MainMenuManager : MonoBehaviour
         mainMenuPanel.SetActive(false);
         levelSelectPanel.SetActive(false);
         multiplayerPanel.SetActive(true);
+
         ShowConnectionOptions();
     }
 
@@ -45,16 +50,43 @@ public class MainMenuManager : MonoBehaviour
         clientOptions.SetActive(false);
         hostOptions.SetActive(false);
 
+        createOrJoinText.gameObject.SetActive(true);
+        playerListText.gameObject.SetActive(false);
+        enterCodeText.gameObject.SetActive(false);
+
+        lobbyCodeText.text = "LOBBY";
+        lobbyCodeText.gameObject.SetActive(true);
     }
 
+    public void ShowCreatedLobby()
+    {
+        connectionOptions.SetActive(false);
+        joinCodeOptions.SetActive(false);
+        clientOptions.SetActive(false);
+        hostOptions.SetActive(true);
+
+        createOrJoinText.gameObject.SetActive(false);
+        playerListText.gameObject.SetActive(true);
+        enterCodeText.gameObject.SetActive(false);
+
+        // Temporary until real networking is added.
+        lobbyCodeText.text = "LOBBY CODE: ABCD12";
+        lobbyCodeText.gameObject.SetActive(true);
+    }
     public void ShowJoinCodeOptions()
     {
         connectionOptions.SetActive(false);
         joinCodeOptions.SetActive(true);
         clientOptions.SetActive(false);
         hostOptions.SetActive(false);
-    }
 
+        createOrJoinText.gameObject.SetActive(false);
+        playerListText.gameObject.SetActive(false);
+        enterCodeText.gameObject.SetActive(true);
+
+        lobbyCodeText.text = "LOBBY";
+        lobbyCodeText.gameObject.SetActive(true);
+    }
     // Temporary
     public void PreviewHostLobby()
     {
@@ -72,6 +104,7 @@ public class MainMenuManager : MonoBehaviour
         clientOptions.SetActive(true);
         hostOptions.SetActive(false);
     }
+
 
 
     public void LeaveLobby()
