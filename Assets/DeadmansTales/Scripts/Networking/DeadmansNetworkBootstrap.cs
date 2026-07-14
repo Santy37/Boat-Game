@@ -1,4 +1,3 @@
-using System;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -11,6 +10,8 @@ namespace DeadmansTales.Networking
     ///
     /// If a scene already provides a NetworkManager (for example the isolated
     /// technical runtime test), that manager is reused instead of duplicated.
+    /// Network prefabs are supplied by NGO's generated DefaultNetworkPrefabs
+    /// registry, so this bootstrap must not register the same prefab again.
     /// </summary>
     public static class DeadmansNetworkBootstrap
     {
@@ -92,6 +93,16 @@ namespace DeadmansTales.Networking
                 return;
             }
 
+            if (settings.PlayerPrefab.GetComponent<NetworkObject>() == null)
+            {
+                Debug.LogError(
+                    $"[Network Bootstrap] '{settings.PlayerPrefab.name}' does " +
+                    "not have a NetworkObject component.",
+                    settings.PlayerPrefab
+                );
+                return;
+            }
+
             networkManager.NetworkConfig.PlayerPrefab =
                 settings.PlayerPrefab;
 
@@ -99,63 +110,16 @@ namespace DeadmansTales.Networking
             networkManager.NetworkConfig.ForceSamePrefabs = true;
             networkManager.NetworkConfig.ConnectionApproval = false;
 
-            RegisterNetworkPrefab(
-                networkManager,
-                settings.PlayerPrefab
-            );
-
-            foreach (
-                GameObject additionalPrefab
-                in settings.AdditionalNetworkPrefabs
-            )
-            {
-                RegisterNetworkPrefab(
-                    networkManager,
-                    additionalPrefab
-                );
-            }
+            // Do not call NetworkManager.AddNetworkPrefab here. Unity NGO's
+            // generated DefaultNetworkPrefabs registry already contains the
+            // project network prefabs. Registering them again produces a
+            // duplicate GlobalObjectIdHash error when the host starts.
 
             Debug.Log(
                 "[Network Bootstrap] Project-owned NetworkManager ready.\n" +
                 $"Player Prefab: {settings.PlayerPrefab.name}",
                 networkManager
             );
-        }
-
-        private static void RegisterNetworkPrefab(
-            NetworkManager networkManager,
-            GameObject prefab
-        )
-        {
-            if (prefab == null)
-            {
-                return;
-            }
-
-            if (prefab.GetComponent<NetworkObject>() == null)
-            {
-                Debug.LogError(
-                    $"[Network Bootstrap] '{prefab.name}' does not have a " +
-                    "NetworkObject component and cannot be registered.",
-                    prefab
-                );
-                return;
-            }
-
-            try
-            {
-                networkManager.AddNetworkPrefab(prefab);
-            }
-            catch (Exception exception)
-            {
-                // An existing scene NetworkManager may already contain the same
-                // prefab. NGO rejects duplicate registrations, but that is safe.
-                Debug.LogWarning(
-                    $"[Network Bootstrap] Could not add '{prefab.name}' to " +
-                    $"the runtime prefab list: {exception.Message}",
-                    networkManager
-                );
-            }
         }
     }
 }
