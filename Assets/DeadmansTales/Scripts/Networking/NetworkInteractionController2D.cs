@@ -62,7 +62,7 @@ namespace DeadmansTales.Networking
             NetworkObjectReference targetReference =
                 new NetworkObjectReference(target.NetworkObject);
 
-            RequestInteractionServerRpc(targetReference);
+            RequestInteractionRpc(targetReference);
             return true;
         }
 
@@ -80,10 +80,10 @@ namespace DeadmansTales.Networking
             return IsWithinServerRange(target);
         }
 
-        [ServerRpc(RequireOwnership = true)]
-        private void RequestInteractionServerRpc(
+        [Rpc(SendTo.Server)]
+        private void RequestInteractionRpc(
             NetworkObjectReference targetReference,
-            ServerRpcParams rpcParams = default
+            RpcParams rpcParams = default
         )
         {
             if (rpcParams.Receive.SenderClientId != OwnerClientId)
