@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -8,9 +7,6 @@ internal static class LegacyTemplateCleanupFinalizer
 {
     private const string MenuPath =
         "Deadman's Tales/Finalize Legacy Template Cleanup";
-
-    private const string StaleNetworkPrefabsPath =
-        "Assets/DefaultNetworkPrefabs.asset";
 
     private static readonly string[] LegacyPrefixes =
     {
@@ -32,7 +28,6 @@ internal static class LegacyTemplateCleanupFinalizer
             return;
         }
 
-        int removedAssets = RemoveStaleLocalAssets();
         int removedScenes = RemoveInvalidBuildScenes();
 
         AssetDatabase.SaveAssets();
@@ -40,32 +35,11 @@ internal static class LegacyTemplateCleanupFinalizer
 
         Debug.Log(
             "[Legacy Cleanup Finalizer] Complete.\n" +
-            $"Removed stale local assets: {removedAssets}\n" +
             $"Removed invalid Build Settings scenes: {removedScenes}\n" +
+            "Unity's generated DefaultNetworkPrefabs registry was retained " +
+            "and will be validated for legacy references.\n" +
             "Now run Deadman's Tales > Validate Legacy Template Cleanup."
         );
-    }
-
-    private static int RemoveStaleLocalAssets()
-    {
-        bool existed =
-            AssetDatabase.LoadMainAssetAtPath(StaleNetworkPrefabsPath) != null ||
-            File.Exists(ToAbsolutePath(StaleNetworkPrefabsPath));
-
-        if (!existed)
-        {
-            return 0;
-        }
-
-        bool deleted = AssetDatabase.DeleteAsset(StaleNetworkPrefabsPath);
-
-        if (!deleted)
-        {
-            DeleteFileIfPresent(ToAbsolutePath(StaleNetworkPrefabsPath));
-            DeleteFileIfPresent(ToAbsolutePath(StaleNetworkPrefabsPath + ".meta"));
-        }
-
-        return 1;
     }
 
     private static int RemoveInvalidBuildScenes()
@@ -88,7 +62,7 @@ internal static class LegacyTemplateCleanupFinalizer
             {
                 Debug.Log(
                     $"[Legacy Cleanup Finalizer] Removed Build Settings entry: " +
-                    $"{scene.path}"
+                    scene.path
                 );
                 removedCount++;
                 continue;
@@ -115,19 +89,5 @@ internal static class LegacyTemplateCleanupFinalizer
         }
 
         return false;
-    }
-
-    private static string ToAbsolutePath(string projectRelativePath)
-    {
-        string projectRoot = Directory.GetParent(Application.dataPath).FullName;
-        return Path.Combine(projectRoot, projectRelativePath);
-    }
-
-    private static void DeleteFileIfPresent(string path)
-    {
-        if (File.Exists(path))
-        {
-            File.Delete(path);
-        }
     }
 }
