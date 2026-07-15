@@ -81,22 +81,19 @@ public class PlayerAnimation2D : MonoBehaviour
         Vector2 movementDelta
     )
     {
-        if (
-            Mathf.Abs(movementDelta.x) >
-            Mathf.Abs(movementDelta.y)
-        )
-        {
-            facingDirection =
-                movementDelta.x > 0f
-                    ? FacingDirection.Right
-                    : FacingDirection.Left;
-        }
-        else
+        if (Mathf.Abs(movementDelta.y) > movementThreshold)
         {
             facingDirection =
                 movementDelta.y > 0f
                     ? FacingDirection.Up
                     : FacingDirection.Down;
+        }
+        else
+        {
+            facingDirection =
+                movementDelta.x > 0f
+                    ? FacingDirection.Right
+                    : FacingDirection.Left;
         }
     }
 
