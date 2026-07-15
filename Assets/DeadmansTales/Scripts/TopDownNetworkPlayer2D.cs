@@ -1,6 +1,7 @@
 using System;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class TopDownNetworkPlayer2D : NetworkBehaviour
@@ -31,11 +32,45 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
+        if (!IsServer)
+        {
+            return;
+        }
+
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+        TryMoveToSpawnPoint();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        base.OnNetworkDespawn();
+    }
+
+    private void HandleSceneLoaded(
+        Scene scene,
+        LoadSceneMode loadSceneMode
+    )
+    {
         if (IsServer)
         {
-            MoveToSpawnPoint();
+            TryMoveToSpawnPoint();
         }
     }
+
+    private void TryMoveToSpawnPoint()
+    {
+        PlayerSpawnPoint2D spawnPoint =
+            FindFirstObjectByType<PlayerSpawnPoint2D>();
+
+        if (spawnPoint == null)
+        {
+            return;
+        }
+
+        MoveToSpawnPoint();
+    }
+
 
     private void MoveToSpawnPoint()
     {
@@ -109,6 +144,11 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     {
         if (!IsSpawned || !IsOwner)
         {
+            return;
+        }
+        if (PauseMenu.InputBlocked)
+        {
+            SubmitMoveInputServerRpc(Vector2.zero);
             return;
         }
 
