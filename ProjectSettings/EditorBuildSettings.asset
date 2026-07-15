@@ -5,12 +5,6 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
-    path: Assets/DeadmansTales/Scenes/Island_Alpha.unity
-    guid: b4bc12876e36ea947902e8e40dc26d68
-  - enabled: 0
-    path: Assets/DeadmansTales/Scenes/Lobby_Island.unity
-    guid: 12451e797bc82a14b9dc31069e872465
   - enabled: 1
     path: Assets/DeadmansTales/Scenes/MainMenu.unity
     guid: 72002d976adc88e4ab50fe25ed961848
