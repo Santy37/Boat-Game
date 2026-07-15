@@ -1,5 +1,8 @@
 using UnityEngine;
 using TMPro;
+using Unity.Netcode;
+using UnityEngine.SceneManagement;
+
 public class MainMenuManager : MonoBehaviour
 {
     public GameObject mainMenuPanel;
@@ -105,8 +108,6 @@ public class MainMenuManager : MonoBehaviour
         hostOptions.SetActive(false);
     }
 
-
-
     public void LeaveLobby()
     {
         ShowMultiplayerMenu();
@@ -123,4 +124,33 @@ public class MainMenuManager : MonoBehaviour
         Debug.Log("Settings");
 
     }
+
+    public void LoadLevelOne()
+    {
+        NetworkManager networkManager = NetworkManager.Singleton;
+        Debug.Log("LEVEL 1 BUTTON CLICKED");
+        if (networkManager == null)
+        {
+            Debug.LogError("NetworkManager was not found.");
+            return;
+        }
+
+        if (!networkManager.IsClient && !networkManager.IsServer)
+        {
+            if (!networkManager.StartHost())
+            {
+                Debug.LogError("Single-player host failed to start.");
+                return;
+            }
+        }
+
+        networkManager.SceneManager.LoadScene(
+            "Lobby_Island_2D",
+            LoadSceneMode.Single
+        );
+    }
+
+
+
+
 }

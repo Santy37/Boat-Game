@@ -1,12 +1,13 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
-
+using Unity.Netcode;
 public class PauseMenu : MonoBehaviour
 {
     public GameObject pauseMenuPanel;
     public GameObject pauseButton;
     private bool menuIsOpen ;
+    public static bool InputBlocked { get; private set; }
 
     private void Start()
     {
@@ -15,7 +16,8 @@ public class PauseMenu : MonoBehaviour
 
     private void Update()
     {
-        if(Keyboard.current.escapeKey.wasPressedThisFrame)
+        if (Keyboard.current != null &&
+            Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             TogglePauseMenu();
         }
@@ -38,6 +40,7 @@ public class PauseMenu : MonoBehaviour
         menuIsOpen = true;
         pauseMenuPanel.SetActive(true);
         pauseButton.SetActive(false);
+        InputBlocked = true;
     }
 
     public void OpenLevelSelect()
@@ -51,10 +54,19 @@ public class PauseMenu : MonoBehaviour
         menuIsOpen = false;
         pauseMenuPanel.SetActive(false);
         pauseButton.SetActive(true);
+        InputBlocked = false;
     }
 
-    public void  ReturnToMainMenu()
+    public void ReturnToMainMenu()
     {
+        InputBlocked = false;
+
+        if (NetworkManager.Singleton != null &&
+            NetworkManager.Singleton.IsListening)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
         SceneManager.LoadScene("MainMenu");
     }
 
@@ -64,9 +76,10 @@ public class PauseMenu : MonoBehaviour
     }
 
 
-    public void RestartLevel()
-    {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-    }
  
+
+    private void OnDestroy()
+    {
+        InputBlocked = false;
+    }
 }
