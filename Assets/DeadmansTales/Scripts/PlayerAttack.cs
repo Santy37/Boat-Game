@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
+using Unity.Netcode;
 
 public class PlayerAttack : MonoBehaviour
 {
@@ -9,9 +11,26 @@ public class PlayerAttack : MonoBehaviour
 
     [SerializeField] private float damage;
 
-    float timeUntilMelee;
+    private float timeUntilMelee;
+    private NetworkObject playerNetworkObject;
 
-    private void Update() {
+    private void Awake()
+    {
+        playerNetworkObject =GetComponentInParent<NetworkObject>();
+    }
+
+    private void Update()
+    {
+        if(playerNetworkObject == null ||  !playerNetworkObject.IsOwner)
+        {
+            return;
+        }
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+
+
         if (timeUntilMelee <= 0f){
             if (Input.GetMouseButtonDown(0)){
                 anim.SetTrigger("Attack");
