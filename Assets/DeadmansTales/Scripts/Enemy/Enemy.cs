@@ -20,7 +20,7 @@ public class Enemy : MonoBehaviour
     private float currentHealth;
     private bool isAlive = true;
     private Coroutine hideHealthBarCoroutine;
-
+    public bool IsAlive => isAlive;
     private void Start()
     {
         currentHealth = maxHealth;
