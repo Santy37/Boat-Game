@@ -46,7 +46,15 @@ public class LobbyRowboatInteraction : MonoBehaviour
         {
             return;
         }
+        int remainingEnemies =    GetRemainingEnemyCount();
 
+        if (remainingEnemies > 0)
+        {
+            Debug.Log(
+                "[Rowboat] Defeat all enemies before setting sail. " + remainingEnemies +" remaining.", this );
+
+            return;
+        }
         if (!Input.GetKeyDown(interactionKey))
         {
             return;
@@ -110,7 +118,25 @@ public class LobbyRowboatInteraction : MonoBehaviour
             this
         );
     }
+    private int GetRemainingEnemyCount()
+    {
+        Enemy[] enemies =
+            FindObjectsByType<Enemy>(
+                FindObjectsSortMode.None
+            );
 
+        int remainingEnemies = 0;
+
+        foreach (Enemy enemy in enemies)
+        {
+            if (enemy.IsAlive)
+            {
+                remainingEnemies++;
+            }
+        }
+
+        return remainingEnemies;
+    }
     private void TrySetSail()
     {
         if (NetworkManager.Singleton == null)
@@ -200,7 +226,17 @@ public class LobbyRowboatInteraction : MonoBehaviour
             NetworkManager.Singleton.IsServer
         )
         {
-            message = "Press E to Set Sail";
+            int remainingEnemies =GetRemainingEnemyCount();
+
+            if (remainingEnemies > 0)
+            {
+                message =
+                    "Defeat all enemies before setting sail (" + remainingEnemies +  " remaining)";
+            }
+            else
+            {
+                message = "Press E to Set Sail";
+            }
         }
         else
         {
