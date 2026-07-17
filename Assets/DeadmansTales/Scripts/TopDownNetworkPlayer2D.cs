@@ -7,10 +7,20 @@ using UnityEngine.SceneManagement;
 public class TopDownNetworkPlayer2D : NetworkBehaviour
 {
     private const string LobbySceneName = "Lobby_Island_2D";
+    private const string SafeLobbySpawnName = "PlayerSpawn_0";
     private const int SupportedLobbyPlayers = 4;
 
+    private static readonly Vector2[] LobbySpawnOffsets =
+    {
+        new Vector2(-0.6f, 0.45f),
+        new Vector2(0.6f, 0.45f),
+        new Vector2(-0.6f, -0.45f),
+        new Vector2(0.6f, -0.45f)
+    };
+
     [Header("Movement")]
-    [SerializeField] private float moveSpeed = 5f;
+    [SerializeField]
+    private float moveSpeed = 5f;
 
     [Header("Emergency Spawn")]
     [Tooltip(
@@ -20,8 +30,17 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     private Vector2 emergencyFallbackSpawn =
         new Vector2(2f, 12f);
 
+    private readonly NetworkVariable<bool> lobbyReady =
+        new NetworkVariable<bool>(
+            false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
     private Rigidbody2D rb;
     private Vector2 serverMoveInput;
+
+    public bool IsLobbyReady => lobbyReady.Value;
 
     private void Awake()
     {
@@ -40,6 +59,11 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
             return;
         }
 
+        // The host does not have a Ready button and is always considered ready.
+        // Every joining client starts unready and must explicitly toggle Ready.
+        lobbyReady.Value =
+            OwnerClientId == NetworkManager.ServerClientId;
+
         SceneManager.sceneLoaded += HandleSceneLoaded;
         TryMoveToSpawnPoint();
     }
@@ -48,6 +72,24 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
         base.OnNetworkDespawn();
+    }
+
+    public void RequestLobbyReady(bool ready)
+    {
+        if (!IsSpawned || !IsOwner)
+        {
+            return;
+        }
+
+        SetLobbyReadyServerRpc(ready);
+    }
+
+    [ServerRpc]
+    private void SetLobbyReadyServerRpc(bool ready)
+    {
+        // The host is always ready. Client-owned player objects may toggle.
+        lobbyReady.Value =
+            OwnerClientId == NetworkManager.ServerClientId || ready;
     }
 
     private void HandleSceneLoaded(
@@ -81,8 +123,6 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
                 FindObjectsSortMode.None
             );
 
-        // FindObjectsByType with None does not guarantee a useful order.
-        // Sorting by object name keeps PlayerSpawn_0, _1, _2, _3 ordered.
         Array.Sort(
             spawnPoints,
             (a, b) => string.CompareOrdinal(a.name, b.name)
@@ -104,11 +144,18 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
         }
         else if (SceneManager.GetActiveScene().name == LobbySceneName)
         {
-            chosenPosition = GetCompactLobbySpawn(
-                spawnPoints,
-                OwnerClientId
-            );
-            chosenDescription = "compact lobby formation";
+            PlayerSpawnPoint2D safeAnchor =
+                FindSafeLobbyAnchor(spawnPoints);
+
+            int slot =
+                (int)(OwnerClientId % SupportedLobbyPlayers);
+
+            chosenPosition =
+                (Vector2)safeAnchor.transform.position +
+                LobbySpawnOffsets[slot];
+
+            chosenDescription =
+                $"{safeAnchor.name} compact island slot {slot}";
         }
         else
         {
@@ -131,41 +178,33 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
         TeleportToSpawn(chosenPosition);
     }
 
-    private static Vector2 GetCompactLobbySpawn(
-        PlayerSpawnPoint2D[] spawnPoints,
-        ulong ownerClientId
+    private static PlayerSpawnPoint2D FindSafeLobbyAnchor(
+        PlayerSpawnPoint2D[] spawnPoints
     )
     {
-        int slot = (int)(ownerClientId % SupportedLobbyPlayers);
-        Vector2 firstPosition = spawnPoints[0].transform.position;
-
-        if (spawnPoints.Length == 1)
+        foreach (PlayerSpawnPoint2D spawnPoint in spawnPoints)
         {
-            // Keep all players close to the one known-safe marker instead of
-            // falling back to arbitrary world positions.
-            float centeredOffset = (slot - 1.5f) * 0.35f;
-            return firstPosition + Vector2.right * centeredOffset;
+            if (spawnPoint.name == SafeLobbySpawnName)
+            {
+                return spawnPoint;
+            }
         }
 
-        Vector2 secondPosition = spawnPoints[1].transform.position;
+        Debug.LogWarning(
+            $"[Player Spawn] '{SafeLobbySpawnName}' was not found. " +
+            $"Using '{spawnPoints[0].name}' as the lobby anchor."
+        );
 
-        // The first two lobby markers are the known-good island positions.
-        // Spread all four clients along the safe segment between them rather
-        // than trusting the old outer markers that sit beyond the island.
-        float interpolation = slot / (SupportedLobbyPlayers - 1f);
-        return Vector2.Lerp(firstPosition, secondPosition, interpolation);
+        return spawnPoints[0];
     }
 
     private void TeleportToSpawn(Vector2 spawnPosition)
     {
-        // Prevent any previous or accidental input from moving the player
-        // immediately after it spawns.
         serverMoveInput = Vector2.zero;
 
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
-        // Set the Rigidbody2D and Transform immediately at spawn.
         rb.position = spawnPosition;
         transform.position = new Vector3(
             spawnPosition.x,
