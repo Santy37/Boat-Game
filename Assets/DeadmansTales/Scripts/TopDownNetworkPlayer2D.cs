@@ -28,7 +28,7 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
 
     [Header("Emergency Spawn")]
     [Tooltip(
-        "Used only if the scene contains no PlayerSpawnPoint2D objects."
+        "Used only if a gameplay scene contains no PlayerSpawnPoint2D objects."
     )]
     [SerializeField]
     private Vector2 emergencyFallbackSpawn =
@@ -111,6 +111,14 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
         if (loadedSceneName == LobbySceneName)
         {
             ScheduleLobbySpawnCorrection();
+            return;
+        }
+
+        // MainMenu intentionally has no gameplay spawn markers. PlayerObjects
+        // exist there for Relay and ready-state synchronization, but must not be
+        // teleported while a lobby is being created or joined.
+        if (FindFirstObjectByType<PlayerSpawnPoint2D>() == null)
+        {
             return;
         }
 
