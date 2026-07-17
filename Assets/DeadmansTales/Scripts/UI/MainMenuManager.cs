@@ -1,11 +1,37 @@
+using System;
+using System.Reflection;
 using DeadmansTales.Networking;
 using TMPro;
 using Unity.Netcode;
+using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class MainMenuManager : MonoBehaviour
 {
+    private const int LobbyMaxPlayers = 4;
+    private const string SessionType = "dead-mans-tale";
+    private const string SessionName = "Dead Man's Tale";
+
+    private static readonly string[] SelectableSceneNames =
+    {
+        "Lobby_Island_2D",
+        "Boat_Gameplay_2D"
+    };
+
+    private static readonly MethodInfo BindCurrentSessionMethod =
+        typeof(OnlineLobbyService).GetMethod(
+            "BindCurrentSession",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+
+    private static readonly MethodInfo SetLobbyStateMethod =
+        typeof(OnlineLobbyService).GetMethod(
+            "SetState",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+
     [Header("Menu Panels")]
     public GameObject mainMenuPanel;
     public GameObject levelSelectPanel;
@@ -25,14 +51,26 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField]
     private TMP_Text multiplayerStatusText;
 
-    [SerializeField]
-    private string gameplaySceneName = "Lobby_Island_2D";
-
     private OnlineLobbyService lobbyService;
     private bool lobbyOperationInProgress;
+    private bool localReady;
+    private int selectedSceneIndex;
     private string statusMessage = string.Empty;
     private string defaultCreateOrJoinText = "CREATE OR JOIN";
     private string defaultEnterCodeText = "ENTER CODE";
+
+    private Button selectLevelButton;
+    private Button startGameButton;
+    private Button readyButton;
+
+    private RectTransform lobbyCodeRect;
+    private Vector2 lobbyCodeDefaultAnchorMin;
+    private Vector2 lobbyCodeDefaultAnchorMax;
+    private Vector2 lobbyCodeDefaultPivot;
+    private Vector2 lobbyCodeDefaultPosition;
+    private Vector2 lobbyCodeDefaultSize;
+    private TextAlignmentOptions lobbyCodeDefaultAlignment;
+    private bool lobbyCodeLayoutCached;
 
     private string lastSessionCode = string.Empty;
     private int lastPlayerCount = -1;
@@ -54,6 +92,7 @@ public class MainMenuManager : MonoBehaviour
             defaultEnterCodeText = enterCodeText.text;
         }
 
+        CacheLobbyCodeLayout();
         EnsureLobbyService();
 
         if (lobbyCodeInput != null)
@@ -62,6 +101,10 @@ public class MainMenuManager : MonoBehaviour
                 HandleJoinCodeInputChanged
             );
         }
+
+        WireKnownButtons();
+        UpdateLevelButtonLabel();
+        UpdateReadyButtonLabel();
     }
 
     private async void Start()
@@ -116,10 +159,17 @@ public class MainMenuManager : MonoBehaviour
         SetActive(mainMenuPanel, true);
         SetActive(levelSelectPanel, false);
         SetActive(multiplayerPanel, false);
+        ApplyLobbyCodeLayout(false);
     }
 
     public void ShowLevelSelectMenu()
     {
+        if (lobbyService != null && lobbyService.IsInSession)
+        {
+            CycleSelectedLevel();
+            return;
+        }
+
         SetActive(mainMenuPanel, false);
         SetActive(levelSelectPanel, true);
         SetActive(multiplayerPanel, false);
@@ -143,6 +193,7 @@ public class MainMenuManager : MonoBehaviour
 
     public void ShowConnectionOptions()
     {
+        localReady = false;
         SetActive(connectionOptions, true);
         SetActive(joinCodeOptions, false);
         SetActive(clientOptions, false);
@@ -153,6 +204,9 @@ public class MainMenuManager : MonoBehaviour
         SetActive(enterCodeText, false);
         SetActive(lobbyCodeText, true);
 
+        ApplyLobbyCodeLayout(false);
+        UpdateReadyButtonLabel();
+
         if (lobbyCodeText != null)
         {
             lobbyCodeText.text = "LOBBY";
@@ -161,10 +215,6 @@ public class MainMenuManager : MonoBehaviour
         RefreshLobbyUi();
     }
 
-    /// <summary>
-    /// Kept for Shay's existing Host button hookup. This now creates a real
-    /// Relay-backed online lobby instead of previewing the host panel.
-    /// </summary>
     public void ShowCreatedLobby()
     {
         BeginCreateOnlineLobby();
@@ -182,6 +232,8 @@ public class MainMenuManager : MonoBehaviour
         SetActive(enterCodeText, true);
         SetActive(lobbyCodeText, true);
 
+        ApplyLobbyCodeLayout(false);
+
         if (lobbyCodeText != null)
         {
             lobbyCodeText.text = "LOBBY";
@@ -194,17 +246,11 @@ public class MainMenuManager : MonoBehaviour
         RefreshLobbyUi();
     }
 
-    /// <summary>
-    /// Kept for the existing Host button hookup.
-    /// </summary>
     public void PreviewHostLobby()
     {
         BeginCreateOnlineLobby();
     }
 
-    /// <summary>
-    /// Kept for the existing Join button hookup.
-    /// </summary>
     public void PreviewClientLobby()
     {
         BeginJoinOnlineLobby();
@@ -241,15 +287,15 @@ public class MainMenuManager : MonoBehaviour
         {
             bool left = await lobbyService.LeaveLobbyAsync();
 
-            SetStatus(
-                left
-                    ? "LEFT THE LOBBY"
-                    : "COULD NOT LEAVE THE LOBBY"
-            );
-
             if (left)
             {
+                localReady = false;
+                SetStatus("LEFT THE LOBBY");
                 ShowConnectionOptions();
+            }
+            else
+            {
+                SetStatus("COULD NOT LEAVE THE LOBBY");
             }
         }
         finally
@@ -292,11 +338,55 @@ public class MainMenuManager : MonoBehaviour
         Debug.Log("Settings");
     }
 
-    /// <summary>
-    /// Existing Level 1 button entry point. Outside an online session it starts
-    /// a local single-player host. Inside an online session it is host-only and
-    /// synchronizes the scene load for every connected player.
-    /// </summary>
+    public void SelectLevel()
+    {
+        CycleSelectedLevel();
+    }
+
+    public void CycleSelectedLevel()
+    {
+        if (lobbyService == null || !lobbyService.IsInSession)
+        {
+            ShowLevelSelectMenu();
+            return;
+        }
+
+        if (!lobbyService.IsHost)
+        {
+            SetStatus("ONLY THE HOST CAN SELECT THE LEVEL");
+            return;
+        }
+
+        selectedSceneIndex =
+            (selectedSceneIndex + 1) % SelectableSceneNames.Length;
+
+        UpdateLevelButtonLabel();
+        SetStatus($"SELECTED LEVEL: {GetSelectedLevelDisplayName()}");
+    }
+
+    public void ToggleReady()
+    {
+        if (lobbyService == null || !lobbyService.IsInSession)
+        {
+            SetStatus("JOIN A LOBBY FIRST");
+            return;
+        }
+
+        localReady = !localReady;
+        UpdateReadyButtonLabel();
+        SetStatus(localReady ? "YOU ARE READY" : "YOU ARE NOT READY");
+    }
+
+    public void Ready()
+    {
+        ToggleReady();
+    }
+
+    public void StartGame()
+    {
+        StartMultiplayerGame();
+    }
+
     public void LoadLevelOne()
     {
         if (lobbyService != null && lobbyService.IsInSession)
@@ -305,6 +395,7 @@ public class MainMenuManager : MonoBehaviour
             return;
         }
 
+        selectedSceneIndex = 0;
         StartSinglePlayerGame();
     }
 
@@ -337,12 +428,31 @@ public class MainMenuManager : MonoBehaviour
             return;
         }
 
-        SetStatus("STARTING GAME...");
+        string selectedScene = GetSelectedSceneName();
 
-        networkManager.SceneManager.LoadScene(
-            gameplaySceneName,
-            LoadSceneMode.Single
-        );
+        if (!Application.CanStreamedLevelBeLoaded(selectedScene))
+        {
+            SetStatus($"SCENE IS NOT IN BUILD SETTINGS: {selectedScene}");
+            Debug.LogError(
+                $"[Main Menu] Scene '{selectedScene}' is not loadable."
+            );
+            return;
+        }
+
+        SetStatus($"STARTING {GetSelectedLevelDisplayName()}...");
+
+        try
+        {
+            networkManager.SceneManager.LoadScene(
+                selectedScene,
+                LoadSceneMode.Single
+            );
+        }
+        catch (Exception exception)
+        {
+            SetStatus("COULD NOT START THE GAME");
+            Debug.LogException(exception);
+        }
     }
 
     private async void BeginCreateOnlineLobby()
@@ -368,11 +478,11 @@ public class MainMenuManager : MonoBehaviour
         }
 
         lobbyOperationInProgress = true;
-        SetStatus("CREATING ONLINE LOBBY...");
+        SetStatus("CREATING 4-PLAYER ONLINE LOBBY...");
 
         try
         {
-            bool created = await lobbyService.CreateLobbyAsync();
+            bool created = await CreateFourPlayerLobbyAsync();
 
             if (!created)
             {
@@ -380,13 +490,81 @@ public class MainMenuManager : MonoBehaviour
                 return;
             }
 
-            SetStatus("LOBBY CREATED • SHARE THE CODE");
+            localReady = true;
+            selectedSceneIndex = 0;
+            UpdateReadyButtonLabel();
+            UpdateLevelButtonLabel();
+            SetStatus("LOBBY CREATED - SHARE THE CODE");
             ShowLobbyPanelForCurrentRole();
         }
         finally
         {
             lobbyOperationInProgress = false;
             RefreshLobbyUi();
+        }
+    }
+
+    private async System.Threading.Tasks.Task<bool>
+        CreateFourPlayerLobbyAsync()
+    {
+        if (!await lobbyService.EnsureServicesReadyAsync())
+        {
+            return false;
+        }
+
+        if (NetworkManager.Singleton == null)
+        {
+            SetStatus("NETWORK MANAGER WAS NOT FOUND");
+            return false;
+        }
+
+        if (BindCurrentSessionMethod == null)
+        {
+            Debug.LogError(
+                "[Main Menu] Could not access OnlineLobbyService session binding."
+            );
+            return false;
+        }
+
+        try
+        {
+            SessionOptions options = new SessionOptions
+            {
+                MaxPlayers = LobbyMaxPlayers,
+                Name = SessionName,
+                Type = SessionType
+            };
+
+            options.WithRelayNetwork();
+
+            IHostSession session =
+                await MultiplayerService.Instance.CreateSessionAsync(options);
+
+            BindCurrentSessionMethod.Invoke(
+                lobbyService,
+                new object[] { session }
+            );
+
+            SetLobbyStateMethod?.Invoke(
+                lobbyService,
+                new object[]
+                {
+                    LobbyConnectionState.InLobby,
+                    "Lobby created. Share the join code."
+                }
+            );
+
+            return lobbyService.IsInSession;
+        }
+        catch (TargetInvocationException exception)
+        {
+            Debug.LogException(exception.InnerException ?? exception);
+            return false;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            return false;
         }
     }
 
@@ -420,7 +598,7 @@ public class MainMenuManager : MonoBehaviour
 
         if (!lobbyService.IsPendingJoinCodeValid)
         {
-            SetStatus("ENTER A VALID 6–8 CHARACTER LOBBY CODE");
+            SetStatus("ENTER A VALID 6-8 CHARACTER LOBBY CODE");
             return;
         }
 
@@ -437,6 +615,10 @@ public class MainMenuManager : MonoBehaviour
                 return;
             }
 
+            localReady = false;
+            selectedSceneIndex = 0;
+            UpdateReadyButtonLabel();
+            UpdateLevelButtonLabel();
             SetStatus("CONNECTED TO LOBBY");
             ShowLobbyPanelForCurrentRole();
         }
@@ -450,7 +632,7 @@ public class MainMenuManager : MonoBehaviour
     private void StartSinglePlayerGame()
     {
         NetworkManager networkManager = NetworkManager.Singleton;
-        Debug.Log("LEVEL 1 BUTTON CLICKED");
+        Debug.Log("LEVEL BUTTON CLICKED");
 
         if (networkManager == null)
         {
@@ -469,8 +651,10 @@ public class MainMenuManager : MonoBehaviour
             }
         }
 
+        string selectedScene = GetSelectedSceneName();
+
         networkManager.SceneManager.LoadScene(
-            gameplaySceneName,
+            selectedScene,
             LoadSceneMode.Single
         );
     }
@@ -512,6 +696,11 @@ public class MainMenuManager : MonoBehaviour
     {
         CacheLobbySnapshot();
 
+        if (lobbyService == null || !lobbyService.IsInSession)
+        {
+            localReady = false;
+        }
+
         if (
             multiplayerPanel != null &&
             multiplayerPanel.activeInHierarchy &&
@@ -543,7 +732,7 @@ public class MainMenuManager : MonoBehaviour
             SetStatus(
                 lobbyService.IsPendingJoinCodeValid
                     ? "CODE FORMAT LOOKS GOOD"
-                    : "ENTER A VALID 6–8 CHARACTER CODE"
+                    : "ENTER A VALID 6-8 CHARACTER CODE"
             );
         }
     }
@@ -565,6 +754,10 @@ public class MainMenuManager : MonoBehaviour
         SetActive(playerListText, true);
         SetActive(enterCodeText, false);
         SetActive(lobbyCodeText, true);
+
+        ApplyLobbyCodeLayout(true);
+        UpdateLevelButtonLabel();
+        UpdateReadyButtonLabel();
     }
 
     private void RefreshLobbyUi()
@@ -585,10 +778,19 @@ public class MainMenuManager : MonoBehaviour
             if (playerListText != null)
             {
                 string role = lobbyService.IsHost ? "HOST" : "CLIENT";
+                string readyState = lobbyService.IsHost
+                    ? string.Empty
+                    : localReady
+                        ? " - READY"
+                        : " - NOT READY";
+
                 playerListText.text =
-                    $"{role} • PLAYERS {lobbyService.PlayerCount}/" +
-                    $"{lobbyService.MaxPlayers}\n{statusMessage}";
+                    $"{role}{readyState} - PLAYERS " +
+                    $"{lobbyService.PlayerCount}/{LobbyMaxPlayers}\n" +
+                    statusMessage;
             }
+
+            ApplyLobbyCodeLayout(true);
         }
         else
         {
@@ -601,6 +803,8 @@ public class MainMenuManager : MonoBehaviour
             {
                 playerListText.text = statusMessage;
             }
+
+            ApplyLobbyCodeLayout(false);
         }
 
         if (multiplayerStatusText != null)
@@ -628,6 +832,167 @@ public class MainMenuManager : MonoBehaviour
             enterCodeText.text = string.IsNullOrWhiteSpace(statusMessage)
                 ? defaultEnterCodeText
                 : statusMessage;
+        }
+    }
+
+    private void WireKnownButtons()
+    {
+        Button[] buttons = FindObjectsByType<Button>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None
+        );
+
+        foreach (Button button in buttons)
+        {
+            TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+
+            if (label == null)
+            {
+                continue;
+            }
+
+            string buttonName = NormalizeButtonLabel(label.text);
+
+            switch (buttonName)
+            {
+                case "CREATE LOBBY":
+                    ReplaceButtonAction(button, CreateOnlineLobby);
+                    break;
+
+                case "JOIN LOBBY":
+                    if (
+                        connectionOptions != null &&
+                        button.transform.IsChildOf(connectionOptions.transform)
+                    )
+                    {
+                        ReplaceButtonAction(button, ShowJoinCodeOptions);
+                    }
+                    else
+                    {
+                        ReplaceButtonAction(button, JoinOnlineLobby);
+                    }
+                    break;
+
+                case "SELECT LEVEL":
+                case "LEVEL LOBBY ISLAND":
+                case "LEVEL BOAT GAMEPLAY":
+                    selectLevelButton = button;
+                    ReplaceButtonAction(button, CycleSelectedLevel);
+                    break;
+
+                case "START GAME":
+                    startGameButton = button;
+                    ReplaceButtonAction(button, StartMultiplayerGame);
+                    break;
+
+                case "READY":
+                case "UNREADY":
+                    readyButton = button;
+                    ReplaceButtonAction(button, ToggleReady);
+                    break;
+
+                case "LEAVE LOBBY":
+                    ReplaceButtonAction(button, LeaveLobby);
+                    break;
+
+                case "LEVEL 1":
+                    ReplaceButtonAction(button, LoadLevelOne);
+                    break;
+            }
+        }
+    }
+
+    private void UpdateLevelButtonLabel()
+    {
+        if (selectLevelButton == null)
+        {
+            return;
+        }
+
+        TMP_Text label =
+            selectLevelButton.GetComponentInChildren<TMP_Text>(true);
+
+        if (label != null)
+        {
+            label.text = $"LEVEL: {GetSelectedLevelDisplayName()}";
+        }
+    }
+
+    private void UpdateReadyButtonLabel()
+    {
+        if (readyButton == null)
+        {
+            return;
+        }
+
+        TMP_Text label = readyButton.GetComponentInChildren<TMP_Text>(true);
+
+        if (label != null)
+        {
+            label.text = localReady ? "UNREADY" : "READY";
+        }
+    }
+
+    private string GetSelectedSceneName()
+    {
+        selectedSceneIndex = Mathf.Clamp(
+            selectedSceneIndex,
+            0,
+            SelectableSceneNames.Length - 1
+        );
+
+        return SelectableSceneNames[selectedSceneIndex];
+    }
+
+    private string GetSelectedLevelDisplayName()
+    {
+        return selectedSceneIndex == 0
+            ? "LOBBY ISLAND"
+            : "BOAT GAMEPLAY";
+    }
+
+    private void CacheLobbyCodeLayout()
+    {
+        if (lobbyCodeText == null)
+        {
+            return;
+        }
+
+        lobbyCodeRect = lobbyCodeText.rectTransform;
+        lobbyCodeDefaultAnchorMin = lobbyCodeRect.anchorMin;
+        lobbyCodeDefaultAnchorMax = lobbyCodeRect.anchorMax;
+        lobbyCodeDefaultPivot = lobbyCodeRect.pivot;
+        lobbyCodeDefaultPosition = lobbyCodeRect.anchoredPosition;
+        lobbyCodeDefaultSize = lobbyCodeRect.sizeDelta;
+        lobbyCodeDefaultAlignment = lobbyCodeText.alignment;
+        lobbyCodeLayoutCached = true;
+    }
+
+    private void ApplyLobbyCodeLayout(bool inLobby)
+    {
+        if (!lobbyCodeLayoutCached || lobbyCodeRect == null)
+        {
+            return;
+        }
+
+        if (inLobby)
+        {
+            lobbyCodeRect.anchorMin = Vector2.one;
+            lobbyCodeRect.anchorMax = Vector2.one;
+            lobbyCodeRect.pivot = Vector2.one;
+            lobbyCodeRect.anchoredPosition = new Vector2(-32f, -24f);
+            lobbyCodeRect.sizeDelta = new Vector2(600f, 60f);
+            lobbyCodeText.alignment = TextAlignmentOptions.TopRight;
+            lobbyCodeRect.SetAsLastSibling();
+        }
+        else
+        {
+            lobbyCodeRect.anchorMin = lobbyCodeDefaultAnchorMin;
+            lobbyCodeRect.anchorMax = lobbyCodeDefaultAnchorMax;
+            lobbyCodeRect.pivot = lobbyCodeDefaultPivot;
+            lobbyCodeRect.anchoredPosition = lobbyCodeDefaultPosition;
+            lobbyCodeRect.sizeDelta = lobbyCodeDefaultSize;
+            lobbyCodeText.alignment = lobbyCodeDefaultAlignment;
         }
     }
 
@@ -666,6 +1031,41 @@ public class MainMenuManager : MonoBehaviour
         lastInSession = lobbyService.IsInSession;
         lastBusy = lobbyService.IsBusy;
         lastConnectionState = lobbyService.ConnectionState;
+    }
+
+    private static string NormalizeButtonLabel(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        string normalized = value
+            .Replace("\r", " ")
+            .Replace("\n", " ")
+            .Trim()
+            .ToUpperInvariant();
+
+        while (normalized.Contains("  "))
+        {
+            normalized = normalized.Replace("  ", " ");
+        }
+
+        return normalized.Replace(":", string.Empty);
+    }
+
+    private static void ReplaceButtonAction(
+        Button button,
+        Action callback
+    )
+    {
+        if (button == null || callback == null)
+        {
+            return;
+        }
+
+        button.onClick = new Button.ButtonClickedEvent();
+        button.onClick.AddListener(() => callback());
     }
 
     private static void SetActive(Component component, bool active)
