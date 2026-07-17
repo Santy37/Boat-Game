@@ -30,7 +30,7 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     private Vector2 emergencyFallbackSpawn =
         new Vector2(2f, 12f);
 
-    private readonly NetworkVariable<bool> lobbyReady =
+    private NetworkVariable<bool> lobbyReady =
         new NetworkVariable<bool>(
             false,
             NetworkVariableReadPermission.Everyone,
@@ -65,7 +65,7 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
             OwnerClientId == NetworkManager.ServerClientId;
 
         SceneManager.sceneLoaded += HandleSceneLoaded;
-        TryMoveToSpawnPoint();
+        TryMoveToSpawnPoint(SceneManager.GetActiveScene().name);
     }
 
     public override void OnNetworkDespawn()
@@ -99,11 +99,13 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     {
         if (IsServer)
         {
-            TryMoveToSpawnPoint();
+            // Use the exact scene passed by Unity. During NGO scene sync,
+            // GetActiveScene() can still report MainMenu for this callback frame.
+            TryMoveToSpawnPoint(scene.name);
         }
     }
 
-    private void TryMoveToSpawnPoint()
+    private void TryMoveToSpawnPoint(string loadedSceneName)
     {
         PlayerSpawnPoint2D spawnPoint =
             FindFirstObjectByType<PlayerSpawnPoint2D>();
@@ -113,10 +115,10 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
             return;
         }
 
-        MoveToSpawnPoint();
+        MoveToSpawnPoint(loadedSceneName);
     }
 
-    private void MoveToSpawnPoint()
+    private void MoveToSpawnPoint(string loadedSceneName)
     {
         PlayerSpawnPoint2D[] spawnPoints =
             FindObjectsByType<PlayerSpawnPoint2D>(
@@ -142,7 +144,7 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
                 this
             );
         }
-        else if (SceneManager.GetActiveScene().name == LobbySceneName)
+        else if (loadedSceneName == LobbySceneName)
         {
             PlayerSpawnPoint2D safeAnchor =
                 FindSafeLobbyAnchor(spawnPoints);
