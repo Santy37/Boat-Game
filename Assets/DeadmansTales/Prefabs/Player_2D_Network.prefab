@@ -369,6 +369,7 @@ GameObject:
   - component: {fileID: 7180484285831063379}
   - component: {fileID: 4664613439806395301}
   - component: {fileID: 4970602273254707485}
+  - component: {fileID: 8849152360019294632}
   - component: {fileID: 93961699430243165}
   - component: {fileID: 1262089826811194947}
   - component: {fileID: 8784780291873635496}
@@ -534,6 +535,22 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &8849152360019294632
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5438845180987550581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80d7c879794dfda4687da0e400131852, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkRigidbody2D
+  NetworkRigidbodyBaseExpanded: 0
+  UseRigidBodyForMotion: 1
+  AutoUpdateKinematicState: 1
+  AutoSetKinematicOnDespawn: 1
 --- !u!114 &93961699430243165
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -548,7 +565,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TopDownNetworkPlayer2D
   ShowTopMostFoldoutHeaderGroup: 1
   moveSpeed: 7
-  emergencyFallbackSpawn: {x: 2, y: 12}
 --- !u!114 &1262089826811194947
 MonoBehaviour:
   m_ObjectHideFlags: 0

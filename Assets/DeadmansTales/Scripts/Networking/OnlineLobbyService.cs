@@ -43,15 +43,12 @@ namespace DeadmansTales.Networking
     }
 
     /// <summary>
-    /// Owns the online session lifecycle without depending on any specific UI.
-    ///
-    /// UI scripts should call the public button/input methods and subscribe to
-    /// the serialized UnityEvents instead of implementing networking directly.
-    /// This keeps the multiplayer backend separate from the MainMenu UI branch.
+    /// Owns the Unity Multiplayer Services session and Relay lifecycle without
+    /// depending on a specific menu layout.
     /// </summary>
     public sealed class OnlineLobbyService : MonoBehaviour
     {
-        private const int SupportedMaxPlayers = 2;
+        private const int SupportedMaxPlayers = 4;
         private const string ValidCodeCharacters =
             "6789BCDFGHJKLMNPQRTW";
 
@@ -69,39 +66,32 @@ namespace DeadmansTales.Networking
         private string sessionName = "Dead Man's Tale";
 
         [SerializeField]
-        private bool usePlayerName = true;
+        private bool usePlayerName;
 
         [SerializeField]
         private bool persistAcrossScenes = true;
 
         [Header("UI Output Events")]
-        [Tooltip("Human-readable connection status for a label.")]
         [SerializeField]
         private LobbyStringEvent onStatusChanged = new LobbyStringEvent();
 
-        [Tooltip("Current host join code. Empty when not in a session.")]
         [SerializeField]
         private LobbyStringEvent onSessionCodeChanged =
             new LobbyStringEvent();
 
-        [Tooltip("Current number of players in the session.")]
         [SerializeField]
         private LobbyIntEvent onPlayerCountChanged = new LobbyIntEvent();
 
-        [Tooltip("True when this machine is the session host.")]
         [SerializeField]
         private LobbyBoolEvent onHostChanged = new LobbyBoolEvent();
 
-        [Tooltip("True while a create, join, leave, or initialization operation is running.")]
         [SerializeField]
         private LobbyBoolEvent onBusyChanged = new LobbyBoolEvent();
 
-        [Tooltip("True while this machine belongs to a multiplayer session.")]
         [SerializeField]
         private LobbyBoolEvent onSessionPresenceChanged =
             new LobbyBoolEvent();
 
-        [Tooltip("True when the currently entered join code has a valid format.")]
         [SerializeField]
         private LobbyBoolEvent onJoinCodeValidityChanged =
             new LobbyBoolEvent();
@@ -118,30 +108,17 @@ namespace DeadmansTales.Networking
         private LobbyConnectionState connectionState =
             LobbyConnectionState.Offline;
 
-        /// <summary>
-        /// Fired whenever session metadata changes, including player count.
-        /// Gameplay code can subscribe without depending on Unity UI.
-        /// </summary>
         public event Action SessionChanged;
 
         public ISession CurrentSession => currentSession;
-
         public LobbyConnectionState ConnectionState => connectionState;
-
         public bool IsBusy => isBusy;
-
         public bool IsInSession => currentSession != null;
-
         public bool IsHost => currentSession?.IsHost ?? false;
-
         public int PlayerCount => currentSession?.Players?.Count ?? 0;
-
         public int MaxPlayers => SupportedMaxPlayers;
-
         public string SessionCode => currentSession?.Code ?? string.Empty;
-
         public string PendingJoinCode => pendingJoinCode;
-
         public bool IsPendingJoinCodeValid =>
             IsJoinCodeFormatValid(pendingJoinCode);
 
@@ -192,39 +169,22 @@ namespace DeadmansTales.Networking
                 : sessionName.Trim();
         }
 
-        /// <summary>
-        /// Connect a TMP_InputField OnValueChanged event to this method.
-        /// Whitespace is removed and letters are normalized to uppercase.
-        /// </summary>
         public void SetJoinCode(string rawCode)
         {
             pendingJoinCode = NormalizeJoinCode(rawCode);
-
-            onJoinCodeValidityChanged.Invoke(
-                IsPendingJoinCodeValid
-            );
+            onJoinCodeValidityChanged.Invoke(IsPendingJoinCodeValid);
         }
 
-        /// <summary>
-        /// Safe Unity Button entry point for creating a two-player Relay session.
-        /// </summary>
         public async void CreateLobby()
         {
             await CreateLobbyAsync();
         }
 
-        /// <summary>
-        /// Safe Unity Button entry point for joining with the code supplied to
-        /// SetJoinCode.
-        /// </summary>
         public async void JoinLobby()
         {
             await JoinLobbyAsync(pendingJoinCode);
         }
 
-        /// <summary>
-        /// Safe Unity Button entry point for leaving the active session.
-        /// </summary>
         public async void LeaveLobby()
         {
             await LeaveLobbyAsync();
@@ -240,6 +200,21 @@ namespace DeadmansTales.Networking
 
             GUIUtility.systemCopyBuffer = SessionCode;
             SetStatus("Lobby code copied.");
+        }
+
+        /// <summary>
+        /// Clears any half-open NGO/Relay state left behind by a failed operation.
+        /// Safe to call from menu cancel/back actions.
+        /// </summary>
+        public void ResetLocalSession()
+        {
+            ResetLocalNetworkState();
+            SetState(
+                servicesReady
+                    ? LobbyConnectionState.Ready
+                    : LobbyConnectionState.Offline,
+                "Online lobby reset."
+            );
         }
 
         public async Task<bool> CreateLobbyAsync()
@@ -285,6 +260,7 @@ namespace DeadmansTales.Networking
             }
             catch (Exception exception)
             {
+                ResetLocalNetworkState();
                 ReportFailure("Could not create the lobby", exception);
                 return false;
             }
@@ -306,11 +282,11 @@ namespace DeadmansTales.Networking
 
             if (!IsJoinCodeFormatValid(normalizedCode))
             {
+                ResetLocalNetworkState();
                 SetState(
                     LobbyConnectionState.Error,
                     "Enter a valid 6-8 character lobby code."
                 );
-
                 return false;
             }
 
@@ -351,7 +327,8 @@ namespace DeadmansTales.Networking
             }
             catch (Exception exception)
             {
-                ReportFailure("Could not join the lobby", exception);
+                ResetLocalNetworkState();
+                ReportJoinFailure(exception);
                 return false;
             }
             finally
@@ -368,47 +345,54 @@ namespace DeadmansTales.Networking
                 return false;
             }
 
-            if (currentSession == null)
-            {
-                SetState(
-                    servicesReady
-                        ? LobbyConnectionState.Ready
-                        : LobbyConnectionState.Offline,
-                    "Not currently in a lobby."
-                );
-
-                return true;
-            }
-
             SetBusy(true);
             SetState(
                 LobbyConnectionState.Leaving,
                 "Leaving lobby..."
             );
 
+            bool remoteLeaveSucceeded = true;
+            ISession sessionToLeave = currentSession;
+
             try
             {
-                ISession sessionToLeave = currentSession;
-                await sessionToLeave.LeaveAsync();
+                if (sessionToLeave != null)
+                {
+                    await sessionToLeave.LeaveAsync();
+                }
 
+                // Multiplayer Services owns the NGO network handler for Relay
+                // sessions and shuts it down as part of LeaveAsync.
                 UnbindCurrentSession();
-
-                SetState(
-                    LobbyConnectionState.Ready,
-                    "Left the lobby."
-                );
-
-                return true;
             }
             catch (Exception exception)
             {
-                ReportFailure("Could not leave the lobby", exception);
-                return false;
+                remoteLeaveSucceeded = false;
+                Debug.LogWarning(
+                    "[Online Lobby] The backend leave request failed, but the " +
+                    $"local session will still be reset: {exception.Message}",
+                    this
+                );
+
+                // If the backend could not complete its normal cleanup, make
+                // sure no unusable local NGO state survives the failed leave.
+                ResetLocalNetworkState();
             }
             finally
             {
                 SetBusy(false);
             }
+
+            SetState(
+                servicesReady
+                    ? LobbyConnectionState.Ready
+                    : LobbyConnectionState.Offline,
+                remoteLeaveSucceeded
+                    ? "Left the lobby."
+                    : "Lobby reset locally."
+            );
+
+            return true;
         }
 
         public async Task<bool> EnsureServicesReadyAsync()
@@ -531,7 +515,6 @@ namespace DeadmansTales.Networking
                 SetStatus(
                     $"Cannot {operationDescription}; another operation is running."
                 );
-
                 return false;
             }
 
@@ -540,11 +523,10 @@ namespace DeadmansTales.Networking
                 SetStatus(
                     $"Leave the current lobby before trying to {operationDescription}."
                 );
-
                 return false;
             }
 
-            return true;
+            return ValidateAndRecoverIdleNetworkManager();
         }
 
         private bool ValidateNetworkManager()
@@ -557,21 +539,51 @@ namespace DeadmansTales.Networking
                 );
 
                 Debug.LogError(
-                    "[Online Lobby] Add the existing '[BB] NetworkManager' " +
-                    "prefab to MainMenu before creating or joining a lobby.",
+                    "[Online Lobby] The project-owned NetworkManager was not " +
+                    "created before the lobby operation.",
                     this
                 );
 
                 return false;
             }
 
-            if (NetworkManager.Singleton.IsListening)
+            return ValidateAndRecoverIdleNetworkManager();
+        }
+
+        private bool ValidateAndRecoverIdleNetworkManager()
+        {
+            NetworkManager networkManager = NetworkManager.Singleton;
+
+            if (networkManager == null)
+            {
+                return true;
+            }
+
+            if (!networkManager.IsListening)
+            {
+                return true;
+            }
+
+            if (currentSession != null)
+            {
+                SetStatus("Networking is already running for the current lobby.");
+                return false;
+            }
+
+            Debug.LogWarning(
+                "[Online Lobby] Found stale NGO networking without an active " +
+                "session. Shutting it down before retrying.",
+                networkManager
+            );
+
+            networkManager.Shutdown();
+
+            if (networkManager.IsListening)
             {
                 SetState(
                     LobbyConnectionState.Error,
-                    "Networking is already running without an active session."
+                    "Networking could not be reset. Try again."
                 );
-
                 return false;
             }
 
@@ -618,6 +630,9 @@ namespace DeadmansTales.Networking
 
         private void HandleSessionEnded()
         {
+            // The session network handler owns NGO shutdown. Calling
+            // NetworkManager.Shutdown here races that handler and produces the
+            // "shutdown outside of a session" warning.
             UnbindCurrentSession();
 
             SetState(
@@ -628,13 +643,24 @@ namespace DeadmansTales.Networking
             );
         }
 
+        private void ResetLocalNetworkState()
+        {
+            UnbindCurrentSession();
+
+            NetworkManager networkManager = NetworkManager.Singleton;
+
+            if (networkManager != null && networkManager.IsListening)
+            {
+                networkManager.Shutdown();
+            }
+        }
+
         private void PublishSessionState()
         {
             onSessionCodeChanged.Invoke(SessionCode);
             onPlayerCountChanged.Invoke(PlayerCount);
             onHostChanged.Invoke(IsHost);
             onSessionPresenceChanged.Invoke(IsInSession);
-
             SessionChanged?.Invoke();
         }
 
@@ -676,14 +702,26 @@ namespace DeadmansTales.Networking
             Exception exception
         )
         {
-            string message =
-                $"{context}: {exception.Message}";
-
+            string message = $"{context}: {exception.Message}";
             Debug.LogException(exception, this);
 
             SetState(
                 LobbyConnectionState.Error,
                 message
+            );
+        }
+
+        private void ReportJoinFailure(Exception exception)
+        {
+            Debug.LogWarning(
+                "[Online Lobby] Join failed and local networking was reset: " +
+                exception.Message,
+                this
+            );
+
+            SetState(
+                LobbyConnectionState.Error,
+                "Lobby not found. Check the code and try again."
             );
         }
 
