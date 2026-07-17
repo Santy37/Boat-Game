@@ -30,11 +30,13 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     private Vector2 emergencyFallbackSpawn =
         new Vector2(2f, 12f);
 
+    // Ready is player-owned: each client may only write the value on its own
+    // PlayerObject. Everyone can read it so the host can enforce readiness.
     private NetworkVariable<bool> lobbyReady =
         new NetworkVariable<bool>(
             false,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server
+            NetworkVariableWritePermission.Owner
         );
 
     private Rigidbody2D rb;
@@ -54,15 +56,13 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
+        // Never initialize another player's owner-written ready variable here.
+        // New player objects already begin false; the host is skipped by the
+        // host-side readiness check and therefore may start alone.
         if (!IsServer)
         {
             return;
         }
-
-        // The host does not have a Ready button and is always considered ready.
-        // Every joining client starts unready and must explicitly toggle Ready.
-        lobbyReady.Value =
-            OwnerClientId == NetworkManager.ServerClientId;
 
         SceneManager.sceneLoaded += HandleSceneLoaded;
         TryMoveToSpawnPoint(SceneManager.GetActiveScene().name);
@@ -81,15 +81,9 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
             return;
         }
 
-        SetLobbyReadyServerRpc(ready);
-    }
-
-    [ServerRpc]
-    private void SetLobbyReadyServerRpc(bool ready)
-    {
-        // The host is always ready. Client-owned player objects may toggle.
-        lobbyReady.Value =
-            OwnerClientId == NetworkManager.ServerClientId || ready;
+        // Owner-write permission means the local client updates only its own
+        // PlayerObject. NGO then synchronizes the value to the host and peers.
+        lobbyReady.Value = ready;
     }
 
     private void HandleSceneLoaded(
