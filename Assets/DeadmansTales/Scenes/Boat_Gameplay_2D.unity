@@ -314,9 +314,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 349770253}
-  - component: {fileID: 349770254}
   m_Layer: 0
-  m_Name: PlayerSpawnPoint2D
+  m_Name: BoatSpawnGuide
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -337,18 +336,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 974094524}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &349770254
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 349770252}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 043e3f5625bf88e4393b45ae2317dece, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnPoint2D
 --- !u!1 &373136901
 GameObject:
   m_ObjectHideFlags: 0
@@ -549,63 +536,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &481724922
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 407875499802655079, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_Name
-      value: NetworkManager
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 986.6743
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 551.18365
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 557752119097499956, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 011b03a6f560b45ccb17a870289c9b35, type: 3}
 --- !u!1 &526012971
 GameObject:
   m_ObjectHideFlags: 0
@@ -1122,11 +1052,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1385519805}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3b3172988e9c0b44da72299ada6e9f12, type: 3}
+  m_Script: {fileID: 11500000, guid: 043e3f5625bf88e4393b45ae2317dece, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimation2D
-  animator: {fileID: 0}
-  movementThreshold: 0.0005
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnPoint2D
 --- !u!1 &1648975316
 GameObject:
   m_ObjectHideFlags: 0
@@ -1389,5 +1317,4 @@ SceneRoots:
   - {fileID: 1847286368}
   - {fileID: 805755289}
   - {fileID: 536198638}
-  - {fileID: 481724922}
   - {fileID: 1318670114}

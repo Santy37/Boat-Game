@@ -352,15 +352,18 @@ namespace DeadmansTales.Networking
             );
 
             bool remoteLeaveSucceeded = true;
+            ISession sessionToLeave = currentSession;
 
             try
             {
-                ISession sessionToLeave = currentSession;
-
                 if (sessionToLeave != null)
                 {
                     await sessionToLeave.LeaveAsync();
                 }
+
+                // Multiplayer Services owns the NGO network handler for Relay
+                // sessions and shuts it down as part of LeaveAsync.
+                UnbindCurrentSession();
             }
             catch (Exception exception)
             {
@@ -370,10 +373,13 @@ namespace DeadmansTales.Networking
                     $"local session will still be reset: {exception.Message}",
                     this
                 );
+
+                // If the backend could not complete its normal cleanup, make
+                // sure no unusable local NGO state survives the failed leave.
+                ResetLocalNetworkState();
             }
             finally
             {
-                ResetLocalNetworkState();
                 SetBusy(false);
             }
 
@@ -624,7 +630,10 @@ namespace DeadmansTales.Networking
 
         private void HandleSessionEnded()
         {
-            ResetLocalNetworkState();
+            // The session network handler owns NGO shutdown. Calling
+            // NetworkManager.Shutdown here races that handler and produces the
+            // "shutdown outside of a session" warning.
+            UnbindCurrentSession();
 
             SetState(
                 servicesReady

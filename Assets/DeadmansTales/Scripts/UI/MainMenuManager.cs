@@ -1,9 +1,7 @@
 using System;
-using System.Reflection;
 using DeadmansTales.Networking;
 using TMPro;
 using Unity.Netcode;
-using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -11,26 +9,12 @@ using UnityEngine.UI;
 public class MainMenuManager : MonoBehaviour
 {
     private const int LobbyMaxPlayers = 4;
-    private const string SessionType = "dead-mans-tale";
-    private const string SessionName = "Dead Man's Tale";
 
     private static readonly string[] SelectableSceneNames =
     {
         "Lobby_Island_2D",
         "Boat_Gameplay_2D"
     };
-
-    private static readonly MethodInfo BindCurrentSessionMethod =
-        typeof(OnlineLobbyService).GetMethod(
-            "BindCurrentSession",
-            BindingFlags.Instance | BindingFlags.NonPublic
-        );
-
-    private static readonly MethodInfo SetLobbyStateMethod =
-        typeof(OnlineLobbyService).GetMethod(
-            "SetState",
-            BindingFlags.Instance | BindingFlags.NonPublic
-        );
 
     [Header("Menu Panels")]
     public GameObject mainMenuPanel;
@@ -53,7 +37,6 @@ public class MainMenuManager : MonoBehaviour
 
     private OnlineLobbyService lobbyService;
     private bool lobbyOperationInProgress;
-    private bool localReady;
     private int selectedSceneIndex;
     private string statusMessage = string.Empty;
     private string defaultCreateOrJoinText = "CREATE OR JOIN";
@@ -193,7 +176,6 @@ public class MainMenuManager : MonoBehaviour
 
     public void ShowConnectionOptions()
     {
-        localReady = false;
         SetActive(connectionOptions, true);
         SetActive(joinCodeOptions, false);
         SetActive(clientOptions, false);
@@ -289,7 +271,6 @@ public class MainMenuManager : MonoBehaviour
 
             if (left)
             {
-                localReady = false;
                 SetStatus("LEFT THE LOBBY");
                 ShowConnectionOptions();
             }
@@ -372,9 +353,22 @@ public class MainMenuManager : MonoBehaviour
             return;
         }
 
-        localReady = !localReady;
+        TopDownNetworkPlayer2D localPlayer = GetLocalNetworkPlayer();
+
+        if (localPlayer == null)
+        {
+            SetStatus("WAITING FOR YOUR NETWORK PLAYER TO SPAWN");
+            return;
+        }
+
+        bool nextReadyState = !localPlayer.IsLobbyReady;
+        localPlayer.RequestLobbyReady(nextReadyState);
         UpdateReadyButtonLabel();
-        SetStatus(localReady ? "YOU ARE READY" : "YOU ARE NOT READY");
+        SetStatus(
+            nextReadyState
+                ? "YOU ARE READY"
+                : "YOU ARE NOT READY"
+        );
     }
 
     public void Ready()
@@ -425,6 +419,12 @@ public class MainMenuManager : MonoBehaviour
         if (!networkManager.IsListening || !networkManager.IsServer)
         {
             SetStatus("ONLINE NETWORK SESSION IS NOT READY YET");
+            return;
+        }
+
+        if (!CanHostStartGame(networkManager, out string readinessMessage))
+        {
+            SetStatus(readinessMessage);
             return;
         }
 
@@ -482,7 +482,7 @@ public class MainMenuManager : MonoBehaviour
 
         try
         {
-            bool created = await CreateFourPlayerLobbyAsync();
+            bool created = await lobbyService.CreateLobbyAsync();
 
             if (!created)
             {
@@ -490,7 +490,6 @@ public class MainMenuManager : MonoBehaviour
                 return;
             }
 
-            localReady = true;
             selectedSceneIndex = 0;
             UpdateReadyButtonLabel();
             UpdateLevelButtonLabel();
@@ -501,70 +500,6 @@ public class MainMenuManager : MonoBehaviour
         {
             lobbyOperationInProgress = false;
             RefreshLobbyUi();
-        }
-    }
-
-    private async System.Threading.Tasks.Task<bool>
-        CreateFourPlayerLobbyAsync()
-    {
-        if (!await lobbyService.EnsureServicesReadyAsync())
-        {
-            return false;
-        }
-
-        if (NetworkManager.Singleton == null)
-        {
-            SetStatus("NETWORK MANAGER WAS NOT FOUND");
-            return false;
-        }
-
-        if (BindCurrentSessionMethod == null)
-        {
-            Debug.LogError(
-                "[Main Menu] Could not access OnlineLobbyService session binding."
-            );
-            return false;
-        }
-
-        try
-        {
-            SessionOptions options = new SessionOptions
-            {
-                MaxPlayers = LobbyMaxPlayers,
-                Name = SessionName,
-                Type = SessionType
-            };
-
-            options.WithRelayNetwork();
-
-            IHostSession session =
-                await MultiplayerService.Instance.CreateSessionAsync(options);
-
-            BindCurrentSessionMethod.Invoke(
-                lobbyService,
-                new object[] { session }
-            );
-
-            SetLobbyStateMethod?.Invoke(
-                lobbyService,
-                new object[]
-                {
-                    LobbyConnectionState.InLobby,
-                    "Lobby created. Share the join code."
-                }
-            );
-
-            return lobbyService.IsInSession;
-        }
-        catch (TargetInvocationException exception)
-        {
-            Debug.LogException(exception.InnerException ?? exception);
-            return false;
-        }
-        catch (Exception exception)
-        {
-            Debug.LogException(exception);
-            return false;
         }
     }
 
@@ -615,7 +550,6 @@ public class MainMenuManager : MonoBehaviour
                 return;
             }
 
-            localReady = false;
             selectedSceneIndex = 0;
             UpdateReadyButtonLabel();
             UpdateLevelButtonLabel();
@@ -696,11 +630,6 @@ public class MainMenuManager : MonoBehaviour
     {
         CacheLobbySnapshot();
 
-        if (lobbyService == null || !lobbyService.IsInSession)
-        {
-            localReady = false;
-        }
-
         if (
             multiplayerPanel != null &&
             multiplayerPanel.activeInHierarchy &&
@@ -778,9 +707,11 @@ public class MainMenuManager : MonoBehaviour
             if (playerListText != null)
             {
                 string role = lobbyService.IsHost ? "HOST" : "CLIENT";
+                TopDownNetworkPlayer2D localPlayer =
+                    GetLocalNetworkPlayer();
                 string readyState = lobbyService.IsHost
                     ? string.Empty
-                    : localReady
+                    : localPlayer != null && localPlayer.IsLobbyReady
                         ? " - READY"
                         : " - NOT READY";
 
@@ -925,12 +856,88 @@ public class MainMenuManager : MonoBehaviour
             return;
         }
 
+        TopDownNetworkPlayer2D localPlayer = GetLocalNetworkPlayer();
+        bool canReady =
+            lobbyService != null &&
+            lobbyService.IsInSession &&
+            localPlayer != null;
+
+        readyButton.interactable = canReady;
+
         TMP_Text label = readyButton.GetComponentInChildren<TMP_Text>(true);
 
         if (label != null)
         {
-            label.text = localReady ? "UNREADY" : "READY";
+            label.text =
+                localPlayer != null && localPlayer.IsLobbyReady
+                    ? "UNREADY"
+                    : "READY";
         }
+    }
+
+    private static TopDownNetworkPlayer2D GetLocalNetworkPlayer()
+    {
+        NetworkManager networkManager = NetworkManager.Singleton;
+
+        if (
+            networkManager == null ||
+            !networkManager.IsListening ||
+            networkManager.LocalClient == null ||
+            networkManager.LocalClient.PlayerObject == null
+        )
+        {
+            return null;
+        }
+
+        return networkManager.LocalClient.PlayerObject
+            .GetComponent<TopDownNetworkPlayer2D>();
+    }
+
+    private static bool CanHostStartGame(
+        NetworkManager networkManager,
+        out string status
+    )
+    {
+        int unreadyClients = 0;
+
+        foreach (NetworkClient client in networkManager.ConnectedClientsList)
+        {
+            if (client.PlayerObject == null)
+            {
+                status = "WAITING FOR ALL PLAYERS TO FINISH SPAWNING";
+                return false;
+            }
+
+            if (client.ClientId == NetworkManager.ServerClientId)
+            {
+                continue;
+            }
+
+            TopDownNetworkPlayer2D player =
+                client.PlayerObject.GetComponent<TopDownNetworkPlayer2D>();
+
+            if (player == null)
+            {
+                status = "A NETWORK PLAYER IS MISCONFIGURED";
+                return false;
+            }
+
+            if (!player.IsLobbyReady)
+            {
+                unreadyClients++;
+            }
+        }
+
+        if (unreadyClients > 0)
+        {
+            string playerWord = unreadyClients == 1 ? "PLAYER" : "PLAYERS";
+            status =
+                $"WAITING FOR {unreadyClients} {playerWord} TO READY UP";
+            return false;
+        }
+
+        status = string.Empty;
+        return true;
     }
 
     private string GetSelectedSceneName()

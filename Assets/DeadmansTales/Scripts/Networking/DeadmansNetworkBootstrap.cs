@@ -1,6 +1,7 @@
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace DeadmansTales.Networking
 {
@@ -21,11 +22,51 @@ namespace DeadmansTales.Networking
         private const string ManagerObjectName =
             "[DMT] NetworkManager";
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        [RuntimeInitializeOnLoadMethod(
+            RuntimeInitializeLoadType.BeforeSceneLoad
+        )]
+        private static void InstallSceneBootstrap()
+        {
+            SceneManager.sceneLoaded -= HandleSceneLoaded;
+            SceneManager.sceneLoaded += HandleSceneLoaded;
+        }
+
+        private static void HandleSceneLoaded(
+            Scene scene,
+            LoadSceneMode loadSceneMode
+        )
+        {
+            EnsureNetworkManager();
+        }
+
         private static void EnsureNetworkManager()
         {
-            NetworkManager networkManager =
-                UnityEngine.Object.FindFirstObjectByType<NetworkManager>();
+            NetworkManager networkManager = NetworkManager.Singleton;
+            NetworkManager[] managers =
+                UnityEngine.Object.FindObjectsByType<NetworkManager>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None
+                );
+
+            if (networkManager == null && managers.Length > 0)
+            {
+                networkManager = managers[0];
+            }
+
+            foreach (NetworkManager candidate in managers)
+            {
+                if (candidate == networkManager)
+                {
+                    continue;
+                }
+
+                Debug.LogWarning(
+                    "[Network Bootstrap] Removing a duplicate " +
+                    $"NetworkManager from scene '{candidate.gameObject.scene.name}'.",
+                    candidate
+                );
+                UnityEngine.Object.Destroy(candidate.gameObject);
+            }
 
             if (networkManager == null)
             {
@@ -41,7 +82,13 @@ namespace DeadmansTales.Networking
                 networkManager.NetworkConfig.NetworkTransport = transport;
             }
 
-            ConfigureNetworkManager(networkManager);
+            // NGO locks most NetworkConfig values after listening begins.
+            // The persistent manager was already configured in MainMenu, so
+            // synchronized gameplay loads only need duplicate reconciliation.
+            if (!networkManager.IsListening)
+            {
+                ConfigureNetworkManager(networkManager);
+            }
         }
 
         private static void ConfigureNetworkManager(
@@ -109,6 +156,19 @@ namespace DeadmansTales.Networking
             networkManager.NetworkConfig.EnableSceneManagement = true;
             networkManager.NetworkConfig.ForceSamePrefabs = true;
             networkManager.NetworkConfig.ConnectionApproval = false;
+            networkManager.NetworkConfig.NetworkTopology =
+                NetworkTopologyTypes.ClientServer;
+            networkManager.NetworkConfig.UseCMBService = false;
+
+            if (
+                networkManager.GetComponent<NetworkPlayerSpawnCoordinator>() ==
+                null
+            )
+            {
+                networkManager.gameObject.AddComponent<
+                    NetworkPlayerSpawnCoordinator
+                >();
+            }
 
             // Do not call NetworkManager.AddNetworkPrefab here. Unity NGO's
             // generated DefaultNetworkPrefabs registry already contains the
@@ -117,7 +177,8 @@ namespace DeadmansTales.Networking
 
             Debug.Log(
                 "[Network Bootstrap] Project-owned NetworkManager ready.\n" +
-                $"Player Prefab: {settings.PlayerPrefab.name}",
+                $"Player Prefab: {settings.PlayerPrefab.name}\n" +
+                "Topology: ClientServer",
                 networkManager
             );
         }

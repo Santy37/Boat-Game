@@ -84,13 +84,15 @@ public class PauseMenu : MonoBehaviour
         InputBlocked = true;
 
         OnlineLobbyService lobbyService = OnlineLobbyService.Instance;
+        bool leftManagedSession = false;
 
         if (lobbyService != null && lobbyService.IsInSession)
         {
-            await lobbyService.LeaveLobbyAsync();
+            leftManagedSession = await lobbyService.LeaveLobbyAsync();
         }
 
         if (
+            !leftManagedSession &&
             NetworkManager.Singleton != null &&
             NetworkManager.Singleton.IsListening
         )
