@@ -5,6 +5,7 @@ using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 /// <summary>
 /// Connects the existing MainMenu Ready and Start Game buttons to the
