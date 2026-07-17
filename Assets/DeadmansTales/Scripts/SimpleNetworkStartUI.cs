@@ -3,9 +3,17 @@ using UnityEngine;
 
 public class SimpleNetworkStartUI : MonoBehaviour
 {
+    [Header("Legacy Debug Overlay")]
+    [Tooltip(
+        "Disabled by default because the MainMenu now owns host, join, and " +
+        "player-count UI. Enable only for isolated networking debugging."
+    )]
+    [SerializeField]
+    private bool showDebugOverlay;
+
     private void OnGUI()
     {
-        if (NetworkManager.Singleton == null)
+        if (!showDebugOverlay || NetworkManager.Singleton == null)
         {
             return;
         }
@@ -48,7 +56,10 @@ public class SimpleNetworkStartUI : MonoBehaviour
             }
 
             GUILayout.Label("Mode: " + mode);
-            GUILayout.Label("Connected Players: " + NetworkManager.Singleton.ConnectedClientsIds.Count);
+            GUILayout.Label(
+                "Connected Players: " +
+                NetworkManager.Singleton.ConnectedClientsIds.Count
+            );
         }
 
         GUILayout.EndArea();
