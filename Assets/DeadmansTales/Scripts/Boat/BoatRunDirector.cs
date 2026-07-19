@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -136,8 +135,6 @@ public class BoatRunDirector : NetworkBehaviour
 
         if (IsServer)
         {
-            MovePlayersToBoatSpawns();
-
             int selectedSeed =
                 SelectRunSeed();
 
@@ -290,87 +287,4 @@ public class BoatRunDirector : NetworkBehaviour
         );
     }
 
-    private void MovePlayersToBoatSpawns()
-    {
-        PlayerSpawnPoint2D[] spawnPoints =
-            FindObjectsByType<PlayerSpawnPoint2D>(
-                FindObjectsSortMode.None
-            )
-            .OrderBy(
-                spawnPoint =>
-                    spawnPoint.name
-            )
-            .ToArray();
-
-        if (spawnPoints.Length == 0)
-        {
-            Debug.LogError(
-                "[Boat Run] No PlayerSpawnPoint2D objects " +
-                "were found in Boat_Gameplay_2D."
-            );
-
-            return;
-        }
-
-        foreach (
-            NetworkClient client
-            in NetworkManager.ConnectedClientsList
-        )
-        {
-            if (client.PlayerObject == null)
-            {
-                Debug.LogWarning(
-                    $"[Boat Run] Client {client.ClientId} " +
-                    "does not currently have a PlayerObject."
-                );
-
-                continue;
-            }
-
-            int spawnIndex =
-                (int)(
-                    client.ClientId %
-                    (ulong)spawnPoints.Length
-                );
-
-            PlayerSpawnPoint2D selectedSpawn =
-                spawnPoints[spawnIndex];
-
-            Vector3 spawnPosition =
-                selectedSpawn.transform.position;
-
-            NetworkObject playerObject =
-                client.PlayerObject;
-
-            Rigidbody2D rb =
-                playerObject.GetComponent<Rigidbody2D>();
-
-            if (rb != null)
-            {
-                rb.linearVelocity =
-                    Vector2.zero;
-
-                rb.angularVelocity =
-                    0f;
-
-                rb.position =
-                    spawnPosition;
-
-                rb.WakeUp();
-            }
-
-            playerObject.transform.position =
-                new Vector3(
-                    spawnPosition.x,
-                    spawnPosition.y,
-                    0f
-                );
-
-            Debug.Log(
-                $"[Boat Run] Client {client.ClientId} " +
-                $"moved to {selectedSpawn.name} " +
-                $"at {spawnPosition}."
-            );
-        }
-    }
 }
