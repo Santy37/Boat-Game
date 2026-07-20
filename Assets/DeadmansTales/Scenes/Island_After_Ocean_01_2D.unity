@@ -261,6 +261,7 @@ Transform:
   - {fileID: 1824156012}
   - {fileID: 1249678157}
   - {fileID: 2083358905}
+  - {fileID: 573532007}
   m_Father: {fileID: 2089636065}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &141770313
@@ -321,6 +322,9 @@ MonoBehaviour:
   - category: 4
     minimumCount: 1
     maximumCount: 1
+  - category: 2
+    minimumCount: 2
+    maximumCount: 4
 --- !u!114 &141770316
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -549,6 +553,60 @@ MonoBehaviour:
   - {fileID: 1355109594608851755, guid: d0a32ee80c1b57d479474f0a1051d61a, type: 3}
   alwaysSpawn: 0
   spawnChance: 0.8
+  minimumStage: 2
+  maximumStage: 0
+  positionOffset: {x: 0, y: 0, z: 0}
+  useMarkerRotation: 1
+--- !u!1 &296313957
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 296313958}
+  - component: {fileID: 296313959}
+  m_Layer: 0
+  m_Name: FoodMarker_04
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &296313958
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 296313957}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 11, y: 9, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 573532007}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &296313959
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 296313957}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3bbf5ed1ac9439da6f9b90dc350ae58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.WorldGeneration.SeededSpawnMarker2D
+  category: 2
+  networkPrefabs:
+  - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
+  - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  alwaysSpawn: 0
+  spawnChance: 0.7
   minimumStage: 2
   maximumStage: 0
   positionOffset: {x: 0, y: 0, z: 0}
@@ -2157,6 +2215,97 @@ MonoBehaviour:
   maximumStage: 0
   positionOffset: {x: 0, y: 0, z: 0}
   useMarkerRotation: 1
+--- !u!1 &573532006
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 573532007}
+  m_Layer: 0
+  m_Name: FoodMarkers
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &573532007
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 573532006}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1755983658}
+  - {fileID: 855306080}
+  - {fileID: 865999247}
+  - {fileID: 580721217}
+  - {fileID: 296313958}
+  - {fileID: 1074281896}
+  m_Father: {fileID: 108176992}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &580721216
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 580721217}
+  - component: {fileID: 580721218}
+  m_Layer: 0
+  m_Name: FoodMarker_03
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &580721217
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 580721216}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2, y: -6, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 573532007}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &580721218
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 580721216}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3bbf5ed1ac9439da6f9b90dc350ae58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.WorldGeneration.SeededSpawnMarker2D
+  category: 2
+  networkPrefabs:
+  - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
+  - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  alwaysSpawn: 0
+  spawnChance: 0.7
+  minimumStage: 2
+  maximumStage: 0
+  positionOffset: {x: 0, y: 0, z: 0}
+  useMarkerRotation: 1
 --- !u!1 &582809019
 GameObject:
   m_ObjectHideFlags: 0
@@ -2811,6 +2960,114 @@ MonoBehaviour:
   - {fileID: 1189048679999367709, guid: 0b114e3c4a7a39447b3290d5cbfe86c6, type: 3}
   alwaysSpawn: 0
   spawnChance: 0.72
+  minimumStage: 2
+  maximumStage: 0
+  positionOffset: {x: 0, y: 0, z: 0}
+  useMarkerRotation: 1
+--- !u!1 &855306079
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 855306080}
+  - component: {fileID: 855306081}
+  m_Layer: 0
+  m_Name: FoodMarker_01
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &855306080
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 855306079}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -9, y: 7, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 573532007}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &855306081
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 855306079}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3bbf5ed1ac9439da6f9b90dc350ae58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.WorldGeneration.SeededSpawnMarker2D
+  category: 2
+  networkPrefabs:
+  - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
+  - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  alwaysSpawn: 0
+  spawnChance: 0.7
+  minimumStage: 2
+  maximumStage: 0
+  positionOffset: {x: 0, y: 0, z: 0}
+  useMarkerRotation: 1
+--- !u!1 &865999246
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 865999247}
+  - component: {fileID: 865999248}
+  m_Layer: 0
+  m_Name: FoodMarker_02
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &865999247
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 865999246}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2, y: 12, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 573532007}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &865999248
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 865999246}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3bbf5ed1ac9439da6f9b90dc350ae58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.WorldGeneration.SeededSpawnMarker2D
+  category: 2
+  networkPrefabs:
+  - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
+  - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  alwaysSpawn: 0
+  spawnChance: 0.7
   minimumStage: 2
   maximumStage: 0
   positionOffset: {x: 0, y: 0, z: 0}
@@ -49492,6 +49749,60 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 043e3f5625bf88e4393b45ae2317dece, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnPoint2D
+--- !u!1 &1074281895
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1074281896}
+  - component: {fileID: 1074281897}
+  m_Layer: 0
+  m_Name: FoodMarker_05
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1074281896
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1074281895}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 16, y: -2, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 573532007}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1074281897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1074281895}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3bbf5ed1ac9439da6f9b90dc350ae58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.WorldGeneration.SeededSpawnMarker2D
+  category: 2
+  networkPrefabs:
+  - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
+  - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  alwaysSpawn: 0
+  spawnChance: 0.7
+  minimumStage: 2
+  maximumStage: 0
+  positionOffset: {x: 0, y: 0, z: 0}
+  useMarkerRotation: 1
 --- !u!1 &1075057225
 GameObject:
   m_ObjectHideFlags: 0
@@ -49947,7 +50258,7 @@ Tilemap:
     second:
       serializedVersion: 2
       m_TileIndex: 12
-      m_TileSpriteIndex: 12
+      m_TileSpriteIndex: 16
       m_TileMatrixIndex: 1
       m_TileColorIndex: 0
       m_TileObjectToInstantiateIndex: 65535
@@ -50087,7 +50398,7 @@ Tilemap:
     second:
       serializedVersion: 2
       m_TileIndex: 10
-      m_TileSpriteIndex: 10
+      m_TileSpriteIndex: 14
       m_TileMatrixIndex: 0
       m_TileColorIndex: 0
       m_TileObjectToInstantiateIndex: 65535
@@ -50167,7 +50478,7 @@ Tilemap:
     second:
       serializedVersion: 2
       m_TileIndex: 1
-      m_TileSpriteIndex: 1
+      m_TileSpriteIndex: 12
       m_TileMatrixIndex: 1
       m_TileColorIndex: 0
       m_TileObjectToInstantiateIndex: 65535
@@ -50317,7 +50628,7 @@ Tilemap:
     second:
       serializedVersion: 2
       m_TileIndex: 0
-      m_TileSpriteIndex: 0
+      m_TileSpriteIndex: 10
       m_TileMatrixIndex: 1
       m_TileColorIndex: 0
       m_TileObjectToInstantiateIndex: 65535
@@ -50372,10 +50683,10 @@ Tilemap:
   - m_RefCount: 1
     m_Data: {fileID: 11400000, guid: a0c1d449596b07449824992d308250f8, type: 2}
   m_TileSpriteArray:
-  - m_RefCount: 1
-    m_Data: {fileID: -1917313282, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
-  - m_RefCount: 1
-    m_Data: {fileID: -871527426, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
+  - m_RefCount: 0
+    m_Data: {fileID: 0}
+  - m_RefCount: 0
+    m_Data: {fileID: 0}
   - m_RefCount: 6
     m_Data: {fileID: -1332678254, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
   - m_RefCount: 3
@@ -50393,19 +50704,19 @@ Tilemap:
   - m_RefCount: 6
     m_Data: {fileID: -428988101, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
   - m_RefCount: 1
-    m_Data: {fileID: -1984798680, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
+    m_Data: {fileID: -1917313282, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
   - m_RefCount: 1
     m_Data: {fileID: -570406651, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
   - m_RefCount: 1
-    m_Data: {fileID: 198214261, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
+    m_Data: {fileID: -871527426, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
   - m_RefCount: 6
     m_Data: {fileID: -1042538278, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
-  - m_RefCount: 0
-    m_Data: {fileID: 0}
+  - m_RefCount: 1
+    m_Data: {fileID: -1984798680, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
   - m_RefCount: 1
     m_Data: {fileID: -1625008209, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
-  - m_RefCount: 0
-    m_Data: {fileID: 0}
+  - m_RefCount: 1
+    m_Data: {fileID: 198214261, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
   - m_RefCount: 1
     m_Data: {fileID: 1638479713, guid: 6f639f4027342b645a36f8b8983b7077, type: 3}
   m_TileMatrixArray:
@@ -68555,6 +68866,60 @@ Transform:
   - {fileID: 1013597275}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1755983657
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1755983658}
+  - component: {fileID: 1755983659}
+  m_Layer: 0
+  m_Name: FoodMarker_00
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1755983658
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1755983657}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -15, y: -9, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 573532007}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1755983659
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1755983657}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3bbf5ed1ac9439da6f9b90dc350ae58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.WorldGeneration.SeededSpawnMarker2D
+  category: 2
+  networkPrefabs:
+  - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
+  - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  alwaysSpawn: 0
+  spawnChance: 0.7
+  minimumStage: 2
+  maximumStage: 0
+  positionOffset: {x: 0, y: 0, z: 0}
+  useMarkerRotation: 1
 --- !u!1 &1767925843
 GameObject:
   m_ObjectHideFlags: 0
