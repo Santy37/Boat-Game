@@ -95,7 +95,11 @@ public static class EnemyAndChestArtBuilder
     private static void ConfigureSkeletonSheets()
     {
         foreach (string sheetPath in
-            Directory.GetFiles(SkeletonArtFolder, "*.png"))
+            Directory.GetFiles(
+                SkeletonArtFolder,
+                "*.png",
+                SearchOption.AllDirectories
+            ))
         {
             string assetPath = sheetPath.Replace('\\', '/');
             if (assetPath.EndsWith("All-spritesheet.png"))
