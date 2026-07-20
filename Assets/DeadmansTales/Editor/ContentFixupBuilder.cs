@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using DeadmansTales.Networking;
+using DeadmansTales.Ship;
 using DeadmansTales.WorldGeneration;
 using Unity.Netcode;
 using UnityEditor;
@@ -18,15 +19,17 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Playtest-feedback fixup pass:
-///  - Boat scene: removes the fullscreen "PROTOTYPE COMPLETE" overlay, gives
-///    the ship tilemap the Grid it needs to render at all, moves the ship
-///    survival stations and player spawns onto the actual deck, and rebuilds
-///    the ship HUD on its own dedicated canvas.
+///  - Boat scene: the layout is the teammate's own (adopted verbatim from
+///    main, with the boat root Unity lost in his merge re-spliced back).
+///    This pass only removes the "PROTOTYPE COMPLETE" overlay and rebuilds
+///    the ship-survival stations + HUD on his deck, positioned from his
+///    deck EdgeCollider2D. It never touches his tiles, hull, or camera.
 ///  - Crab/skeleton: hides the leftover placeholder sprite on the prefab
 ///    roots that rendered alongside the real art.
-///  - Island: skeleton warriors and the new orc join the enemy marker pools.
-///  - Player: full overhaul to the Tiny RPG Soldier with real idle/walk/
-///    attack/hurt/death animations. Orc art replaces the BoneBrute tint.
+///  - Island: skeleton warriors and the orc join the enemy marker pools.
+///  - Orc (BoneBrute): orc art, and the variant's legacy 1.25x root scale
+///    is reset so the measured pixels-per-unit is the ONLY thing deciding
+///    its size. The player prefab is main's original rig — not touched.
 ///
 /// Idempotent: safe to run repeatedly.
 /// </summary>
@@ -44,18 +47,12 @@ public static class ContentFixupBuilder
     private const string TinyRpgFolder =
         "Assets/DeadmansTales/Art_Pixel/Characters/TinyRPG";
 
-    private const string SoldierFolder = TinyRpgFolder + "/Soldier";
     private const string OrcFolder = TinyRpgFolder + "/Orc";
 
     private const string AnimationFolder =
         "Assets/DeadmansTales/Animations";
-    private const string SoldierAnimationFolder =
-        AnimationFolder + "/SoldierPlayer2D";
     private const string OrcAnimationFolder =
         AnimationFolder + "/OrcBrute2D";
-
-    private const string PlayerPrefabPath =
-        "Assets/DeadmansTales/Prefabs/Player_2D_Network.prefab";
 
     private const string GameplayPrefabFolder =
         "Assets/DeadmansTales/Prefabs/Gameplay";
@@ -89,7 +86,11 @@ public static class ContentFixupBuilder
     /// doll standing next to giants or vice versa.
     /// </summary>
     private const float HumanoidTargetWorldHeight = 2.2f;
-    private const float BruteTargetWorldHeight = 2.9f;
+
+    // A head taller than the 2.2 player, no more. The variant's legacy
+    // 1.25x root scale is reset in UpgradeBoneBruteToOrc; with that gone,
+    // this is the orc's real on-screen height.
+    private const float BruteTargetWorldHeight = 2.5f;
     private const float CrabTargetWorldHeight = 0.9f;
     private const float ChestTargetWorldHeight = 0.75f;
 
@@ -105,7 +106,14 @@ public static class ContentFixupBuilder
         // pixels-per-unit on top.
         EnemyAndChestArtBuilder.BuildAllFromCommandLine();
 
-        SliceCharacterSheets();
+        // Orc sheets only: the player stays on main's original rig, so the
+        // Soldier half of the pack is no longer sliced or animated here.
+        AutoSliceCharacterFolder(
+            OrcFolder,
+            CharacterFrameSize,
+            BruteTargetWorldHeight,
+            new[] { "Orc" }
+        );
 
         // Re-slice the already-built skeleton, crab, and chest sheets at a
         // measured, correctly-scaled pixels-per-unit. This only changes
@@ -138,10 +146,8 @@ public static class ContentFixupBuilder
 
         AssetDatabase.Refresh();
 
-        BuildSoldierAnimations();
         BuildOrcAnimations();
 
-        OverhaulPlayerPrefab();
         HideLegacyRootSprite(CrabPrefabPath);
         HideLegacyRootSprite(SkeletonPrefabPath);
         UpgradeBoneBruteToOrc();
@@ -155,10 +161,10 @@ public static class ContentFixupBuilder
         AssetDatabase.Refresh();
 
         Debug.Log(
-            "[Fixup Builder] Boat scene repaired, player overhauled to " +
-            "Soldier, crab/skeleton placeholder sprites hidden, orc + " +
-            "skeleton added to island spawns, coconut food added, island " +
-            "camera zoom matched to the other scenes."
+            "[Fixup Builder] Boat scene: teammate layout kept, survival " +
+            "stations + HUD rebuilt on his deck. Orc rescaled (root scale " +
+            "reset, 2.5u tall). Chest visuals deduplicated. Player prefab " +
+            "left on main's original rig."
         );
     }
 
@@ -170,22 +176,6 @@ public static class ContentFixupBuilder
     // ------------------------------------------------------------------
     // Tiny RPG sheet slicing
     // ------------------------------------------------------------------
-
-    private static void SliceCharacterSheets()
-    {
-        AutoSliceCharacterFolder(
-            SoldierFolder,
-            CharacterFrameSize,
-            HumanoidTargetWorldHeight,
-            new[] { "Soldier" }
-        );
-        AutoSliceCharacterFolder(
-            OrcFolder,
-            CharacterFrameSize,
-            BruteTargetWorldHeight,
-            new[] { "Orc" }
-        );
-    }
 
     /// <summary>
     /// Slices every animation sheet in a character folder at one shared
@@ -335,51 +325,6 @@ public static class ContentFixupBuilder
     // Animations
     // ------------------------------------------------------------------
 
-    private static void BuildSoldierAnimations()
-    {
-        EnsureFolder(SoldierAnimationFolder);
-
-        AnimationClip idle = CreateSpriteClip(
-            SoldierAnimationFolder + "/Soldier_Idle.anim",
-            LoadFrames(SoldierFolder + "/Soldier_Idle.png"),
-            6f,
-            true
-        );
-        AnimationClip walk = CreateSpriteClip(
-            SoldierAnimationFolder + "/Soldier_Walk.anim",
-            LoadFrames(SoldierFolder + "/Soldier_Walk.png"),
-            12f,
-            true
-        );
-        AnimationClip attack = CreateSpriteClip(
-            SoldierAnimationFolder + "/Soldier_Attack.anim",
-            LoadFrames(SoldierFolder + "/Soldier_Attack01.png"),
-            16f,
-            false
-        );
-        AnimationClip hurt = CreateSpriteClip(
-            SoldierAnimationFolder + "/Soldier_Hurt.anim",
-            LoadFrames(SoldierFolder + "/Soldier_Hurt.png"),
-            12f,
-            false
-        );
-        AnimationClip death = CreateSpriteClip(
-            SoldierAnimationFolder + "/Soldier_Death.anim",
-            LoadFrames(SoldierFolder + "/Soldier_Death.png"),
-            8f,
-            false
-        );
-
-        BuildCharacterController(
-            SoldierAnimationFolder + "/SoldierPlayer2D.controller",
-            idle,
-            walk,
-            attack,
-            hurt,
-            death
-        );
-    }
-
     private static void BuildOrcAnimations()
     {
         EnsureFolder(OrcAnimationFolder);
@@ -515,75 +460,6 @@ public static class ContentFixupBuilder
     }
 
     // ------------------------------------------------------------------
-    // Player overhaul
-    // ------------------------------------------------------------------
-
-    private static void OverhaulPlayerPrefab()
-    {
-        GameObject root = PrefabUtility.LoadPrefabContents(PlayerPrefabPath);
-
-        try
-        {
-            Transform gfx = FindDeepChild(root.transform, "GFX");
-            if (gfx == null)
-            {
-                throw new InvalidOperationException(
-                    "Player prefab has no GFX child."
-                );
-            }
-
-            SpriteRenderer renderer = gfx.GetComponent<SpriteRenderer>();
-            renderer.sprite =
-                LoadFrames(SoldierFolder + "/Soldier_Idle.png")[0];
-            renderer.color = Color.white;
-            renderer.enabled = true;
-
-            DisableNonGfxSpriteRenderers(root);
-
-            Animator animator = gfx.GetComponent<Animator>();
-            if (animator == null)
-            {
-                animator = gfx.gameObject.AddComponent<Animator>();
-            }
-
-            animator.runtimeAnimatorController =
-                AssetDatabase.LoadAssetAtPath<AnimatorController>(
-                    SoldierAnimationFolder + "/SoldierPlayer2D.controller"
-                );
-
-            // The old 4-direction placeholder driver plays states that no
-            // longer exist; the motion animator drives Speed + facing flip
-            // for the new side-view sheets instead.
-            PlayerAnimation2D legacyDriver =
-                root.GetComponentInChildren<PlayerAnimation2D>(true);
-            if (legacyDriver != null)
-            {
-                UnityEngine.Object.DestroyImmediate(legacyDriver, true);
-            }
-
-            EnemyMotionAnimator motion =
-                root.GetComponent<EnemyMotionAnimator>();
-            if (motion == null)
-            {
-                motion = root.AddComponent<EnemyMotionAnimator>();
-            }
-
-            SerializedObject serializedMotion = new SerializedObject(motion);
-            serializedMotion.FindProperty("animator").objectReferenceValue =
-                animator;
-            serializedMotion.FindProperty("facingRenderer")
-                .objectReferenceValue = renderer;
-            serializedMotion.ApplyModifiedPropertiesWithoutUndo();
-
-            PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
-        }
-        finally
-        {
-            PrefabUtility.UnloadPrefabContents(root);
-        }
-    }
-
-    // ------------------------------------------------------------------
     // Enemy prefab fixes
     // ------------------------------------------------------------------
 
@@ -662,6 +538,13 @@ public static class ContentFixupBuilder
         {
             DisableNonGfxSpriteRenderers(root);
 
+            // The variant carries a legacy 1.25x root-scale override from
+            // its tinted-placeholder days. Stacked on the measured
+            // pixels-per-unit it made the orc ~3.6 units tall; the sprite's
+            // own import size must be the only thing deciding how big the
+            // orc is.
+            root.transform.localScale = Vector3.one;
+
             Transform gfx = FindDeepChild(root.transform, "GFX");
             if (gfx == null)
             {
@@ -669,6 +552,8 @@ public static class ContentFixupBuilder
                     "Enemy_BoneBrute has no GFX child."
                 );
             }
+
+            gfx.localScale = Vector3.one;
 
             SpriteRenderer renderer = gfx.GetComponent<SpriteRenderer>();
             renderer.sprite = LoadFrames(OrcFolder + "/Orc_Idle.png")[0];
@@ -1018,7 +903,7 @@ public static class ContentFixupBuilder
         );
 
         // 1. Remove the fullscreen "PROTOTYPE COMPLETE" overlay canvas that
-        //    hid the entire scene.
+        //    hid the entire scene (it ships inside the teammate's layout).
         GameObject prototypeOverlay = scene
             .GetRootGameObjects()
             .FirstOrDefault(root => root.name == "Prototype");
@@ -1029,90 +914,63 @@ public static class ContentFixupBuilder
             Debug.Log("[Fixup] Removed the PROTOTYPE COMPLETE overlay.");
         }
 
-        // 2. The ship tilemap cannot render without a Grid.
-        GameObject shipProp = FindSceneObject(scene, "Ship_prop");
+        // 2. Sanity-check the re-spliced Boat root. The teammate's pushed
+        //    scene lost this object in a text-level merge: his Ship_prop
+        //    tilemap, deck collider, and BoatBob all pointed at a
+        //    GameObject with no document in the file, and a tilemap
+        //    without a Grid ancestor cannot render at all. The scene in
+        //    this branch restores that root (same fileIDs, so his
+        //    references reconnect) plus a Ship_Hull sprite rebuilt from
+        //    his own deck-collider outline and the ship tileset.
+        GameObject boatRoot = scene
+            .GetRootGameObjects()
+            .FirstOrDefault(root => root.name == "Boat");
 
-        if (shipProp == null)
+        if (boatRoot == null || boatRoot.GetComponent<Grid>() == null)
         {
             throw new InvalidOperationException(
-                "Ship_prop was not found in the boat scene."
+                "The Boat root (with its Grid) is missing from the boat " +
+                "scene; the teammate's ship tilemap cannot render " +
+                "without it."
             );
         }
 
-        if (shipProp.GetComponent<Grid>() == null)
+        Tilemap propTilemap = boatRoot.GetComponentInChildren<Tilemap>(true);
+        int propTileCount = propTilemap != null
+            ? propTilemap.GetUsedTilesCount()
+            : 0;
+
+        // 3. Everything gameplay-side is positioned from the teammate's
+        //    own deck collider — the walkable ship outline he drew.
+        EdgeCollider2D deckCollider = boatRoot
+            .GetComponentsInChildren<EdgeCollider2D>(true)
+            .FirstOrDefault();
+
+        if (deckCollider == null)
         {
-            Grid grid = shipProp.AddComponent<Grid>();
-            grid.cellSize = new Vector3(1f, 1f, 0f);
-            Debug.Log("[Fixup] Added the missing Grid to Ship_prop.");
+            throw new InvalidOperationException(
+                "The deck EdgeCollider2D is missing from the boat scene."
+            );
         }
 
-        Tilemap shipTilemap = shipProp.GetComponent<Tilemap>();
-
-        // Strip every tile my earlier passes auto-filled (repeated mast
-        // segments, then repeated plank squares) so the teammate's original
-        // hand-placed prop layout is exactly what remains.
-        RemoveLegacyFillTiles(shipTilemap);
-        shipTilemap.CompressBounds();
-
-        Bounds propsBounds = shipTilemap.localBounds;
-        Vector3 deckCenter =
-            shipProp.transform.TransformPoint(propsBounds.center);
-
-        // One composited hull sprite (assembled from the ship tileset's
-        // own pre-drawn bow/stern art) drawn UNDER the props, replacing
-        // the tile-fill experiments entirely.
-        Bounds deckBounds = PlaceShipHullSprite(scene, deckCenter);
+        Bounds deckBounds = deckCollider.bounds;
 
         Debug.Log(
-            $"[Fixup] Ship hull center: {deckCenter}, " +
-            $"size: {deckBounds.size}."
+            $"[Fixup] Teammate deck bounds: center {deckBounds.center}, " +
+            $"size {deckBounds.size}; prop tiles: {propTileCount}."
         );
 
-        // 3. Move the ship survival stations onto the actual deck.
-        GameObject survivalRoot = FindSceneObject(scene, "ShipSurvival");
+        RebuildShipSurvival(scene, deckBounds);
+        EnsureIslandPortal(scene, deckBounds);
 
-        if (survivalRoot != null)
-        {
-            survivalRoot.transform.position = deckCenter;
-
-            float horizontalReach =
-                Mathf.Max(1.2f, deckBounds.extents.x * 0.55f);
-            float verticalReach =
-                Mathf.Max(0.8f, deckBounds.extents.y * 0.4f);
-
-            Transform repair =
-                survivalRoot.transform.Find("ShipRepairStation");
-            if (repair != null)
-            {
-                repair.localPosition =
-                    new Vector3(0f, -verticalReach, 0f);
-            }
-
-            Vector3[] leakOffsets =
-            {
-                new Vector3(-horizontalReach, -verticalReach * 0.5f, 0f),
-                new Vector3(horizontalReach, -verticalReach * 0.5f, 0f),
-                new Vector3(0f, verticalReach, 0f),
-            };
-
-            for (int index = 0; index < leakOffsets.Length; index++)
-            {
-                Transform leak = survivalRoot.transform.Find(
-                    $"ShipLeak_{index:D2}"
-                );
-
-                if (leak != null)
-                {
-                    leak.localPosition = leakOffsets[index];
-                }
-            }
-        }
-
-        // 4. Put player spawns on the deck when they are off the ship.
+        // 4. Player spawns stay exactly where the teammate put them unless
+        //    one sits off the ship entirely.
         GameObject spawnRoot = FindSceneObject(scene, "PlayerSpawns");
 
         if (spawnRoot != null)
         {
+            Vector3 deckCenter =
+                new Vector3(deckBounds.center.x, deckBounds.center.y, 0f);
             Bounds worldDeck = new Bounds(deckCenter, deckBounds.size);
             bool anyOutside = spawnRoot
                 .GetComponentsInChildren<Transform>(true)
@@ -1171,321 +1029,232 @@ public static class ContentFixupBuilder
         EditorSceneManager.SaveScene(scene);
     }
 
-    // Tiles that earlier automated passes wrongly blanket-filled the deck
-    // with. Only my plank-square fill is listed: tf_ship_tileB_225 (the
-    // earlier mast-segment fill) must NOT be cleaned by name, because the
-    // teammate's own layout legitimately uses that tile in 4 mast cells —
-    // a previous name-based sweep deleted those along with the fill.
-    private static readonly string[] LegacyBadFillTileNames =
-    {
-        "tf_ship_tileA5_interior_17",
-    };
-
-    private static void RemoveLegacyFillTiles(Tilemap shipTilemap)
-    {
-        BoundsInt bounds = shipTilemap.cellBounds;
-
-        int clearedCount = 0;
-
-        for (int x = bounds.xMin; x < bounds.xMax; x++)
-        {
-            for (int y = bounds.yMin; y < bounds.yMax; y++)
-            {
-                Vector3Int cell = new Vector3Int(x, y, 0);
-                TileBase tile = shipTilemap.GetTile(cell);
-
-                if (
-                    tile != null &&
-                    LegacyBadFillTileNames.Contains(tile.name)
-                )
-                {
-                    shipTilemap.SetTile(cell, null);
-                    clearedCount++;
-                }
-            }
-        }
-
-        if (clearedCount > 0)
-        {
-            Debug.Log(
-                $"[Fixup] Cleared {clearedCount} auto-filled deck cells; " +
-                "the teammate's original prop layout remains."
-            );
-        }
-    }
-
     // ------------------------------------------------------------------
-    // Ship hull composite
+    // Ship survival rig (positioned on the teammate's deck)
     // ------------------------------------------------------------------
 
-    private const string ShipNorthSheetPath =
-        "Assets/DeadmansTales/Art_Pixel/2DShip/tileset/" +
-        "tf_ship_tileA5_north.png";
-
-    private const string ShipHullCompositePath =
-        "Assets/DeadmansTales/Art_Pixel/Props/ship_hull_composite.png";
-
-    private const int ShipHullPixelsPerUnit = 16;
+    private const string FoodSheetPath =
+        "Assets/DeadmansTales/Art_Pixel/Props/island_food_items.png";
 
     /// <summary>
-    /// Builds a single left-facing top-down ship hull image from the ship
-    /// tileset's own pre-drawn bow-up ship (tf_ship_tileA5_north rows
-    /// 0-12), erasing the sheet's baked-in mast (the scene props tilemap
-    /// already has masts), rotating 90° counter-clockwise so the bow faces
-    /// left like the design reference, and filling interior deck holes by
-    /// tiling one of the hull's own drawn deck cells so the fill matches
-    /// perfectly.
+    /// Destroys and recreates the ShipSurvival rig (hull health + leak
+    /// director, repair station, three leaks) with every position derived
+    /// from the teammate's deck collider bounds, so the stations sit on
+    /// his ship no matter how he reshapes it. Offsets are relative to the
+    /// deck center: the repair station on the open foredeck, leaks along
+    /// the lower (waterline) rail.
     /// </summary>
-    private static void BuildShipHullComposite()
+    private static void RebuildShipSurvival(Scene scene, Bounds deckBounds)
     {
-        const int cell = 32;
-        const int sheetColumns = 8;
-        const int shipRows = 13;
-
-        byte[] bytes = File.ReadAllBytes(
-            Path.Combine(
-                Directory.GetCurrentDirectory(),
-                ShipNorthSheetPath.Replace(
-                    '/',
-                    Path.DirectorySeparatorChar
-                )
-            )
-        );
-
-        Texture2D sheet = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        Texture2D rotated = null;
-
-        try
-        {
-            sheet.LoadImage(bytes);
-
-            int sourceWidth = sheetColumns * cell;
-            int sourceHeight = shipRows * cell;
-
-            // Top-down pixel grid of the ship region (row 0 = image top).
-            Color32[] sheetPixels = sheet.GetPixels32();
-            Color32[,] ship = new Color32[sourceHeight, sourceWidth];
-
-            for (int y = 0; y < sourceHeight; y++)
-            {
-                // Texture rows are bottom-up; the ship starts at the top.
-                int textureY = sheet.height - 1 - y;
-
-                for (int x = 0; x < sourceWidth; x++)
-                {
-                    ship[y, x] = sheetPixels[textureY * sheet.width + x];
-                }
-            }
-
-            // Erase the sheet's baked-in mast (columns 3-4, rows 3-6).
-            Color32 clear = new Color32(0, 0, 0, 0);
-            for (int row = 3; row <= 6; row++)
-            {
-                for (int column = 3; column <= 4; column++)
-                {
-                    for (int y = 0; y < cell; y++)
-                    {
-                        for (int x = 0; x < cell; x++)
-                        {
-                            ship[row * cell + y, column * cell + x] = clear;
-                        }
-                    }
-                }
-            }
-
-            // Rotate 90° counter-clockwise: bow (image top) ends up LEFT.
-            int rotatedWidth = sourceHeight;
-            int rotatedHeight = sourceWidth;
-            Color32[,] hull = new Color32[rotatedHeight, rotatedWidth];
-
-            for (int y = 0; y < sourceHeight; y++)
-            {
-                for (int x = 0; x < sourceWidth; x++)
-                {
-                    hull[rotatedHeight - 1 - x, y] = ship[y, x];
-                }
-            }
-
-            int hullColumns = rotatedWidth / cell;
-            int hullRows = rotatedHeight / cell;
-
-            // Classify 32px cells as drawn or empty.
-            bool[,] drawn = new bool[hullRows, hullColumns];
-            for (int row = 0; row < hullRows; row++)
-            {
-                for (int column = 0; column < hullColumns; column++)
-                {
-                    int opaque = 0;
-                    for (int y = 0; y < cell; y += 4)
-                    {
-                        for (int x = 0; x < cell; x += 4)
-                        {
-                            if (hull[row * cell + y, column * cell + x].a >
-                                10)
-                            {
-                                opaque++;
-                            }
-                        }
-                    }
-
-                    drawn[row, column] = opaque >= 60;
-                }
-            }
-
-            // Fill source: one of the hull's own fully drawn deck cells
-            // (right of the erased mast area on the deck's middle row).
-            const int fillSourceColumn = 7;
-            const int fillSourceRow = 2;
-
-            int filled = 0;
-            for (int row = 0; row < hullRows; row++)
-            {
-                for (int column = 0; column < hullColumns; column++)
-                {
-                    if (drawn[row, column])
-                    {
-                        continue;
-                    }
-
-                    bool drawnLeft = false;
-                    bool drawnRight = false;
-
-                    for (int k = 0; k < column; k++)
-                    {
-                        drawnLeft |= drawn[row, k];
-                    }
-
-                    for (int k = column + 1; k < hullColumns; k++)
-                    {
-                        drawnRight |= drawn[row, k];
-                    }
-
-                    if (!drawnLeft || !drawnRight)
-                    {
-                        continue;
-                    }
-
-                    for (int y = 0; y < cell; y++)
-                    {
-                        for (int x = 0; x < cell; x++)
-                        {
-                            int py = row * cell + y;
-                            int px = column * cell + x;
-
-                            if (hull[py, px].a <= 10)
-                            {
-                                hull[py, px] = hull[
-                                    fillSourceRow * cell + y,
-                                    fillSourceColumn * cell + x
-                                ];
-                            }
-                        }
-                    }
-
-                    filled++;
-                }
-            }
-
-            // Write out (convert top-down grid back to bottom-up texture).
-            rotated = new Texture2D(
-                rotatedWidth,
-                rotatedHeight,
-                TextureFormat.RGBA32,
-                false
-            );
-
-            Color32[] output = new Color32[rotatedWidth * rotatedHeight];
-            for (int y = 0; y < rotatedHeight; y++)
-            {
-                for (int x = 0; x < rotatedWidth; x++)
-                {
-                    output[(rotatedHeight - 1 - y) * rotatedWidth + x] =
-                        hull[y, x];
-                }
-            }
-
-            rotated.SetPixels32(output);
-            rotated.Apply();
-
-            File.WriteAllBytes(
-                Path.Combine(
-                    Directory.GetCurrentDirectory(),
-                    ShipHullCompositePath.Replace(
-                        '/',
-                        Path.DirectorySeparatorChar
-                    )
-                ),
-                rotated.EncodeToPNG()
-            );
-
-            Debug.Log(
-                $"[Fixup] Composited ship hull ({filled} deck cells " +
-                "filled from the hull's own art)."
-            );
-        }
-        finally
-        {
-            UnityEngine.Object.DestroyImmediate(sheet);
-            if (rotated != null)
-            {
-                UnityEngine.Object.DestroyImmediate(rotated);
-            }
-        }
-
-        AssetDatabase.ImportAsset(ShipHullCompositePath);
-
-        TextureImporter importer = (TextureImporter)AssetImporter.GetAtPath(
-            ShipHullCompositePath
-        );
-        importer.textureType = TextureImporterType.Sprite;
-        importer.spriteImportMode = SpriteImportMode.Single;
-        importer.spritePixelsPerUnit = ShipHullPixelsPerUnit;
-        importer.filterMode = FilterMode.Point;
-        importer.textureCompression = TextureImporterCompression.Uncompressed;
-        importer.mipmapEnabled = false;
-        importer.SaveAndReimport();
-    }
-
-    /// <summary>
-    /// Places (or refreshes) the composited hull sprite under the props
-    /// tilemap and returns its world bounds for deck-relative placement.
-    /// </summary>
-    private static Bounds PlaceShipHullSprite(
-        Scene scene,
-        Vector3 deckCenter
-    )
-    {
-        BuildShipHullComposite();
-
-        Sprite hullSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
-            ShipHullCompositePath
-        );
-
-        if (hullSprite == null)
-        {
-            throw new InvalidOperationException(
-                "The composited ship hull sprite failed to import."
-            );
-        }
-
-        GameObject existing = FindSceneObject(scene, "Ship_HullSprite");
+        GameObject existing = FindSceneObject(scene, "ShipSurvival");
         if (existing != null)
         {
             UnityEngine.Object.DestroyImmediate(existing);
         }
 
-        GameObject hullObject = new GameObject("Ship_HullSprite");
-        hullObject.transform.position = deckCenter;
+        GameObject survivalRoot = new GameObject("ShipSurvival");
+        survivalRoot.transform.position = new Vector3(
+            deckBounds.center.x,
+            deckBounds.center.y,
+            0f
+        );
 
-        SpriteRenderer renderer =
-            hullObject.AddComponent<SpriteRenderer>();
-        renderer.sprite = hullSprite;
+        // Shared hull health + leak pacing. One in-scene NetworkObject.
+        GameObject shipCore = new GameObject("ShipCore");
+        shipCore.transform.SetParent(survivalRoot.transform, false);
+        shipCore.AddComponent<NetworkObject>();
+        NetworkShipHealth shipHealth =
+            shipCore.AddComponent<NetworkShipHealth>();
+        SetSerializedFloat(shipHealth, "maximumHealth", 500f);
+        ShipLeakDirector director =
+            shipCore.AddComponent<ShipLeakDirector>();
 
-        // The props tilemap renders at sorting order 3; the hull must sit
-        // just underneath it (and above the scrolling water).
-        renderer.sortingOrder = 2;
+        // Open deck between the two masts, clear of the aft mast footing.
+        GameObject repairStation = new GameObject("ShipRepairStation");
+        repairStation.transform.SetParent(survivalRoot.transform, false);
+        repairStation.transform.localPosition =
+            new Vector3(1.2f, -0.6f, 0f);
+        repairStation.AddComponent<NetworkObject>();
 
-        return renderer.bounds;
+        BoxCollider2D repairCollider =
+            repairStation.AddComponent<BoxCollider2D>();
+        repairCollider.isTrigger = true;
+        repairCollider.size = new Vector2(1.1f, 1.1f);
+
+        NetworkShipRepairStation repair =
+            repairStation.AddComponent<NetworkShipRepairStation>();
+        SetSerializedFloat(repair, "repairPerUse", 40f);
+        SetSerializedObject(repair, "shipHealth", shipHealth);
+
+        GameObject repairVisual = new GameObject("Visual");
+        repairVisual.transform.SetParent(repairStation.transform, false);
+        SpriteRenderer repairRenderer =
+            repairVisual.AddComponent<SpriteRenderer>();
+        repairRenderer.sprite = LoadFoodSheetSprite(2);
+        repairRenderer.sortingOrder = 15;
+
+        // Leaks hug the lower rail (the waterline side of the deck).
+        Vector3[] leakOffsets =
+        {
+            new Vector3(-8.25f, -1.55f, 0f),
+            new Vector3(-2.25f, -2.05f, 0f),
+            new Vector3(7.25f, -1.35f, 0f),
+        };
+
+        List<NetworkShipLeak> leaks = new List<NetworkShipLeak>();
+
+        for (int index = 0; index < leakOffsets.Length; index++)
+        {
+            GameObject leakObject = new GameObject($"ShipLeak_{index:D2}");
+            leakObject.transform.SetParent(survivalRoot.transform, false);
+            leakObject.transform.localPosition = leakOffsets[index];
+            leakObject.AddComponent<NetworkObject>();
+
+            CircleCollider2D leakCollider =
+                leakObject.AddComponent<CircleCollider2D>();
+            leakCollider.isTrigger = true;
+            leakCollider.radius = 0.55f;
+
+            NetworkShipLeak leak =
+                leakObject.AddComponent<NetworkShipLeak>();
+            SetSerializedFloat(leak, "damagePerSecond", 4f);
+            SetSerializedObject(leak, "shipHealth", shipHealth);
+
+            GameObject leakVisual = new GameObject("LeakVisual");
+            leakVisual.transform.SetParent(leakObject.transform, false);
+            SpriteRenderer leakRenderer =
+                leakVisual.AddComponent<SpriteRenderer>();
+            leakRenderer.sprite = LoadFoodSheetSprite(3);
+            leakRenderer.sortingOrder = 16;
+            leakVisual.SetActive(false);
+
+            SetSerializedObject(leak, "leakVisual", leakVisual);
+            leaks.Add(leak);
+        }
+
+        SerializedObject directorObject = new SerializedObject(director);
+        SerializedProperty leaksProperty =
+            directorObject.FindProperty("leaks");
+        leaksProperty.arraySize = leaks.Count;
+        for (int index = 0; index < leaks.Count; index++)
+        {
+            leaksProperty.GetArrayElementAtIndex(index).objectReferenceValue =
+                leaks[index];
+        }
+
+        directorObject.FindProperty("shipHealth").objectReferenceValue =
+            shipHealth;
+        directorObject.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    // The raft sprite the old boat scene used for its portal visual.
+    private const string PortalSpriteGuid =
+        "65acbb6745c81164c9def1bac0337509";
+    private const long PortalSpriteFileId = 570913329L;
+
+    /// <summary>
+    /// The teammate's scene has no stage exit; without exactly one
+    /// NetworkStagePortal the boat-to-island loop (and its architecture
+    /// test) breaks. Creates or repositions the portal at the bow.
+    /// </summary>
+    private static void EnsureIslandPortal(Scene scene, Bounds deckBounds)
+    {
+        NetworkStagePortal existing = scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<NetworkStagePortal>(true))
+            .FirstOrDefault();
+
+        GameObject portal;
+
+        if (existing != null)
+        {
+            portal = existing.gameObject;
+        }
+        else
+        {
+            portal = new GameObject("PostOceanIslandPortal");
+            portal.AddComponent<NetworkObject>();
+
+            BoxCollider2D trigger = portal.AddComponent<BoxCollider2D>();
+            trigger.isTrigger = true;
+            trigger.size = new Vector2(3f, 2f);
+
+            NetworkStagePortal stagePortal =
+                portal.AddComponent<NetworkStagePortal>();
+            SetSerializedString(
+                stagePortal,
+                "destinationSceneName",
+                "Island_After_Ocean_01_2D"
+            );
+            SetSerializedBool(stagePortal, "advanceStage", true);
+            SetSerializedBool(
+                stagePortal,
+                "allowRepeatedInteraction",
+                false
+            );
+            SetSerializedFloat(stagePortal, "additionalServerRange", 0.25f);
+
+            SpriteRenderer renderer = portal.AddComponent<SpriteRenderer>();
+            renderer.sprite = LoadPortalSprite();
+            renderer.sortingOrder = 20;
+
+            Debug.Log("[Fixup] Re-added the island stage portal.");
+        }
+
+        // Open bow-side deck: right of the aft mast and repair station,
+        // short of the crate his layout parks at the bow rail.
+        portal.transform.position = new Vector3(
+            deckBounds.max.x - 5.3f,
+            deckBounds.center.y + 0.2f,
+            0f
+        );
+    }
+
+    private static Sprite LoadPortalSprite()
+    {
+        string path = AssetDatabase.GUIDToAssetPath(PortalSpriteGuid);
+        if (string.IsNullOrEmpty(path))
+        {
+            return null;
+        }
+
+        Sprite[] sprites = AssetDatabase
+            .LoadAllAssetRepresentationsAtPath(path)
+            .OfType<Sprite>()
+            .ToArray();
+
+        foreach (Sprite sprite in sprites)
+        {
+            if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
+                    sprite,
+                    out _,
+                    out long localId
+                ) && localId == PortalSpriteFileId)
+            {
+                return sprite;
+            }
+        }
+
+        return sprites.FirstOrDefault();
+    }
+
+    private static Sprite LoadFoodSheetSprite(int index)
+    {
+        Sprite sprite = AssetDatabase
+            .LoadAllAssetRepresentationsAtPath(FoodSheetPath)
+            .OfType<Sprite>()
+            .FirstOrDefault(candidate =>
+                candidate.name.EndsWith($"_{index}"));
+
+        if (sprite == null)
+        {
+            throw new InvalidOperationException(
+                $"Food sheet frame {index} did not import."
+            );
+        }
+
+        return sprite;
     }
 
     private static void BuildHudCanvas()

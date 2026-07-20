@@ -667,14 +667,39 @@ public static class EnemyAndChestArtBuilder
         bool activeByDefault
     )
     {
-        Transform existing = root.transform.Find(visualName);
-        if (existing != null)
+        // Update ONE stable child in place instead of destroy-and-recreate.
+        // Weapon/Upgrade are prefab VARIANTS of the reward chest: every
+        // recreate gave the base child a new fileID, which orphaned the
+        // variants' recorded removals, and each rerun stacked another added
+        // visual on the variants — chests rendered two or three sprites on
+        // top of each other. Keeping the first match (the base-inherited
+        // child on variants) and pruning the rest converts the variants to
+        // plain sprite overrides and stays stable across reruns.
+        Transform kept = null;
+        foreach (Transform child in root.transform
+            .Cast<Transform>()
+            .Where(child => child.name == visualName)
+            .ToArray())
         {
-            UnityEngine.Object.DestroyImmediate(existing.gameObject);
+            if (kept == null)
+            {
+                kept = child;
+                continue;
+            }
+
+            UnityEngine.Object.DestroyImmediate(child.gameObject);
         }
 
-        GameObject visual = new GameObject(visualName);
-        visual.transform.SetParent(root.transform, false);
+        GameObject visual;
+        if (kept != null)
+        {
+            visual = kept.gameObject;
+        }
+        else
+        {
+            visual = new GameObject(visualName);
+            visual.transform.SetParent(root.transform, false);
+        }
 
         // Apparent size is controlled entirely by the sprite's own
         // pixels-per-unit (auto-fit in ContentFixupBuilder); stacking an
@@ -684,7 +709,13 @@ public static class EnemyAndChestArtBuilder
         visual.transform.localPosition = Vector3.zero;
         visual.SetActive(activeByDefault);
 
-        SpriteRenderer renderer = visual.AddComponent<SpriteRenderer>();
+        SpriteRenderer renderer = visual.GetComponent<SpriteRenderer>();
+        if (renderer == null)
+        {
+            renderer = visual.AddComponent<SpriteRenderer>();
+        }
+
+        renderer.enabled = true;
         renderer.sprite = sprite;
         renderer.color = tint;
         renderer.sortingOrder = 15;
