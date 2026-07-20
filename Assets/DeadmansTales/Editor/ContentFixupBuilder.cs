@@ -120,7 +120,7 @@ public static class ContentFixupBuilder
         ConfigureGridSheet(
             CrabSheetPath,
             CrabFrameSize,
-            ComputeAutoPixelsPerUnit(
+            ComputeSpriteFit(
                 CrabSheetPath,
                 CrabFrameSize,
                 CrabTargetWorldHeight
@@ -129,7 +129,7 @@ public static class ContentFixupBuilder
         ConfigureGridSheet(
             ChestSheetPath,
             ChestFrameSize,
-            ComputeAutoPixelsPerUnit(
+            ComputeSpriteFit(
                 ChestSheetPath,
                 ChestFrameSize,
                 ChestTargetWorldHeight
@@ -218,7 +218,7 @@ public static class ContentFixupBuilder
             sheets.FirstOrDefault(path => path.Contains("Idle")) ??
             sheets[0];
 
-        int pixelsPerUnit = ComputeAutoPixelsPerUnit(
+        SpriteFit fit = ComputeSpriteFit(
             referenceSheet,
             frameSize,
             targetWorldHeight
@@ -226,7 +226,7 @@ public static class ContentFixupBuilder
 
         foreach (string sheet in sheets)
         {
-            ConfigureGridSheet(sheet, frameSize, pixelsPerUnit);
+            ConfigureGridSheet(sheet, frameSize, fit);
         }
     }
 
@@ -236,7 +236,28 @@ public static class ContentFixupBuilder
     /// import settings) and returns the pixels-per-unit that makes that
     /// drawn height equal <paramref name="targetWorldHeight"/> world units.
     /// </summary>
-    private static int ComputeAutoPixelsPerUnit(
+    private readonly struct SpriteFit
+    {
+        public SpriteFit(int pixelsPerUnit, Vector2 pivot)
+        {
+            PixelsPerUnit = pixelsPerUnit;
+            Pivot = pivot;
+        }
+
+        public int PixelsPerUnit { get; }
+
+        /// <summary>
+        /// Normalized custom pivot at the drawn art's feet — NOT the frame
+        /// canvas bottom. These packs pad the character inside a much
+        /// larger canvas, so a canvas-bottom pivot floats the visible body
+        /// several units above the transform (health bar, collider, and
+        /// attacks all live at the transform origin). Matching the original
+        /// placeholder's feet-at-origin convention keeps everything aligned.
+        /// </summary>
+        public Vector2 Pivot { get; }
+    }
+
+    private static SpriteFit ComputeSpriteFit(
         string assetPath,
         int frameSize,
         float targetWorldHeight
@@ -259,6 +280,8 @@ public static class ContentFixupBuilder
             int yStart = Mathf.Max(0, probe.height - frameSize);
             Color32[] pixels = probe.GetPixels32();
 
+            // Within the frame band, y counts up from the frame's bottom,
+            // so minY is the drawn art's lowest (feet) row.
             int minY = frameSize;
             int maxY = -1;
 
@@ -290,10 +313,16 @@ public static class ContentFixupBuilder
             int trimmedHeight = maxY >= minY
                 ? maxY - minY + 1
                 : frameSize;
+            float pivotY = maxY >= minY
+                ? minY / (float)frameSize
+                : 0f;
 
-            return Mathf.Max(
-                1,
-                Mathf.RoundToInt(trimmedHeight / targetWorldHeight)
+            return new SpriteFit(
+                Mathf.Max(
+                    1,
+                    Mathf.RoundToInt(trimmedHeight / targetWorldHeight)
+                ),
+                new Vector2(0.5f, pivotY)
             );
         }
         finally
@@ -1018,17 +1047,24 @@ public static class ContentFixupBuilder
         }
 
         Tilemap shipTilemap = shipProp.GetComponent<Tilemap>();
+
+        // Strip every tile my earlier passes auto-filled (repeated mast
+        // segments, then repeated plank squares) so the teammate's original
+        // hand-placed prop layout is exactly what remains.
+        RemoveLegacyFillTiles(shipTilemap);
         shipTilemap.CompressBounds();
 
-        FillShipDeckGaps(shipTilemap);
-        shipTilemap.CompressBounds();
-
-        Bounds deckBounds = shipTilemap.localBounds;
+        Bounds propsBounds = shipTilemap.localBounds;
         Vector3 deckCenter =
-            shipProp.transform.TransformPoint(deckBounds.center);
+            shipProp.transform.TransformPoint(propsBounds.center);
+
+        // One composited hull sprite (assembled from the ship tileset's
+        // own pre-drawn bow/stern art) drawn UNDER the props, replacing
+        // the tile-fill experiments entirely.
+        Bounds deckBounds = PlaceShipHullSprite(scene, deckCenter);
 
         Debug.Log(
-            $"[Fixup] Ship deck center: {deckCenter}, " +
+            $"[Fixup] Ship hull center: {deckCenter}, " +
             $"size: {deckBounds.size}."
         );
 
@@ -1135,30 +1171,17 @@ public static class ContentFixupBuilder
         EditorSceneManager.SaveScene(scene);
     }
 
-    private const string ShipDeckFloorTilePath =
-        "Assets/DeadmansTales/Art_Pixel/2DShip/tileset/" +
-        "tf_ship_tileA5_interior_17.asset";
-
-    // The most-used-tile heuristic previously here picked a vertical mast
-    // segment from the props sheet (tf_ship_tileB), which blanketed the
-    // deck in repeated wooden poles instead of flooring. This is a single,
-    // visually-verified flat plank tile from the ship's own interior sheet
-    // instead.
+    // Tiles that earlier automated passes wrongly blanket-filled the deck
+    // with. Only my plank-square fill is listed: tf_ship_tileB_225 (the
+    // earlier mast-segment fill) must NOT be cleaned by name, because the
+    // teammate's own layout legitimately uses that tile in 4 mast cells —
+    // a previous name-based sweep deleted those along with the fill.
     private static readonly string[] LegacyBadFillTileNames =
     {
-        "tf_ship_tileB_225",
+        "tf_ship_tileA5_interior_17",
     };
 
-    /// <summary>
-    /// The teammate's ship layout only paints masts, sails, and a handful
-    /// of props, leaving most of the deck's cells empty (open water shows
-    /// through), so the "ship" reads as scattered debris instead of a hull.
-    /// Fills every empty cell within the painted area's bounds with a
-    /// single verified flat plank floor tile so the deck reads as one
-    /// continuous surface. Also removes any cells a previous run filled
-    /// with the wrong (mast-segment) tile.
-    /// </summary>
-    private static void FillShipDeckGaps(Tilemap shipTilemap)
+    private static void RemoveLegacyFillTiles(Tilemap shipTilemap)
     {
         BoundsInt bounds = shipTilemap.cellBounds;
 
@@ -1185,46 +1208,284 @@ public static class ContentFixupBuilder
         if (clearedCount > 0)
         {
             Debug.Log(
-                $"[Fixup] Cleared {clearedCount} deck cells that a " +
-                "previous run filled with the wrong tile."
+                $"[Fixup] Cleared {clearedCount} auto-filled deck cells; " +
+                "the teammate's original prop layout remains."
             );
         }
+    }
 
-        TileBase floorTile = AssetDatabase.LoadAssetAtPath<TileBase>(
-            ShipDeckFloorTilePath
+    // ------------------------------------------------------------------
+    // Ship hull composite
+    // ------------------------------------------------------------------
+
+    private const string ShipNorthSheetPath =
+        "Assets/DeadmansTales/Art_Pixel/2DShip/tileset/" +
+        "tf_ship_tileA5_north.png";
+
+    private const string ShipHullCompositePath =
+        "Assets/DeadmansTales/Art_Pixel/Props/ship_hull_composite.png";
+
+    private const int ShipHullPixelsPerUnit = 16;
+
+    /// <summary>
+    /// Builds a single left-facing top-down ship hull image from the ship
+    /// tileset's own pre-drawn bow-up ship (tf_ship_tileA5_north rows
+    /// 0-12), erasing the sheet's baked-in mast (the scene props tilemap
+    /// already has masts), rotating 90° counter-clockwise so the bow faces
+    /// left like the design reference, and filling interior deck holes by
+    /// tiling one of the hull's own drawn deck cells so the fill matches
+    /// perfectly.
+    /// </summary>
+    private static void BuildShipHullComposite()
+    {
+        const int cell = 32;
+        const int sheetColumns = 8;
+        const int shipRows = 13;
+
+        byte[] bytes = File.ReadAllBytes(
+            Path.Combine(
+                Directory.GetCurrentDirectory(),
+                ShipNorthSheetPath.Replace(
+                    '/',
+                    Path.DirectorySeparatorChar
+                )
+            )
         );
 
-        if (floorTile == null)
-        {
-            Debug.LogWarning(
-                "[Fixup] Deck floor tile is missing at " +
-                $"{ShipDeckFloorTilePath}; leaving deck gaps as-is."
-            );
-            return;
-        }
+        Texture2D sheet = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        Texture2D rotated = null;
 
-        int filledCount = 0;
-
-        for (int x = bounds.xMin; x < bounds.xMax; x++)
+        try
         {
-            for (int y = bounds.yMin; y < bounds.yMax; y++)
+            sheet.LoadImage(bytes);
+
+            int sourceWidth = sheetColumns * cell;
+            int sourceHeight = shipRows * cell;
+
+            // Top-down pixel grid of the ship region (row 0 = image top).
+            Color32[] sheetPixels = sheet.GetPixels32();
+            Color32[,] ship = new Color32[sourceHeight, sourceWidth];
+
+            for (int y = 0; y < sourceHeight; y++)
             {
-                Vector3Int cell = new Vector3Int(x, y, 0);
+                // Texture rows are bottom-up; the ship starts at the top.
+                int textureY = sheet.height - 1 - y;
 
-                if (shipTilemap.GetTile(cell) != null)
+                for (int x = 0; x < sourceWidth; x++)
                 {
-                    continue;
+                    ship[y, x] = sheetPixels[textureY * sheet.width + x];
                 }
+            }
 
-                shipTilemap.SetTile(cell, floorTile);
-                filledCount++;
+            // Erase the sheet's baked-in mast (columns 3-4, rows 3-6).
+            Color32 clear = new Color32(0, 0, 0, 0);
+            for (int row = 3; row <= 6; row++)
+            {
+                for (int column = 3; column <= 4; column++)
+                {
+                    for (int y = 0; y < cell; y++)
+                    {
+                        for (int x = 0; x < cell; x++)
+                        {
+                            ship[row * cell + y, column * cell + x] = clear;
+                        }
+                    }
+                }
+            }
+
+            // Rotate 90° counter-clockwise: bow (image top) ends up LEFT.
+            int rotatedWidth = sourceHeight;
+            int rotatedHeight = sourceWidth;
+            Color32[,] hull = new Color32[rotatedHeight, rotatedWidth];
+
+            for (int y = 0; y < sourceHeight; y++)
+            {
+                for (int x = 0; x < sourceWidth; x++)
+                {
+                    hull[rotatedHeight - 1 - x, y] = ship[y, x];
+                }
+            }
+
+            int hullColumns = rotatedWidth / cell;
+            int hullRows = rotatedHeight / cell;
+
+            // Classify 32px cells as drawn or empty.
+            bool[,] drawn = new bool[hullRows, hullColumns];
+            for (int row = 0; row < hullRows; row++)
+            {
+                for (int column = 0; column < hullColumns; column++)
+                {
+                    int opaque = 0;
+                    for (int y = 0; y < cell; y += 4)
+                    {
+                        for (int x = 0; x < cell; x += 4)
+                        {
+                            if (hull[row * cell + y, column * cell + x].a >
+                                10)
+                            {
+                                opaque++;
+                            }
+                        }
+                    }
+
+                    drawn[row, column] = opaque >= 60;
+                }
+            }
+
+            // Fill source: one of the hull's own fully drawn deck cells
+            // (right of the erased mast area on the deck's middle row).
+            const int fillSourceColumn = 7;
+            const int fillSourceRow = 2;
+
+            int filled = 0;
+            for (int row = 0; row < hullRows; row++)
+            {
+                for (int column = 0; column < hullColumns; column++)
+                {
+                    if (drawn[row, column])
+                    {
+                        continue;
+                    }
+
+                    bool drawnLeft = false;
+                    bool drawnRight = false;
+
+                    for (int k = 0; k < column; k++)
+                    {
+                        drawnLeft |= drawn[row, k];
+                    }
+
+                    for (int k = column + 1; k < hullColumns; k++)
+                    {
+                        drawnRight |= drawn[row, k];
+                    }
+
+                    if (!drawnLeft || !drawnRight)
+                    {
+                        continue;
+                    }
+
+                    for (int y = 0; y < cell; y++)
+                    {
+                        for (int x = 0; x < cell; x++)
+                        {
+                            int py = row * cell + y;
+                            int px = column * cell + x;
+
+                            if (hull[py, px].a <= 10)
+                            {
+                                hull[py, px] = hull[
+                                    fillSourceRow * cell + y,
+                                    fillSourceColumn * cell + x
+                                ];
+                            }
+                        }
+                    }
+
+                    filled++;
+                }
+            }
+
+            // Write out (convert top-down grid back to bottom-up texture).
+            rotated = new Texture2D(
+                rotatedWidth,
+                rotatedHeight,
+                TextureFormat.RGBA32,
+                false
+            );
+
+            Color32[] output = new Color32[rotatedWidth * rotatedHeight];
+            for (int y = 0; y < rotatedHeight; y++)
+            {
+                for (int x = 0; x < rotatedWidth; x++)
+                {
+                    output[(rotatedHeight - 1 - y) * rotatedWidth + x] =
+                        hull[y, x];
+                }
+            }
+
+            rotated.SetPixels32(output);
+            rotated.Apply();
+
+            File.WriteAllBytes(
+                Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    ShipHullCompositePath.Replace(
+                        '/',
+                        Path.DirectorySeparatorChar
+                    )
+                ),
+                rotated.EncodeToPNG()
+            );
+
+            Debug.Log(
+                $"[Fixup] Composited ship hull ({filled} deck cells " +
+                "filled from the hull's own art)."
+            );
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(sheet);
+            if (rotated != null)
+            {
+                UnityEngine.Object.DestroyImmediate(rotated);
             }
         }
 
-        Debug.Log(
-            $"[Fixup] Filled {filledCount} empty deck cells with " +
-            $"'{floorTile.name}' so the hull reads as one solid surface."
+        AssetDatabase.ImportAsset(ShipHullCompositePath);
+
+        TextureImporter importer = (TextureImporter)AssetImporter.GetAtPath(
+            ShipHullCompositePath
         );
+        importer.textureType = TextureImporterType.Sprite;
+        importer.spriteImportMode = SpriteImportMode.Single;
+        importer.spritePixelsPerUnit = ShipHullPixelsPerUnit;
+        importer.filterMode = FilterMode.Point;
+        importer.textureCompression = TextureImporterCompression.Uncompressed;
+        importer.mipmapEnabled = false;
+        importer.SaveAndReimport();
+    }
+
+    /// <summary>
+    /// Places (or refreshes) the composited hull sprite under the props
+    /// tilemap and returns its world bounds for deck-relative placement.
+    /// </summary>
+    private static Bounds PlaceShipHullSprite(
+        Scene scene,
+        Vector3 deckCenter
+    )
+    {
+        BuildShipHullComposite();
+
+        Sprite hullSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+            ShipHullCompositePath
+        );
+
+        if (hullSprite == null)
+        {
+            throw new InvalidOperationException(
+                "The composited ship hull sprite failed to import."
+            );
+        }
+
+        GameObject existing = FindSceneObject(scene, "Ship_HullSprite");
+        if (existing != null)
+        {
+            UnityEngine.Object.DestroyImmediate(existing);
+        }
+
+        GameObject hullObject = new GameObject("Ship_HullSprite");
+        hullObject.transform.position = deckCenter;
+
+        SpriteRenderer renderer =
+            hullObject.AddComponent<SpriteRenderer>();
+        renderer.sprite = hullSprite;
+
+        // The props tilemap renders at sorting order 3; the hull must sit
+        // just underneath it (and above the scrolling water).
+        renderer.sortingOrder = 2;
+
+        return renderer.bounds;
     }
 
     private static void BuildHudCanvas()
@@ -1334,7 +1595,7 @@ public static class ContentFixupBuilder
     private static void ConfigureGridSheet(
         string assetPath,
         int frameSize,
-        int pixelsPerUnit
+        SpriteFit fit
     )
     {
         TextureImporter importer =
@@ -1349,7 +1610,7 @@ public static class ContentFixupBuilder
 
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Multiple;
-        importer.spritePixelsPerUnit = pixelsPerUnit;
+        importer.spritePixelsPerUnit = fit.PixelsPerUnit;
         importer.filterMode = FilterMode.Point;
         importer.textureCompression = TextureImporterCompression.Uncompressed;
         importer.mipmapEnabled = false;
@@ -1392,11 +1653,13 @@ public static class ContentFixupBuilder
                             frameSize,
                             frameSize
                         ),
-                        // Bottom-anchored so every animation frame shares a
-                        // fixed ground-contact point instead of visibly
-                        // bobbing between poses of different drawn height.
-                        alignment = SpriteAlignment.BottomCenter,
-                        pivot = new Vector2(0.5f, 0f),
+                        // Custom pivot at the measured feet of the drawn
+                        // art (see SpriteFit.Pivot): keeps every animation
+                        // frame on one fixed ground line AND keeps the
+                        // visible body aligned with the transform origin
+                        // where colliders, health bars, and attacks live.
+                        alignment = SpriteAlignment.Custom,
+                        pivot = fit.Pivot,
                     }
                 );
                 nameFileIdPairs.Add(
