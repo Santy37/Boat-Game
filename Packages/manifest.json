@@ -15,6 +15,7 @@
     "com.unity.multiplayer.tools": "2.2.9",
     "com.unity.netcode.gameobjects": "2.13.0",
     "com.unity.postprocessing": "3.5.4",
+    "com.unity.probuilder": "6.1.2",
     "com.unity.render-pipelines.universal": "17.3.0",
     "com.unity.services.multiplayer": "2.2.3",
     "com.unity.test-framework": "1.6.0",
