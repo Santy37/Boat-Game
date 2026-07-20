@@ -40,6 +40,13 @@ namespace DeadmansTales.Networking
             Mathf.Max(0f, additionalServerRange);
 
         /// <summary>
+        /// Local prompt shown when the owning player is close enough to use
+        /// this object. Concrete interactables may include synchronized state.
+        /// </summary>
+        public virtual string InteractionPrompt =>
+            "Press E to Interact";
+
+        /// <summary>
         /// Point used by the server for distance validation.
         /// Override this when the object's useful interaction point is not its
         /// transform position.
@@ -81,12 +88,17 @@ namespace DeadmansTales.Networking
                 return false;
             }
 
-            PerformInteractionServer(interactor);
-
+            // One-shot interactions must disable themselves before invoking
+            // their concrete behavior. A stage portal can synchronously start
+            // a Single scene load, which despawns the portal before that
+            // callback returns. Never touch a one-shot NetworkVariable after
+            // the callback has had a chance to despawn this NetworkObject.
             if (!allowRepeatedInteraction)
             {
                 InteractionEnabled.Value = false;
             }
+
+            PerformInteractionServer(interactor);
 
             return true;
         }

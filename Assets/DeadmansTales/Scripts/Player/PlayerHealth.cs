@@ -1,109 +1,273 @@
 using System.Collections;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* PlayerHealth
-Gives the player the same health / damage / death behaviour the Enemy has,
-so a player can be hurt the same way it hurts enemies. Mirrors Enemy.cs:
-a health value, a fading health-bar slider, TakeDamage(), and a Die() that
-fires the "Die" animator trigger.
-Difference from Enemy: a player is a network object, so instead of
-Destroy(), death disables the player's control scripts (movement + attack)
-and stops the Rigidbody2D. Revive() restores control when you add respawns. */
-
-public class PlayerHealth : MonoBehaviour
+/// <summary>
+/// Server-authoritative health for a network player.
+///
+/// Only the server changes CurrentHealth. Every client renders the synchronized
+/// value and applies the same alive/dead presentation. This prevents one client
+/// from dying while the host and other clients still see that player alive.
+/// </summary>
+[RequireComponent(typeof(NetworkObject))]
+public sealed class PlayerHealth : NetworkBehaviour
 {
+    private static readonly int DieTrigger = Animator.StringToHash("Die");
+
     [Header("Health")]
-    [SerializeField] private float maxHealth = 100f;
+    [SerializeField]
+    [Min(1f)]
+    private float maxHealth = 100f;
 
     [Header("Health Bar")]
-    [SerializeField] private Slider healthBar;
-    [Tooltip("Optional. Leave empty (or tick Always Show Bar) to keep the bar visible.")]
-    [SerializeField] private CanvasGroup healthBarVisibility;
-    [SerializeField] private bool alwaysShowBar = true;
-    [SerializeField] private float visibleTime = 2f;
-    [SerializeField] private float fadeTime = 1f;
+    [SerializeField]
+    private Slider healthBar;
+
+    [SerializeField]
+    [Tooltip("Optional. Leave empty (or enable Always Show Bar) to keep it visible.")]
+    private CanvasGroup healthBarVisibility;
+
+    [SerializeField]
+    private bool alwaysShowBar = true;
+
+    [SerializeField]
+    [Min(0f)]
+    private float visibleTime = 2f;
+
+    [SerializeField]
+    [Min(0.01f)]
+    private float fadeTime = 1f;
 
     [Header("Death")]
-    [SerializeField] private Animator animator;
-    [Tooltip("Scripts disabled on death, e.g. TopDownNetworkPlayer2D and PlayerAttack.")]
-    [SerializeField] private MonoBehaviour[] disableOnDeath;
+    [SerializeField]
+    private Animator animator;
 
-    private float currentHealth;
-    private bool isAlive = true;
-    public bool IsAlive => isAlive;
+    [SerializeField]
+    [Tooltip("Owner-control scripts disabled while this player is dead.")]
+    private MonoBehaviour[] disableOnDeath;
 
+    public readonly NetworkVariable<float> CurrentHealth =
+        new NetworkVariable<float>(
+            0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+    public bool IsAlive =>
+        IsSpawned && CurrentHealth.Value > 0f;
+
+    public float MaximumHealth =>
+        Mathf.Max(1f, maxHealth) +
+        (loadout != null ? loadout.BonusMaxHealth : 0f);
+
+    private NetworkPlayerLoadout loadout;
     private Coroutine hideHealthBarCoroutine;
+    private bool deathPresentationApplied;
+    private bool hasDeathTrigger;
 
-    private void Start()
+    private void Awake()
     {
-        currentHealth = maxHealth;
+        loadout = GetComponent<NetworkPlayerLoadout>();
 
         if (animator == null)
         {
             animator = GetComponentInChildren<Animator>(true);
         }
 
+        hasDeathTrigger = HasTrigger(animator, DieTrigger);
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        CurrentHealth.OnValueChanged += HandleHealthChanged;
+
+        if (IsServer && CurrentHealth.Value <= 0f)
+        {
+            CurrentHealth.Value = MaximumHealth;
+        }
+
+        ApplyHealthPresentation(CurrentHealth.Value, false);
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        CurrentHealth.OnValueChanged -= HandleHealthChanged;
+
+        if (hideHealthBarCoroutine != null)
+        {
+            StopCoroutine(hideHealthBarCoroutine);
+            hideHealthBarCoroutine = null;
+        }
+
+        base.OnNetworkDespawn();
+    }
+
+    /// <summary>
+    /// Applies damage on the authoritative server. Callers on clients are
+    /// ignored so client-side trigger callbacks cannot mutate shared health.
+    /// </summary>
+    public bool TakeDamage(float damage)
+    {
+        if (!IsSpawned || !IsServer || damage <= 0f || !IsAlive)
+        {
+            return false;
+        }
+
+        CurrentHealth.Value = Mathf.Clamp(
+            CurrentHealth.Value - damage,
+            0f,
+            MaximumHealth
+        );
+
+        return true;
+    }
+
+    public bool Heal(float amount)
+    {
+        if (!IsSpawned || !IsServer || amount <= 0f || !IsAlive)
+        {
+            return false;
+        }
+
+        CurrentHealth.Value = Mathf.Clamp(
+            CurrentHealth.Value + amount,
+            0f,
+            MaximumHealth
+        );
+
+        return true;
+    }
+
+    public bool Revive()
+    {
+        if (!IsSpawned || !IsServer)
+        {
+            return false;
+        }
+
+        CurrentHealth.Value = MaximumHealth;
+        return true;
+    }
+
+    private void HandleHealthChanged(float previousValue, float currentValue)
+    {
+        ApplyHealthPresentation(currentValue, true);
+    }
+
+    private void ApplyHealthPresentation(float health, bool showTemporaryBar)
+    {
+        float safeMaximum = MaximumHealth;
+
         if (healthBar != null)
         {
             healthBar.minValue = 0f;
-            healthBar.maxValue = maxHealth;
-            healthBar.value = currentHealth;
+            healthBar.maxValue = safeMaximum;
+            healthBar.value = Mathf.Clamp(health, 0f, safeMaximum);
         }
 
-        if (healthBarVisibility != null)
+        bool alive = health > 0f;
+
+        if (alive)
         {
-            healthBarVisibility.alpha = alwaysShowBar ? 1f : 0f;
-        }
-    }
+            if (deathPresentationApplied)
+            {
+                deathPresentationApplied = false;
 
-    public void TakeDamage(float damage)
-    {
-        if (!isAlive || damage <= 0f)
+                if (hasDeathTrigger)
+                {
+                    animator.ResetTrigger(DieTrigger);
+                }
+
+                SetControlScriptsEnabled(true);
+
+                Rigidbody2D revivedBody = GetComponent<Rigidbody2D>();
+                if (revivedBody != null)
+                {
+                    revivedBody.constraints =
+                        RigidbodyConstraints2D.FreezeRotation;
+                }
+            }
+
+            if (healthBarVisibility != null)
+            {
+                healthBarVisibility.alpha = alwaysShowBar ? 1f : 0f;
+            }
+
+            if (showTemporaryBar)
+            {
+                ShowHealthBar();
+            }
+
+            return;
+        }
+
+        if (deathPresentationApplied)
         {
             return;
         }
 
-        currentHealth = Mathf.Clamp(
-            currentHealth - damage,
-            0f,
-            maxHealth
-        );
+        deathPresentationApplied = true;
 
-        if (healthBar != null)
+        if (hasDeathTrigger)
         {
-            healthBar.value = currentHealth;
+            animator.SetTrigger(DieTrigger);
         }
 
-        ShowHealthBar();
+        SetControlScriptsEnabled(false);
 
-        Debug.Log(gameObject.name + " health: " + currentHealth);
-
-        if (currentHealth <= 0f)
+        Rigidbody2D body = GetComponent<Rigidbody2D>();
+        if (body != null)
         {
-            Die();
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
+
+            // A dead body must not slide when live enemies or players bump
+            // into it. Control scripts are disabled, so nothing would ever
+            // stop the drift otherwise.
+            body.constraints = RigidbodyConstraints2D.FreezeAll;
         }
+
+        Debug.Log($"[Player Health] {name} died on the server.", this);
     }
 
-    public void Heal(float amount)
+    private void SetControlScriptsEnabled(bool enabled)
     {
-        if (!isAlive || amount <= 0f)
+        if (disableOnDeath == null)
         {
             return;
         }
 
-        currentHealth = Mathf.Clamp(
-            currentHealth + amount,
-            0f,
-            maxHealth
-        );
-
-        if (healthBar != null)
+        foreach (MonoBehaviour behaviour in disableOnDeath)
         {
-            healthBar.value = currentHealth;
+            if (behaviour != null)
+            {
+                behaviour.enabled = enabled;
+            }
+        }
+    }
+
+    private static bool HasTrigger(Animator target, int parameterHash)
+    {
+        if (target == null)
+        {
+            return false;
         }
 
-        ShowHealthBar();
+        foreach (AnimatorControllerParameter parameter in target.parameters)
+        {
+            if (
+                parameter.nameHash == parameterHash &&
+                parameter.type == AnimatorControllerParameterType.Trigger
+            )
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void ShowHealthBar()
@@ -127,80 +291,20 @@ public class PlayerHealth : MonoBehaviour
         yield return new WaitForSeconds(visibleTime);
 
         float timer = 0f;
+        float safeFadeTime = Mathf.Max(0.01f, fadeTime);
 
-        while (timer < fadeTime)
+        while (timer < safeFadeTime)
         {
             timer += Time.deltaTime;
-
             healthBarVisibility.alpha = Mathf.Lerp(
                 1f,
                 0f,
-                timer / fadeTime
+                timer / safeFadeTime
             );
-
             yield return null;
         }
 
         healthBarVisibility.alpha = 0f;
         hideHealthBarCoroutine = null;
-    }
-
-    private void Die()
-    {
-        isAlive = false;
-
-        if (animator != null)
-        {
-            animator.SetTrigger("Die");
-        }
-
-        // Stop control: movement, attack, etc.
-        if (disableOnDeath != null)
-        {
-            foreach (MonoBehaviour behaviour in disableOnDeath)
-            {
-                if (behaviour != null)
-                {
-                    behaviour.enabled = false;
-                }
-            }
-        }
-
-        Rigidbody2D rb = GetComponent<Rigidbody2D>();
-        if (rb != null)
-        {
-            rb.linearVelocity = Vector2.zero;
-            rb.angularVelocity = 0f;
-        }
-
-        Debug.Log(gameObject.name + " died.");
-    }
-
-    // Call this from a respawn system later to bring the player back.
-    public void Revive()
-    {
-        isAlive = true;
-        currentHealth = maxHealth;
-
-        if (healthBar != null)
-        {
-            healthBar.value = currentHealth;
-        }
-
-        if (animator != null)
-        {
-            animator.ResetTrigger("Die");
-        }
-
-        if (disableOnDeath != null)
-        {
-            foreach (MonoBehaviour behaviour in disableOnDeath)
-            {
-                if (behaviour != null)
-                {
-                    behaviour.enabled = true;
-                }
-            }
-        }
     }
 }

@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 
 [RequireComponent(typeof(Camera))]
@@ -9,6 +10,15 @@ public class Camera2DFollow : MonoBehaviour
 
     [Tooltip("The world-space center of the island.")]
     [SerializeField] private Vector2 islandCenter = new Vector2(2f, 12f);
+
+    [Header("Large Island Bounds")]
+    [SerializeField]
+    [Tooltip("Clamp the camera so it never reveals the edge of the painted ocean.")]
+    private bool clampToBounds;
+
+    [SerializeField]
+    [Tooltip("Trigger collider describing the complete painted world bounds.")]
+    private BoxCollider2D movementBounds;
 
     [Header("Camera")]
     [SerializeField] private float zOffset = -10f;
@@ -80,6 +90,27 @@ public class Camera2DFollow : MonoBehaviour
                 * worldUnitsPerPixel;
         }
 
+        if (clampToBounds && movementBounds != null && cam != null)
+        {
+            Bounds bounds = movementBounds.bounds;
+            float verticalExtent = cam.orthographicSize;
+            float horizontalExtent = verticalExtent * cam.aspect;
+
+            desiredPosition.x = ClampCameraAxis(
+                desiredPosition.x,
+                bounds.min.x,
+                bounds.max.x,
+                horizontalExtent
+            );
+
+            desiredPosition.y = ClampCameraAxis(
+                desiredPosition.y,
+                bounds.min.y,
+                bounds.max.y,
+                verticalExtent
+            );
+        }
+
         transform.SetPositionAndRotation(
             desiredPosition,
             Quaternion.identity
@@ -101,6 +132,19 @@ public class Camera2DFollow : MonoBehaviour
 
     private void TryFindLocalPlayer()
     {
+        NetworkManager manager = NetworkManager.Singleton;
+        if (manager != null && manager.IsListening && manager.IsClient)
+        {
+            NetworkObject localPlayer = manager.LocalClient?.PlayerObject;
+            if (localPlayer != null)
+            {
+                target = localPlayer.transform;
+                return;
+            }
+        }
+
+        // Direct scene play and lightweight test scenes can exist without a
+        // listening NetworkManager. Keep an owner-only fallback for those.
         TopDownNetworkPlayer2D[] players =
             FindObjectsByType<TopDownNetworkPlayer2D>(
                 FindObjectsSortMode.None
@@ -114,5 +158,27 @@ public class Camera2DFollow : MonoBehaviour
                 return;
             }
         }
+    }
+
+    private static float ClampCameraAxis(
+        float value,
+        float minimum,
+        float maximum,
+        float cameraExtent
+    )
+    {
+        float availableSize = maximum - minimum;
+        float requiredSize = cameraExtent * 2f;
+
+        if (availableSize <= requiredSize)
+        {
+            return (minimum + maximum) * 0.5f;
+        }
+
+        return Mathf.Clamp(
+            value,
+            minimum + cameraExtent,
+            maximum - cameraExtent
+        );
     }
 }

@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using DeadmansTales.Networking;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -93,6 +95,7 @@ public class BoatRunDirector : NetworkBehaviour
         OnRunReady;
 
     private bool runReadyDelivered;
+    private Coroutine serverInitializationRoutine;
 
     private void Awake()
     {
@@ -135,22 +138,8 @@ public class BoatRunDirector : NetworkBehaviour
 
         if (IsServer)
         {
-            int selectedSeed =
-                SelectRunSeed();
-
-            // The seed is assigned first.
-            RunSeed.Value =
-                selectedSeed;
-
-            // Then we tell clients it is ready.
-            SeedReady.Value =
-                true;
-
-            Debug.Log(
-                $"[Boat Run] SERVER initialized run.\n" +
-                $"Seed: {selectedSeed}\n" +
-                $"Config ID: {configId}\n" +
-                $"Config Path: {LoadedConfigPath}"
+            serverInitializationRoutine = StartCoroutine(
+                InitializeServerRun()
             );
         }
 
@@ -161,6 +150,12 @@ public class BoatRunDirector : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        if (serverInitializationRoutine != null)
+        {
+            StopCoroutine(serverInitializationRoutine);
+            serverInitializationRoutine = null;
+        }
+
         RunSeed.OnValueChanged -=
             HandleRunSeedChanged;
 
@@ -168,6 +163,50 @@ public class BoatRunDirector : NetworkBehaviour
             HandleSeedReadyChanged;
 
         base.OnNetworkDespawn();
+    }
+
+    private IEnumerator InitializeServerRun()
+    {
+        const float maximumRunStateWait = 5f;
+        float elapsed = 0f;
+
+        while (
+            (
+                NetworkRunState.Instance == null ||
+                !NetworkRunState.Instance.IsInitialized
+            ) &&
+            elapsed < maximumRunStateWait
+        )
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        NetworkRunState runState = NetworkRunState.Instance;
+        bool usedSharedRunState =
+            runState != null && runState.IsInitialized;
+
+        int selectedSeed = usedSharedRunState
+            ? runState.Seed
+            : SelectRunSeed();
+
+        RunSeed.Value = selectedSeed;
+        SeedReady.Value = true;
+
+        if (usedSharedRunState)
+        {
+            runState.SetStatusServer(NetworkRunStatus.Playing);
+        }
+
+        Debug.Log(
+            $"[Boat Run] SERVER initialized run.\n" +
+            $"Seed: {selectedSeed}\n" +
+            $"Shared Run State: {usedSharedRunState}\n" +
+            $"Config ID: {configId}\n" +
+            $"Config Path: {LoadedConfigPath}"
+        );
+
+        serverInitializationRoutine = null;
     }
 
     /// <summary>

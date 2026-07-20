@@ -9,6 +9,8 @@ using UnityEngine;
 public class TopDownNetworkPlayer2D : NetworkBehaviour
 {
     private const float SpawnMovementLockSeconds = 0.25f;
+    private const float MoveInputHeartbeatSeconds = 0.05f;
+    private const float ServerInputStaleSeconds = 0.5f;
 
     [Header("Movement")]
     [SerializeField]
@@ -25,8 +27,12 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
 
     private Rigidbody2D rb;
     private NetworkTransform networkTransform;
+    private NetworkPlayerLoadout loadout;
     private Vector2 serverMoveInput;
     private float serverMovementUnlockTime;
+    private float serverInputExpiryTime;
+    private Vector2 lastSubmittedMoveInput;
+    private float nextMoveInputHeartbeatTime;
 
     public bool IsLobbyReady => lobbyReady.Value;
 
@@ -34,6 +40,7 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         networkTransform = GetComponent<NetworkTransform>();
+        loadout = GetComponent<NetworkPlayerLoadout>();
 
         rb.gravityScale = 0f;
         rb.freezeRotation = true;
@@ -109,7 +116,7 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
 
         if (PauseMenu.InputBlocked)
         {
-            SubmitMoveInputServerRpc(Vector2.zero);
+            SubmitMoveInputIfNeeded(Vector2.zero);
             return;
         }
 
@@ -135,12 +142,29 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
             input.y += 1f;
         }
 
-        SubmitMoveInputServerRpc(Vector2.ClampMagnitude(input, 1f));
+        SubmitMoveInputIfNeeded(Vector2.ClampMagnitude(input, 1f));
     }
 
-    [ServerRpc]
+    private void SubmitMoveInputIfNeeded(Vector2 input)
+    {
+        bool inputChanged = input != lastSubmittedMoveInput;
+        if (!inputChanged && Time.unscaledTime < nextMoveInputHeartbeatTime)
+        {
+            return;
+        }
+
+        lastSubmittedMoveInput = input;
+        nextMoveInputHeartbeatTime =
+            Time.unscaledTime + MoveInputHeartbeatSeconds;
+        SubmitMoveInputServerRpc(input);
+    }
+
+    [ServerRpc(Delivery = RpcDelivery.Unreliable)]
     private void SubmitMoveInputServerRpc(Vector2 input)
     {
+        serverInputExpiryTime =
+            Time.realtimeSinceStartup + ServerInputStaleSeconds;
+
         if (Time.realtimeSinceStartup < serverMovementUnlockTime)
         {
             serverMoveInput = Vector2.zero;
@@ -148,6 +172,14 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
         }
 
         serverMoveInput = Vector2.ClampMagnitude(input, 1f);
+    }
+
+    private void OnDisable()
+    {
+        // Death (or any other control lockout) disables this script. Clear
+        // pending input so the server never keeps applying a stale vector.
+        serverMoveInput = Vector2.zero;
+        lastSubmittedMoveInput = Vector2.zero;
     }
 
     private void FixedUpdate()
@@ -164,9 +196,23 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
             return;
         }
 
+        // Dead-man switch: the owner streams input at least every 0.05 s
+        // while alive. If the stream stops (death, disconnect, freeze),
+        // the server must not keep moving the player forever.
+        if (
+            serverMoveInput != Vector2.zero &&
+            Time.realtimeSinceStartup >= serverInputExpiryTime
+        )
+        {
+            serverMoveInput = Vector2.zero;
+        }
+
+        float effectiveSpeed = moveSpeed *
+            (loadout != null ? loadout.MoveSpeedMultiplier : 1f);
+
         Vector2 nextPosition =
             rb.position +
-            serverMoveInput * moveSpeed * Time.fixedDeltaTime;
+            serverMoveInput * effectiveSpeed * Time.fixedDeltaTime;
 
         rb.MovePosition(nextPosition);
     }

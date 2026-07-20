@@ -18,11 +18,17 @@ namespace DeadmansTales.Networking
         private const string SpawnPrefix = "PlayerSpawn_";
         private const string LobbySceneName = "Lobby_Island_2D";
         private const string BoatSceneName = "Boat_Gameplay_2D";
+        private const string IslandStageSceneName =
+            "Island_After_Ocean_01_2D";
 
         private readonly Dictionary<ulong, int> clientSlots =
             new Dictionary<ulong, int>();
         private readonly Dictionary<ulong, int> lastPlacedSceneHandles =
             new Dictionary<ulong, int>();
+        private readonly Dictionary<ulong, string> readySceneNames =
+            new Dictionary<ulong, string>();
+        private readonly HashSet<ulong> synchronizingClients =
+            new HashSet<ulong>();
 
         private NetworkManager networkManager;
         private Coroutine pendingSpawnPass;
@@ -80,9 +86,23 @@ namespace DeadmansTales.Networking
 
             clientSlots.Clear();
             lastPlacedSceneHandles.Clear();
+            readySceneNames.Clear();
+            synchronizingClients.Clear();
             EnsureConnectedClientSlots();
             BindSceneCallbacks();
-            ScheduleSpawnPass(SceneManager.GetActiveScene().name);
+
+            Scene activeScene = SceneManager.GetActiveScene();
+            if (
+                IsGameplayScene(activeScene.name) &&
+                networkManager.ConnectedClients.ContainsKey(
+                    networkManager.LocalClientId
+                )
+            )
+            {
+                readySceneNames[networkManager.LocalClientId] =
+                    activeScene.name;
+                ScheduleSpawnPass(activeScene.name);
+            }
         }
 
         private void HandleServerStopped(bool wasHost)
@@ -90,6 +110,8 @@ namespace DeadmansTales.Networking
             UnbindSceneCallbacks();
             clientSlots.Clear();
             lastPlacedSceneHandles.Clear();
+            readySceneNames.Clear();
+            synchronizingClients.Clear();
 
             if (pendingSpawnPass != null)
             {
@@ -106,7 +128,100 @@ namespace DeadmansTales.Networking
             }
 
             GetOrAssignSlot(clientId);
-            ScheduleSpawnPass(SceneManager.GetActiveScene().name);
+            RefreshRunPlayerCount();
+
+            string activeSceneName = SceneManager.GetActiveScene().name;
+            if (
+                clientId != networkManager.LocalClientId &&
+                IsGameplayScene(activeSceneName)
+            )
+            {
+                // Auto-created PlayerObjects exist before a late joiner has
+                // synchronized the active gameplay scene. Set the server-owned
+                // transform now so NGO's synchronization snapshot contains the
+                // real spawn, never the prefab origin. This does not mark the
+                // player placed; completion still does that below.
+                StartCoroutine(
+                    PrepositionLateJoinBeforeSynchronization(
+                        clientId,
+                        activeSceneName
+                    )
+                );
+            }
+
+            // The server/host already owns its active scene. Remote clients
+            // must wait for LoadComplete or SynchronizeComplete before they
+            // are eligible for authoritative placement.
+            if (clientId == networkManager.LocalClientId)
+            {
+                string sceneName = SceneManager.GetActiveScene().name;
+                if (IsGameplayScene(sceneName))
+                {
+                    readySceneNames[clientId] = sceneName;
+                    ScheduleSpawnPass(sceneName);
+                }
+            }
+        }
+
+        private IEnumerator PrepositionLateJoinBeforeSynchronization(
+            ulong clientId,
+            string sceneName
+        )
+        {
+            NetworkClient client = null;
+
+            for (int attempt = 0; attempt < 120; attempt++)
+            {
+                if (
+                    !networkManager.IsServer ||
+                    !networkManager.ConnectedClients.TryGetValue(
+                        clientId,
+                        out client
+                    )
+                )
+                {
+                    yield break;
+                }
+
+                if (client.PlayerObject != null)
+                {
+                    break;
+                }
+
+                yield return null;
+            }
+
+            if (
+                client?.PlayerObject == null ||
+                SceneManager.GetActiveScene().name != sceneName
+            )
+            {
+                yield break;
+            }
+
+            Dictionary<int, PlayerSpawnPoint2D> spawnPoints =
+                FindSpawnPoints(sceneName);
+            int slot = GetOrAssignSlot(clientId);
+
+            if (!spawnPoints.TryGetValue(slot, out PlayerSpawnPoint2D marker))
+            {
+                yield break;
+            }
+
+            TopDownNetworkPlayer2D player =
+                client.PlayerObject.GetComponent<TopDownNetworkPlayer2D>();
+
+            if (
+                player != null &&
+                player.TeleportToSpawnServer(marker.transform.position)
+            )
+            {
+                Debug.Log(
+                    $"[Player Spawn] Prepositioned late client {clientId} " +
+                    $"at {marker.name} before scene synchronization.",
+                    player
+                );
+            }
         }
 
         private void HandleClientDisconnected(ulong clientId)
@@ -115,6 +230,18 @@ namespace DeadmansTales.Networking
             {
                 clientSlots.Remove(clientId);
                 lastPlacedSceneHandles.Remove(clientId);
+                readySceneNames.Remove(clientId);
+                synchronizingClients.Remove(clientId);
+                RefreshRunPlayerCount();
+            }
+        }
+
+        private static void RefreshRunPlayerCount()
+        {
+            NetworkRunState runState = NetworkRunState.Instance;
+            if (runState != null && runState.IsSpawned && runState.IsServer)
+            {
+                runState.RefreshPlayerCountServer();
             }
         }
 
@@ -130,6 +257,12 @@ namespace DeadmansTales.Networking
 
             networkManager.SceneManager.OnLoadEventCompleted +=
                 HandleLoadEventCompleted;
+            networkManager.SceneManager.OnLoad += HandleLoadStarted;
+            networkManager.SceneManager.OnLoadComplete += HandleLoadComplete;
+            networkManager.SceneManager.OnSynchronize +=
+                HandleSynchronizeStarted;
+            networkManager.SceneManager.OnSynchronizeComplete +=
+                HandleSynchronizeComplete;
             sceneCallbacksBound = true;
         }
 
@@ -147,7 +280,86 @@ namespace DeadmansTales.Networking
 
             networkManager.SceneManager.OnLoadEventCompleted -=
                 HandleLoadEventCompleted;
+            networkManager.SceneManager.OnLoad -= HandleLoadStarted;
+            networkManager.SceneManager.OnLoadComplete -= HandleLoadComplete;
+            networkManager.SceneManager.OnSynchronize -=
+                HandleSynchronizeStarted;
+            networkManager.SceneManager.OnSynchronizeComplete -=
+                HandleSynchronizeComplete;
             sceneCallbacksBound = false;
+        }
+
+        private void HandleLoadStarted(
+            ulong clientId,
+            string sceneName,
+            LoadSceneMode loadSceneMode,
+            AsyncOperation asyncOperation
+        )
+        {
+            if (!networkManager.IsServer || !IsGameplayScene(sceneName))
+            {
+                return;
+            }
+
+            readySceneNames.Remove(clientId);
+            lastPlacedSceneHandles.Remove(clientId);
+        }
+
+        private void HandleLoadComplete(
+            ulong clientId,
+            string sceneName,
+            LoadSceneMode loadSceneMode
+        )
+        {
+            if (
+                !networkManager.IsServer ||
+                !IsGameplayScene(sceneName) ||
+                synchronizingClients.Contains(clientId)
+            )
+            {
+                return;
+            }
+
+            MarkClientReady(clientId, sceneName);
+        }
+
+        private void HandleSynchronizeStarted(ulong clientId)
+        {
+            if (!networkManager.IsServer)
+            {
+                return;
+            }
+
+            synchronizingClients.Add(clientId);
+            readySceneNames.Remove(clientId);
+            lastPlacedSceneHandles.Remove(clientId);
+        }
+
+        private void HandleSynchronizeComplete(ulong clientId)
+        {
+            if (!networkManager.IsServer)
+            {
+                return;
+            }
+
+            synchronizingClients.Remove(clientId);
+
+            string sceneName = SceneManager.GetActiveScene().name;
+            if (IsGameplayScene(sceneName))
+            {
+                MarkClientReady(clientId, sceneName);
+            }
+        }
+
+        private void MarkClientReady(ulong clientId, string sceneName)
+        {
+            if (!networkManager.ConnectedClients.ContainsKey(clientId))
+            {
+                return;
+            }
+
+            readySceneNames[clientId] = sceneName;
+            ScheduleSpawnPass(sceneName);
         }
 
         private void HandleLoadEventCompleted(
@@ -169,6 +381,17 @@ namespace DeadmansTales.Networking
                     $"out while loading {sceneName}.",
                     this
                 );
+            }
+
+            if (clientsCompleted != null)
+            {
+                foreach (ulong clientId in clientsCompleted)
+                {
+                    if (!synchronizingClients.Contains(clientId))
+                    {
+                        readySceneNames[clientId] = sceneName;
+                    }
+                }
             }
 
             ScheduleSpawnPass(sceneName);
@@ -204,7 +427,7 @@ namespace DeadmansTales.Networking
                     yield break;
                 }
 
-                if (AllConnectedPlayersExist())
+                if (AllReadyPlayersExist(sceneName))
                 {
                     break;
                 }
@@ -223,20 +446,43 @@ namespace DeadmansTales.Networking
                 yield break;
             }
 
-            PlaceConnectedPlayers(sceneName);
+            int placedPlayerCount = PlaceConnectedPlayers(sceneName);
+
+            NetworkRunState runState = NetworkRunState.Instance;
+            if (
+                placedPlayerCount > 0 &&
+                runState != null &&
+                runState.IsSpawned
+            )
+            {
+                runState.SetStatusServer(NetworkRunStatus.Playing);
+            }
+
             pendingSpawnPass = null;
         }
 
-        private void PlaceConnectedPlayers(string sceneName)
+        private int PlaceConnectedPlayers(string sceneName)
         {
             Dictionary<int, PlayerSpawnPoint2D> spawnPoints =
                 FindSpawnPoints(sceneName);
             int sceneHandle = SceneManager.GetActiveScene().handle;
+            int placedPlayerCount = 0;
 
             EnsureConnectedClientSlots();
 
             foreach (NetworkClient client in networkManager.ConnectedClientsList)
             {
+                if (
+                    !readySceneNames.TryGetValue(
+                        client.ClientId,
+                        out string readySceneName
+                    ) ||
+                    readySceneName != sceneName
+                )
+                {
+                    continue;
+                }
+
                 if (
                     lastPlacedSceneHandles.TryGetValue(
                         client.ClientId,
@@ -288,6 +534,7 @@ namespace DeadmansTales.Networking
                 if (player.TeleportToSpawnServer(spawnPosition))
                 {
                     lastPlacedSceneHandles[client.ClientId] = sceneHandle;
+                    placedPlayerCount++;
                     Debug.Log(
                         $"[Player Spawn] Client {client.ClientId} assigned " +
                         $"to {marker.name} at {spawnPosition} in {sceneName}.",
@@ -295,6 +542,8 @@ namespace DeadmansTales.Networking
                     );
                 }
             }
+
+            return placedPlayerCount;
         }
 
         private Dictionary<int, PlayerSpawnPoint2D> FindSpawnPoints(
@@ -364,17 +613,31 @@ namespace DeadmansTales.Networking
             return -1;
         }
 
-        private bool AllConnectedPlayersExist()
+        private bool AllReadyPlayersExist(string sceneName)
         {
+            bool foundReadyPlayer = false;
+
             foreach (NetworkClient client in networkManager.ConnectedClientsList)
             {
+                if (
+                    !readySceneNames.TryGetValue(
+                        client.ClientId,
+                        out string readySceneName
+                    ) ||
+                    readySceneName != sceneName
+                )
+                {
+                    continue;
+                }
+
+                foundReadyPlayer = true;
                 if (client.PlayerObject == null)
                 {
                     return false;
                 }
             }
 
-            return true;
+            return foundReadyPlayer;
         }
 
         private static bool TryGetSpawnIndex(
@@ -396,7 +659,8 @@ namespace DeadmansTales.Networking
         {
             return
                 sceneName == LobbySceneName ||
-                sceneName == BoatSceneName;
+                sceneName == BoatSceneName ||
+                sceneName == IslandStageSceneName;
         }
     }
 }

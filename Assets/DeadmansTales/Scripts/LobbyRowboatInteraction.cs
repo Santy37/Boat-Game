@@ -46,17 +46,19 @@ public class LobbyRowboatInteraction : MonoBehaviour
         {
             return;
         }
-        int remainingEnemies =    GetRemainingEnemyCount();
+
+        if (!Input.GetKeyDown(interactionKey))
+        {
+            return;
+        }
+
+        int remainingEnemies = GetRemainingEnemyCount();
 
         if (remainingEnemies > 0)
         {
             Debug.Log(
                 "[Rowboat] Defeat all enemies before setting sail. " + remainingEnemies +" remaining.", this );
 
-            return;
-        }
-        if (!Input.GetKeyDown(interactionKey))
-        {
             return;
         }
 
@@ -175,6 +177,16 @@ public class LobbyRowboatInteraction : MonoBehaviour
             return;
         }
 
+        DeadmansTales.Networking.NetworkRunState runState =
+            DeadmansTales.Networking.NetworkRunState.Instance;
+
+        if (runState != null && runState.IsSpawned)
+        {
+            runState.SetStatusServer(
+                DeadmansTales.Networking.NetworkRunStatus.Loading
+            );
+        }
+
         SceneEventProgressStatus status =
             NetworkManager
                 .Singleton
@@ -199,6 +211,13 @@ public class LobbyRowboatInteraction : MonoBehaviour
         }
         else
         {
+            if (runState != null && runState.IsSpawned)
+            {
+                runState.SetStatusServer(
+                    DeadmansTales.Networking.NetworkRunStatus.Playing
+                );
+            }
+
             Debug.LogError(
                 $"[Rowboat] Failed to load " +
                 $"{gameplaySceneName}. " +

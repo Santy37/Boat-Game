@@ -135,13 +135,45 @@ namespace DeadmansTales.Networking
         {
             if (Instance != null && Instance != this)
             {
-                Debug.LogWarning(
-                    "[Run State] Duplicate NetworkRunState destroyed.",
+                if (Instance.IsSpawned)
+                {
+                    NetworkObject duplicate = GetComponent<NetworkObject>();
+                    NetworkManager manager = NetworkManager.Singleton;
+                    bool spawnedOnClient =
+                        duplicate != null &&
+                        duplicate.IsSpawned &&
+                        manager != null &&
+                        manager.IsListening &&
+                        !manager.IsServer;
+
+                    if (spawnedOnClient)
+                    {
+                        // Clients must never locally destroy an NGO-spawned
+                        // object; the server owns its lifetime and will
+                        // despawn it.
+                        Debug.LogError(
+                            "[Run State] A spawned duplicate reached a " +
+                            "client. The server must despawn it.",
+                            this
+                        );
+                        return;
+                    }
+
+                    Debug.LogWarning(
+                        "[Run State] Duplicate NetworkRunState destroyed.",
+                        this
+                    );
+
+                    Destroy(gameObject);
+                    return;
+                }
+
+                Debug.Log(
+                    "[Run State] Replacing an unspawned state left by a " +
+                    "previous network session.",
                     this
                 );
-
-                Destroy(gameObject);
-                return;
+                Destroy(Instance.gameObject);
             }
 
             Instance = this;

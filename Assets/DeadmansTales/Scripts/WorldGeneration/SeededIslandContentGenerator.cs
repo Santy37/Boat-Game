@@ -8,6 +8,27 @@ using UnityEngine;
 
 namespace DeadmansTales.WorldGeneration
 {
+    [Serializable]
+    public sealed class SeededContentBudget
+    {
+        [SerializeField]
+        private SeededContentCategory category;
+
+        [SerializeField]
+        [Min(0)]
+        private int minimumCount;
+
+        [SerializeField]
+        [Min(0)]
+        private int maximumCount;
+
+        public SeededContentCategory Category => category;
+
+        public int MinimumCount => Mathf.Max(0, minimumCount);
+
+        public int MaximumCount => Mathf.Max(MinimumCount, maximumCount);
+    }
+
     /// <summary>
     /// Server-authoritative island-content generator.
     ///
@@ -30,6 +51,14 @@ namespace DeadmansTales.WorldGeneration
         [SerializeField]
         private bool logEachSpawn;
 
+        [SerializeField]
+        [Tooltip(
+            "Optional per-category budgets. Categories without a budget use " +
+            "each marker's independent spawn chance."
+        )]
+        private SeededContentBudget[] contentBudgets =
+            Array.Empty<SeededContentBudget>();
+
         private readonly List<NetworkObject> spawnedObjects =
             new List<NetworkObject>();
 
@@ -38,7 +67,15 @@ namespace DeadmansTales.WorldGeneration
 
         public bool GenerationComplete => generationComplete;
 
-        public int SpawnedObjectCount => spawnedObjects.Count;
+        public int SpawnedObjectCount
+        {
+            get
+            {
+                spawnedObjects.RemoveAll(spawnedObject =>
+                    spawnedObject == null || !spawnedObject.IsSpawned);
+                return spawnedObjects.Count;
+            }
+        }
 
         private void Awake()
         {
@@ -136,6 +173,11 @@ namespace DeadmansTales.WorldGeneration
 
         private IEnumerator GenerateWhenReady()
         {
+            // OnEnable can run before later scene objects (including designer
+            // markers) have completed activation. Waiting one frame prevents
+            // a fast host from scanning an only partially activated scene.
+            yield return null;
+
             while (
                 NetworkManager.Singleton == null ||
                 !NetworkManager.Singleton.IsListening ||
@@ -156,11 +198,13 @@ namespace DeadmansTales.WorldGeneration
 
         private void GenerateFromContext(StageSeedContext context)
         {
-            SeededSpawnMarker2D[] markers =
-                FindObjectsByType<SeededSpawnMarker2D>(
-                    FindObjectsInactive.Exclude,
-                    FindObjectsSortMode.None
-                )
+            // Query this scene's hierarchy directly. A global active-object
+            // query can return no markers during an NGO scene activation even
+            // though the serialized hierarchy has already loaded.
+            GameObject[] sceneRoots = gameObject.scene.GetRootGameObjects();
+            SeededSpawnMarker2D[] markers = sceneRoots
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<SeededSpawnMarker2D>(true))
                 .Where(
                     marker =>
                         marker != null &&
@@ -173,17 +217,62 @@ namespace DeadmansTales.WorldGeneration
                 )
                 .ToArray();
 
+            if (markers.Length == 0)
+            {
+                int serializedMarkerCount = sceneRoots
+                    .SelectMany(root =>
+                        root.GetComponentsInChildren<MonoBehaviour>(true))
+                    .Count(component =>
+                        component != null &&
+                        component.GetType() == typeof(SeededSpawnMarker2D));
+
+                Debug.LogWarning(
+                    "[Island Generation] No eligible markers were found.\n" +
+                    $"Generator Scene: {gameObject.scene.name}\n" +
+                    $"Scene Roots: {string.Join(", ", sceneRoots.Select(root => root.name))}\n" +
+                    $"Serialized Marker Components: {serializedMarkerCount}",
+                    this
+                );
+            }
+
+            ValidateUniqueMarkerKeys(markers);
+
+            List<SeededSpawnMarker2D> selectedMarkers =
+                SelectMarkersWithinBudgets(markers, context);
+
+            int successfulSpawns = 0;
+
+            foreach (SeededSpawnMarker2D marker in selectedMarkers)
+            {
+                if (TrySpawnMarker(marker, context))
+                {
+                    successfulSpawns++;
+                }
+            }
+
+            generationComplete = true;
+
+            Debug.Log(
+                "[Island Generation] Complete.\n" +
+                $"Stage: {context.StageIndex}\n" +
+                $"Master Seed: {context.MasterSeed}\n" +
+                $"Eligible Markers: {markers.Length}\n" +
+                $"Selected Markers: {selectedMarkers.Count}\n" +
+                $"Spawned Objects: {successfulSpawns}",
+                this
+            );
+        }
+
+        private void ValidateUniqueMarkerKeys(
+            IEnumerable<SeededSpawnMarker2D> markers
+        )
+        {
             HashSet<string> usedKeys = new HashSet<string>(
                 StringComparer.Ordinal
             );
 
-            int attemptedMarkers = 0;
-            int successfulSpawns = 0;
-
             foreach (SeededSpawnMarker2D marker in markers)
             {
-                attemptedMarkers++;
-
                 string markerKey = marker.DeterministicKey;
 
                 if (!usedKeys.Add(markerKey))
@@ -194,84 +283,207 @@ namespace DeadmansTales.WorldGeneration
                         marker
                     );
                 }
+            }
+        }
 
-                System.Random random = context.CreateRandom(
-                    $"{marker.StreamName}|{markerKey}"
-                );
+        private List<SeededSpawnMarker2D> SelectMarkersWithinBudgets(
+            IEnumerable<SeededSpawnMarker2D> markers,
+            StageSeedContext context
+        )
+        {
+            List<SeededSpawnMarker2D> selected =
+                new List<SeededSpawnMarker2D>();
 
-                if (!marker.ShouldSpawn(random))
+            foreach (IGrouping<SeededContentCategory, SeededSpawnMarker2D>
+                categoryGroup in markers
+                    .GroupBy(marker => marker.Category)
+                    .OrderBy(group => (byte)group.Key))
+            {
+                List<SeededSpawnMarker2D> categoryMarkers =
+                    categoryGroup
+                        .OrderBy(
+                            marker => marker.DeterministicKey,
+                            StringComparer.Ordinal
+                        )
+                        .ToList();
+
+                SeededContentBudget budget = FindBudget(categoryGroup.Key);
+
+                if (budget == null)
                 {
+                    foreach (SeededSpawnMarker2D marker in categoryMarkers)
+                    {
+                        System.Random markerRandom = context.CreateRandom(
+                            $"{marker.StreamName}|{marker.DeterministicKey}|Active"
+                        );
+
+                        if (marker.ShouldSpawn(markerRandom))
+                        {
+                            selected.Add(marker);
+                        }
+                    }
+
                     continue;
                 }
 
-                if (!marker.TrySelectPrefab(random, out GameObject prefab))
+                System.Random budgetRandom = context.CreateRandom(
+                    $"IslandContent.{categoryGroup.Key}.Budget"
+                );
+
+                Shuffle(categoryMarkers, budgetRandom);
+
+                int available = categoryMarkers.Count;
+                int minimum = Mathf.Min(budget.MinimumCount, available);
+                int maximum = Mathf.Min(budget.MaximumCount, available);
+                int targetCount = maximum <= minimum
+                    ? minimum
+                    : budgetRandom.Next(minimum, maximum + 1);
+
+                List<SeededSpawnMarker2D> categorySelection =
+                    categoryMarkers
+                        .Where(marker => marker.AlwaysSpawn)
+                        .ToList();
+
+                if (categorySelection.Count > maximum)
                 {
                     Debug.LogWarning(
-                        "[Island Generation] Marker has no valid prefab: " +
-                        marker.name,
-                        marker
+                        $"[Island Content] Category " +
+                        $"'{categoryGroup.Key}' has " +
+                        $"{categorySelection.Count} AlwaysSpawn markers, " +
+                        $"exceeding its budget maximum of {maximum}. All " +
+                        "guaranteed markers will still spawn.",
+                        this
                     );
-                    continue;
                 }
 
-                NetworkObject prefabNetworkObject =
-                    prefab.GetComponent<NetworkObject>();
-
-                if (prefabNetworkObject == null)
+                foreach (SeededSpawnMarker2D marker in categoryMarkers)
                 {
-                    Debug.LogError(
-                        "[Island Generation] Prefab must have a NetworkObject " +
-                        $"on its root: {prefab.name}",
-                        prefab
+                    if (
+                        categorySelection.Count >= targetCount ||
+                        marker.AlwaysSpawn
+                    )
+                    {
+                        continue;
+                    }
+
+                    System.Random markerRandom = context.CreateRandom(
+                        $"{marker.StreamName}|{marker.DeterministicKey}|Active"
                     );
-                    continue;
+
+                    if (marker.ShouldSpawn(markerRandom))
+                    {
+                        categorySelection.Add(marker);
+                    }
                 }
 
-                GameObject spawnedGameObject = Instantiate(
-                    prefab,
-                    marker.SpawnPosition,
-                    marker.SpawnRotation
-                );
-
-                NetworkObject spawnedNetworkObject =
-                    spawnedGameObject.GetComponent<NetworkObject>();
-
-                if (spawnedNetworkObject == null)
+                if (categorySelection.Count < minimum)
                 {
-                    Debug.LogError(
-                        "[Island Generation] Spawned object unexpectedly has " +
-                        $"no NetworkObject: {spawnedGameObject.name}",
-                        spawnedGameObject
-                    );
+                    foreach (SeededSpawnMarker2D marker in categoryMarkers)
+                    {
+                        if (
+                            categorySelection.Count >= minimum ||
+                            categorySelection.Contains(marker)
+                        )
+                        {
+                            continue;
+                        }
 
-                    Destroy(spawnedGameObject);
-                    continue;
+                        categorySelection.Add(marker);
+                    }
                 }
 
-                spawnedNetworkObject.Spawn(true);
-                spawnedObjects.Add(spawnedNetworkObject);
-                successfulSpawns++;
-
-                if (logEachSpawn)
-                {
-                    Debug.Log(
-                        "[Island Generation] Spawned " +
-                        $"'{prefab.name}' at marker '{marker.name}'.",
-                        spawnedGameObject
-                    );
-                }
+                selected.AddRange(categorySelection);
             }
 
-            generationComplete = true;
+            return selected
+                .OrderBy(marker => marker.DeterministicKey, StringComparer.Ordinal)
+                .ToList();
+        }
 
-            Debug.Log(
-                "[Island Generation] Complete.\n" +
-                $"Stage: {context.StageIndex}\n" +
-                $"Master Seed: {context.MasterSeed}\n" +
-                $"Eligible Markers: {attemptedMarkers}\n" +
-                $"Spawned Objects: {successfulSpawns}",
-                this
+        private SeededContentBudget FindBudget(
+            SeededContentCategory category
+        )
+        {
+            if (contentBudgets == null)
+            {
+                return null;
+            }
+
+            return contentBudgets.FirstOrDefault(
+                budget => budget != null && budget.Category == category
             );
+        }
+
+        private bool TrySpawnMarker(
+            SeededSpawnMarker2D marker,
+            StageSeedContext context
+        )
+        {
+            System.Random random = context.CreateRandom(
+                $"{marker.StreamName}|{marker.DeterministicKey}|Prefab"
+            );
+
+            if (!marker.TrySelectPrefab(random, out GameObject prefab))
+            {
+                Debug.LogWarning(
+                    "[Island Generation] Marker has no valid prefab: " +
+                    marker.name,
+                    marker
+                );
+                return false;
+            }
+
+            if (prefab.GetComponent<NetworkObject>() == null)
+            {
+                Debug.LogError(
+                    "[Island Generation] Prefab must have a NetworkObject " +
+                    $"on its root: {prefab.name}",
+                    prefab
+                );
+                return false;
+            }
+
+            GameObject spawnedGameObject = Instantiate(
+                prefab,
+                marker.SpawnPosition,
+                marker.SpawnRotation
+            );
+
+            NetworkObject spawnedNetworkObject =
+                spawnedGameObject.GetComponent<NetworkObject>();
+
+            if (spawnedNetworkObject == null)
+            {
+                Destroy(spawnedGameObject);
+                return false;
+            }
+
+            spawnedNetworkObject.Spawn(true);
+            spawnedObjects.Add(spawnedNetworkObject);
+
+            if (logEachSpawn)
+            {
+                Debug.Log(
+                    "[Island Generation] Spawned " +
+                    $"'{prefab.name}' at marker '{marker.name}'.",
+                    spawnedGameObject
+                );
+            }
+
+            return true;
+        }
+
+        private static void Shuffle<T>(
+            IList<T> values,
+            System.Random random
+        )
+        {
+            for (int index = values.Count - 1; index > 0; index--)
+            {
+                int swapIndex = random.Next(0, index + 1);
+                (values[index], values[swapIndex]) =
+                    (values[swapIndex], values[index]);
+            }
         }
 
         private bool ValidateServerState()

@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 
 /* EnemyAI
@@ -7,7 +8,8 @@ until the player leaves the LOS box or dies, attacking with a sword the same
 way the player does. When the target is lost it walks back to its home box
 and resumes wandering */
 [RequireComponent(typeof(Rigidbody2D))]
-public class EnemyAI : MonoBehaviour
+[RequireComponent(typeof(NetworkObject))]
+public sealed class EnemyAI : NetworkBehaviour
 {
     private enum State
     {
@@ -85,8 +87,15 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    private void Start()
+    public override void OnNetworkSpawn()
     {
+        base.OnNetworkSpawn();
+
+        if (!IsServer)
+        {
+            return;
+        }
+
         homePosition = homeCenter != null
             ? (Vector2)homeCenter.position
             : rb.position;
@@ -99,6 +108,11 @@ public class EnemyAI : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (!IsSpawned || !IsServer)
+        {
+            return;
+        }
+
         if (enemy != null && !enemy.IsAlive)
         {
             state = State.Dead;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 // EnemyAttack
@@ -14,13 +15,24 @@ public class EnemyAttack : MonoBehaviour
 
     private float timeUntilMelee;
     private float hitActiveTimer;
+    private NetworkObject rootNetworkObject;
 
     // Prevents a single swing from hitting the same player many times.
     private readonly HashSet<PlayerHealth> hitThisSwing =
         new HashSet<PlayerHealth>();
 
+    private void Awake()
+    {
+        rootNetworkObject = GetComponentInParent<NetworkObject>();
+    }
+
     private void Update()
     {
+        if (!HasServerAuthority())
+        {
+            return;
+        }
+
         if (timeUntilMelee > 0f)
         {
             timeUntilMelee -= Time.deltaTime;
@@ -36,6 +48,11 @@ public class EnemyAttack : MonoBehaviour
     // Returns true if a swing actually started (i.e. not on cooldown).
     public bool TryAttack()
     {
+        if (!HasServerAuthority())
+        {
+            return false;
+        }
+
         if (timeUntilMelee > 0f)
         {
             return false;
@@ -65,7 +82,7 @@ public class EnemyAttack : MonoBehaviour
 
     private void TryHit(Collider2D other)
     {
-        if (hitActiveTimer <= 0f)
+        if (!HasServerAuthority() || hitActiveTimer <= 0f)
         {
             return;
         }
@@ -79,5 +96,14 @@ public class EnemyAttack : MonoBehaviour
 
         hitThisSwing.Add(player);
         player.TakeDamage(damage);
+    }
+
+    private bool HasServerAuthority()
+    {
+        return
+            rootNetworkObject != null &&
+            rootNetworkObject.IsSpawned &&
+            NetworkManager.Singleton != null &&
+            NetworkManager.Singleton.IsServer;
     }
 }

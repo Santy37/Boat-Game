@@ -160,6 +160,20 @@ namespace DeadmansTales.Networking
                 NetworkTopologyTypes.ClientServer;
             networkManager.NetworkConfig.UseCMBService = false;
 
+            RegisterNetworkPrefabIfMissing(
+                networkManager,
+                settings.PlayerPrefab
+            );
+
+            foreach (GameObject additionalPrefab in
+                settings.AdditionalNetworkPrefabs)
+            {
+                RegisterNetworkPrefabIfMissing(
+                    networkManager,
+                    additionalPrefab
+                );
+            }
+
             if (
                 networkManager.GetComponent<NetworkPlayerSpawnCoordinator>() ==
                 null
@@ -170,16 +184,125 @@ namespace DeadmansTales.Networking
                 >();
             }
 
-            // Do not call NetworkManager.AddNetworkPrefab here. Unity NGO's
-            // generated DefaultNetworkPrefabs registry already contains the
-            // project network prefabs. Registering them again produces a
-            // duplicate GlobalObjectIdHash error when the host starts.
+            networkManager.OnServerStarted -= HandleServerStarted;
+            networkManager.OnServerStarted += HandleServerStarted;
 
             Debug.Log(
                 "[Network Bootstrap] Project-owned NetworkManager ready.\n" +
                 $"Player Prefab: {settings.PlayerPrefab.name}\n" +
+                $"Additional Prefabs: " +
+                $"{settings.AdditionalNetworkPrefabs.Length}\n" +
                 "Topology: ClientServer",
                 networkManager
+            );
+        }
+
+        private static void RegisterNetworkPrefabIfMissing(
+            NetworkManager networkManager,
+            GameObject prefab
+        )
+        {
+            if (networkManager == null || prefab == null)
+            {
+                return;
+            }
+
+            foreach (NetworkPrefabsList prefabList in
+                networkManager.NetworkConfig.Prefabs.NetworkPrefabsLists)
+            {
+                if (prefabList != null && prefabList.Contains(prefab))
+                {
+                    return;
+                }
+            }
+
+            foreach (NetworkPrefab registeredPrefab in
+                networkManager.NetworkConfig.Prefabs.Prefabs)
+            {
+                if (registeredPrefab != null && registeredPrefab.Prefab == prefab)
+                {
+                    return;
+                }
+            }
+
+            networkManager.AddNetworkPrefab(prefab);
+        }
+
+        private static void HandleServerStarted()
+        {
+            if (
+                NetworkRunState.Instance != null &&
+                NetworkRunState.Instance.IsSpawned
+            )
+            {
+                return;
+            }
+
+            NetworkManager networkManager = NetworkManager.Singleton;
+            if (networkManager == null || !networkManager.IsServer)
+            {
+                return;
+            }
+
+            DeadmansNetworkBootstrapSettings settings =
+                Resources.Load<DeadmansNetworkBootstrapSettings>(
+                    SettingsResourcePath
+                );
+
+            if (settings == null)
+            {
+                return;
+            }
+
+            GameObject runStatePrefab = null;
+
+            foreach (GameObject additionalPrefab in
+                settings.AdditionalNetworkPrefabs)
+            {
+                if (
+                    additionalPrefab != null &&
+                    additionalPrefab.GetComponent<NetworkRunState>() != null
+                )
+                {
+                    runStatePrefab = additionalPrefab;
+                    break;
+                }
+            }
+
+            if (runStatePrefab == null)
+            {
+                Debug.LogError(
+                    "[Network Bootstrap] No NetworkRunState prefab is " +
+                    "configured in Additional Network Prefabs."
+                );
+                return;
+            }
+
+            GameObject instance = UnityEngine.Object.Instantiate(
+                runStatePrefab
+            );
+
+            NetworkObject networkObject =
+                instance.GetComponent<NetworkObject>();
+
+            if (networkObject == null)
+            {
+                Debug.LogError(
+                    "[Network Bootstrap] The run-state prefab has no " +
+                    "NetworkObject.",
+                    instance
+                );
+                UnityEngine.Object.Destroy(instance);
+                return;
+            }
+
+            // The run state persists across NGO Single-mode scene loads, so
+            // it must never be flagged destroyWithScene.
+            networkObject.Spawn(destroyWithScene: false);
+
+            Debug.Log(
+                "[Network Bootstrap] Persistent NetworkRunState spawned.",
+                instance
             );
         }
     }

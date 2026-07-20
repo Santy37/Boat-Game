@@ -1,9 +1,11 @@
-using DeadmansTales.Configuration;
+using System;
+using System.IO;
 using DeadmansTales.Networking;
 using DeadmansTales.Telemetry;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -43,7 +45,6 @@ internal static class TechnicalRuntimeTestSceneBuilder
         );
 
         CreateNetworkManager();
-        CreatePersistentNetworkServices();
         CreateStageSeedProvider();
         CreatePlaytestLogger();
         CreatePlayerSpawnPoint();
@@ -70,6 +71,50 @@ internal static class TechnicalRuntimeTestSceneBuilder
             $"Path: {TestScenePath}\n" +
             "Press Play. The scene will start a local host and run the " +
             "technical runtime checks automatically."
+        );
+    }
+
+    public static void BuildIslandRuntimeSmokePlayerFromCommandLine()
+    {
+        // Recreate the harness so it can never retain an old scene-placed
+        // persistent NetworkObject. The normal bootstrap now spawns the
+        // registered run-state/config prefab at runtime.
+        CreateScene();
+
+        string outputDirectory = Path.GetFullPath(
+            Path.Combine("Logs", "IslandRuntimeSmoke")
+        );
+        Directory.CreateDirectory(outputDirectory);
+
+        BuildPlayerOptions options = new BuildPlayerOptions
+        {
+            scenes = new[]
+            {
+                TestScenePath,
+                "Assets/DeadmansTales/Scenes/Lobby_Island_2D.unity",
+                "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity",
+                "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity",
+            },
+            locationPathName = Path.Combine(
+                outputDirectory,
+                "IslandRuntimeSmoke.exe"
+            ),
+            target = BuildTarget.StandaloneWindows64,
+            options = BuildOptions.Development,
+        };
+
+        BuildReport report = BuildPipeline.BuildPlayer(options);
+        if (report.summary.result != BuildResult.Succeeded)
+        {
+            throw new InvalidOperationException(
+                "Island runtime smoke player build failed: " +
+                report.summary.result
+            );
+        }
+
+        Debug.Log(
+            "[Technical Runtime Test] Standalone island smoke player built " +
+            $"at {options.locationPathName}."
         );
     }
 
@@ -110,26 +155,6 @@ internal static class TechnicalRuntimeTestSceneBuilder
         networkManager.NetworkConfig.EnableSceneManagement = true;
     }
 
-    private static void CreatePersistentNetworkServices()
-    {
-        GameObject services = new GameObject(
-            "Persistent Network Services"
-        );
-
-        services.AddComponent<NetworkObject>();
-
-        NetworkRunState runState =
-            services.AddComponent<NetworkRunState>();
-
-        NetworkRunConfigAuthority configAuthority =
-            services.AddComponent<NetworkRunConfigAuthority>();
-
-        // Keep the generated test object in this scene while the host starts.
-        // The production integration will use a dedicated bootstrap strategy.
-        SetSerializedBool(runState, "persistAcrossScenes", false);
-        SetSerializedBool(configAuthority, "persistAcrossScenes", false);
-    }
-
     private static void CreateStageSeedProvider()
     {
         GameObject seedProvider = new GameObject(
@@ -168,26 +193,4 @@ internal static class TechnicalRuntimeTestSceneBuilder
         return driver;
     }
 
-    private static void SetSerializedBool(
-        Object target,
-        string propertyName,
-        bool value
-    )
-    {
-        SerializedObject serializedObject = new SerializedObject(target);
-        SerializedProperty property =
-            serializedObject.FindProperty(propertyName);
-
-        if (property == null)
-        {
-            Debug.LogWarning(
-                $"Could not find serialized property '{propertyName}' on " +
-                $"{target.GetType().Name}."
-            );
-            return;
-        }
-
-        property.boolValue = value;
-        serializedObject.ApplyModifiedPropertiesWithoutUndo();
-    }
 }

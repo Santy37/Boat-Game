@@ -441,6 +441,11 @@ public class MainMenuManager : MonoBehaviour
 
         SetStatus($"STARTING {GetSelectedLevelDisplayName()}...");
 
+        if (!TryInitializeNetworkRun(networkManager))
+        {
+            return;
+        }
+
         try
         {
             networkManager.SceneManager.LoadScene(
@@ -587,10 +592,47 @@ public class MainMenuManager : MonoBehaviour
 
         string selectedScene = GetSelectedSceneName();
 
+        if (!TryInitializeNetworkRun(networkManager))
+        {
+            return;
+        }
+
         networkManager.SceneManager.LoadScene(
             selectedScene,
             LoadSceneMode.Single
         );
+    }
+
+    private bool TryInitializeNetworkRun(NetworkManager networkManager)
+    {
+        if (networkManager == null || !networkManager.IsServer)
+        {
+            SetStatus("ONLY THE SERVER CAN INITIALIZE THE RUN");
+            return false;
+        }
+
+        NetworkRunState runState = NetworkRunState.Instance;
+
+        if (runState == null || !runState.IsSpawned)
+        {
+            SetStatus("WAITING FOR THE NETWORK RUN STATE");
+            Debug.LogError(
+                "[Main Menu] NetworkRunState was not spawned before the " +
+                "gameplay scene load."
+            );
+            return false;
+        }
+
+        int runSeed = UnityEngine.Random.Range(1, int.MaxValue);
+
+        runState.InitializeNewRunServer(
+            runSeed,
+            "boat_default",
+            1,
+            1
+        );
+
+        return true;
     }
 
     private void EnsureLobbyService()

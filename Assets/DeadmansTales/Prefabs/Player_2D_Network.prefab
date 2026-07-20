@@ -375,6 +375,9 @@ GameObject:
   - component: {fileID: 8784780291873635496}
   - component: {fileID: 465610624872256257}
   - component: {fileID: 1236628626776860298}
+  - component: {fileID: 7883119524616010535}
+  - component: {fileID: 4806634534808170409}
+  - component: {fileID: 3413540391625882853}
   m_Layer: 0
   m_Name: Player_2D_Network
   m_TagString: Untagged
@@ -545,8 +548,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 80d7c879794dfda4687da0e400131852, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkRigidbody2D
+  ShowTopMostFoldoutHeaderGroup: 1
   NetworkRigidbodyBaseExpanded: 0
   UseRigidBodyForMotion: 1
   AutoUpdateKinematicState: 1
@@ -613,9 +617,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2acf78cb474633a44b8e227486431a75, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  ShowTopMostFoldoutHeaderGroup: 1
   anim: {fileID: 8784780291873635496}
-  meleeSpeed: 1.5
-  damage: 1
+  attackCooldown: 0.4
+  inputBufferSeconds: 0.12
+  damage: 50
+  attackRadius: 1.35
+  attackOffset: {x: 0, y: 0.35}
+  maximumTargetsPerSwing: 4
 --- !u!114 &1236628626776860298
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -628,6 +637,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ee68dae6a5f29b64eac4d14cffd66a33, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
+  ShowTopMostFoldoutHeaderGroup: 1
   maxHealth: 400
   healthBar: {fileID: 4270617346897719514}
   healthBarVisibility: {fileID: 0}
@@ -638,6 +648,51 @@ MonoBehaviour:
   disableOnDeath:
   - {fileID: 93961699430243165}
   - {fileID: 465610624872256257}
+  - {fileID: 4806634534808170409}
+--- !u!114 &7883119524616010535
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5438845180987550581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd922bb8c4884bd3975d83eaf9f5d404, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Networking.NetworkInteractionController2D
+  ShowTopMostFoldoutHeaderGroup: 1
+  maximumInteractionDistance: 2
+  distanceOrigin: {fileID: 0}
+  localRequestCooldown: 0.1
+--- !u!114 &4806634534808170409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5438845180987550581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d3bafc31430a86448dcded852e495d2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Networking.NetworkInteractionInput2D
+  ShowTopMostFoldoutHeaderGroup: 1
+  interactionKey: 101
+  searchRadius: 2
+--- !u!114 &3413540391625882853
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5438845180987550581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c8ee7b12bd7f9b4f8a409d7c09292d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayerLoadout
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &5481718040772650924
 GameObject:
   m_ObjectHideFlags: 0

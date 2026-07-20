@@ -50,6 +50,10 @@ namespace DeadmansTales.WorldGeneration
 
         public SeededContentCategory Category => category;
 
+        public bool AlwaysSpawn => alwaysSpawn;
+
+        public float SpawnChance => Mathf.Clamp01(spawnChance);
+
         public string StreamName => $"IslandContent.{category}";
 
         public string DeterministicKey => BuildDeterministicKey();
