@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: ec750f00eacad004a820acab0b8d599f
+guid: 9d96ac9b5e51d4d46b2499776b87df24
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -48,7 +48,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 12
+  spritePixelsToUnits: 5
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -97,13 +97,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Hurt_0
+      name: Orc_Attack01_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -112,20 +112,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7645c3e5ef799fb2054296ea94988701
-      internalID: 1501357524
+      spriteID: f19776c7096c2d99b730843444742c22
+      internalID: -1265296152
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_1
+      name: Orc_Attack01_1
       rect:
         serializedVersion: 2
-        x: 96
+        x: 100
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -134,20 +134,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: d21486cdc316d1ec6de51d2736ef182a
-      internalID: 1361225240
+      spriteID: 86687dece795be5f0b8c9cda88e6102e
+      internalID: 1394144318
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_2
+      name: Orc_Attack01_2
       rect:
         serializedVersion: 2
-        x: 192
+        x: 200
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,20 +156,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 772c6638b871560a7b5e66a3e583827e
-      internalID: -532588651
+      spriteID: db8645a382e2f2b28eb5474eaf043d14
+      internalID: -2019248789
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_3
+      name: Orc_Attack01_3
       rect:
         serializedVersion: 2
-        x: 288
+        x: 300
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -178,8 +178,52 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 397537b73f77f9ed2f383ccea71a64c3
-      internalID: 787274356
+      spriteID: 48ec7076e0848d69755cacff15f01020
+      internalID: -877003984
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Orc_Attack01_4
+      rect:
+        serializedVersion: 2
+        x: 400
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1dc8e04cba9b36a721c21f6b099e748e
+      internalID: -706923860
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Orc_Attack01_5
+      rect:
+        serializedVersion: 2
+        x: 500
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 614d0fb9aaa58cb605c41c07ec4234e1
+      internalID: 1653043754
       vertices: []
       indices: 
       edges: []
@@ -188,7 +232,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 445244ff543d8524f992a35b8729d812
+    spriteID: c5c25bb1684d882458a64fa027350ba4
     internalID: 0
     vertices: []
     indices: 
@@ -198,10 +242,12 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Hurt_0: 1501357524
-      Hurt_1: 1361225240
-      Hurt_2: -532588651
-      Hurt_3: 787274356
+      Orc_Attack01_0: -1265296152
+      Orc_Attack01_1: 1394144318
+      Orc_Attack01_2: -2019248789
+      Orc_Attack01_3: -877003984
+      Orc_Attack01_4: -706923860
+      Orc_Attack01_5: 1653043754
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

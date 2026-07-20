@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: ec750f00eacad004a820acab0b8d599f
+guid: bca8a75cd62916b42a7f5729c73663c7
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -48,7 +48,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 12
+  spritePixelsToUnits: 10
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -97,13 +97,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Hurt_0
+      name: Soldier_Idle_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -112,20 +112,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7645c3e5ef799fb2054296ea94988701
-      internalID: 1501357524
+      spriteID: a9fc0842adaf13a21b2db869bc9675fb
+      internalID: 1244425294
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_1
+      name: Soldier_Idle_1
       rect:
         serializedVersion: 2
-        x: 96
+        x: 100
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -134,20 +134,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: d21486cdc316d1ec6de51d2736ef182a
-      internalID: 1361225240
+      spriteID: d54594337ba1a7c00f9493699d48b14a
+      internalID: 501257943
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_2
+      name: Soldier_Idle_2
       rect:
         serializedVersion: 2
-        x: 192
+        x: 200
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,20 +156,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 772c6638b871560a7b5e66a3e583827e
-      internalID: -532588651
+      spriteID: 0ca925e2d3234c6b1a08a2a8712550fa
+      internalID: -971256945
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_3
+      name: Soldier_Idle_3
       rect:
         serializedVersion: 2
-        x: 288
+        x: 300
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -178,8 +178,52 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 397537b73f77f9ed2f383ccea71a64c3
-      internalID: 787274356
+      spriteID: aefa668253dd96f02585e3a046050a65
+      internalID: 1246365953
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Idle_4
+      rect:
+        serializedVersion: 2
+        x: 400
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5df9aa47ffbdb87223575ba1bf0595b4
+      internalID: -565385361
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Idle_5
+      rect:
+        serializedVersion: 2
+        x: 500
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5d2ec32e11805684354ca4420455ca28
+      internalID: -88438473
       vertices: []
       indices: 
       edges: []
@@ -188,7 +232,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 445244ff543d8524f992a35b8729d812
+    spriteID: 6278f413dffd9864291f00a4c91ac44a
     internalID: 0
     vertices: []
     indices: 
@@ -198,10 +242,12 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Hurt_0: 1501357524
-      Hurt_1: 1361225240
-      Hurt_2: -532588651
-      Hurt_3: 787274356
+      Soldier_Idle_0: 1244425294
+      Soldier_Idle_1: 501257943
+      Soldier_Idle_2: -971256945
+      Soldier_Idle_3: 1246365953
+      Soldier_Idle_4: -565385361
+      Soldier_Idle_5: -88438473
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

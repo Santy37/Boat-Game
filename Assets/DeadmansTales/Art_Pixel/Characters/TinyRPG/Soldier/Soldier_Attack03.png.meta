@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: ec750f00eacad004a820acab0b8d599f
+guid: 5cdd7af658fa1ad42850851a1eb86850
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -48,7 +48,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 12
+  spritePixelsToUnits: 10
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -97,13 +97,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Hurt_0
+      name: Soldier_Attack03_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -112,20 +112,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7645c3e5ef799fb2054296ea94988701
-      internalID: 1501357524
+      spriteID: 15d0bc9e6f3983688f801a96e4ec8849
+      internalID: 1054910437
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_1
+      name: Soldier_Attack03_1
       rect:
         serializedVersion: 2
-        x: 96
+        x: 100
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -134,20 +134,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: d21486cdc316d1ec6de51d2736ef182a
-      internalID: 1361225240
+      spriteID: c8c2042c940d415bfdcccdfaa5b03322
+      internalID: -883018004
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_2
+      name: Soldier_Attack03_2
       rect:
         serializedVersion: 2
-        x: 192
+        x: 200
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,20 +156,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 772c6638b871560a7b5e66a3e583827e
-      internalID: -532588651
+      spriteID: 1625a9bf594f86f97e833ea6dcbd0f76
+      internalID: -763303106
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_3
+      name: Soldier_Attack03_3
       rect:
         serializedVersion: 2
-        x: 288
+        x: 300
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -178,8 +178,118 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 397537b73f77f9ed2f383ccea71a64c3
-      internalID: 787274356
+      spriteID: 17e5e05efff86b058c4e98a23082e50d
+      internalID: 205465065
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Attack03_4
+      rect:
+        serializedVersion: 2
+        x: 400
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 93fa9ca38e650dd006c6849c772cc1a3
+      internalID: -1120356158
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Attack03_5
+      rect:
+        serializedVersion: 2
+        x: 500
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ab7b35318ef39bfc55178576c2b17c63
+      internalID: -1816059017
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Attack03_6
+      rect:
+        serializedVersion: 2
+        x: 600
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 79b21ef1ff75e3aa544141e97a8f69f5
+      internalID: -1038839126
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Attack03_7
+      rect:
+        serializedVersion: 2
+        x: 700
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2056ee08198965f15ffaac13dfc66eb8
+      internalID: 1645475279
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Attack03_8
+      rect:
+        serializedVersion: 2
+        x: 800
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4b151bed0c0afa467f923dd83de1316c
+      internalID: 89287508
       vertices: []
       indices: 
       edges: []
@@ -188,7 +298,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 445244ff543d8524f992a35b8729d812
+    spriteID: fe04c1803d056fb48970dd41b2a8d0e3
     internalID: 0
     vertices: []
     indices: 
@@ -198,10 +308,15 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Hurt_0: 1501357524
-      Hurt_1: 1361225240
-      Hurt_2: -532588651
-      Hurt_3: 787274356
+      Soldier_Attack03_0: 1054910437
+      Soldier_Attack03_1: -883018004
+      Soldier_Attack03_2: -763303106
+      Soldier_Attack03_3: 205465065
+      Soldier_Attack03_4: -1120356158
+      Soldier_Attack03_5: -1816059017
+      Soldier_Attack03_6: -1038839126
+      Soldier_Attack03_7: 1645475279
+      Soldier_Attack03_8: 89287508
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

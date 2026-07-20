@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: ec750f00eacad004a820acab0b8d599f
+guid: 45f18ac6e789dd34c95e8bfbc697e97e
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -48,7 +48,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 12
+  spritePixelsToUnits: 5
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -97,13 +97,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Hurt_0
+      name: Orc_Idle_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -112,20 +112,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7645c3e5ef799fb2054296ea94988701
-      internalID: 1501357524
+      spriteID: 56014a0cd2c668bc4fb88469b2d40fa5
+      internalID: -787751709
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_1
+      name: Orc_Idle_1
       rect:
         serializedVersion: 2
-        x: 96
+        x: 100
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -134,20 +134,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: d21486cdc316d1ec6de51d2736ef182a
-      internalID: 1361225240
+      spriteID: 39331afe89603a83b739250e23b297a8
+      internalID: -1238508470
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_2
+      name: Orc_Idle_2
       rect:
         serializedVersion: 2
-        x: 192
+        x: 200
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,20 +156,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 772c6638b871560a7b5e66a3e583827e
-      internalID: -532588651
+      spriteID: b622b590c5fad75d29d43025cef11fd1
+      internalID: 1777365037
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_3
+      name: Orc_Idle_3
       rect:
         serializedVersion: 2
-        x: 288
+        x: 300
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -178,8 +178,52 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 397537b73f77f9ed2f383ccea71a64c3
-      internalID: 787274356
+      spriteID: 50a2ee3ef6a25e2cdaa5322fa8d03f1e
+      internalID: -933308107
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Orc_Idle_4
+      rect:
+        serializedVersion: 2
+        x: 400
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 734c19da683396bcdc69a3f53c2449fb
+      internalID: 48111127
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Orc_Idle_5
+      rect:
+        serializedVersion: 2
+        x: 500
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bbf73f5e0264c8d5d7c22a112476328c
+      internalID: -769648748
       vertices: []
       indices: 
       edges: []
@@ -188,7 +232,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 445244ff543d8524f992a35b8729d812
+    spriteID: 8f1668b49cbf8c040a46c5ead11d8351
     internalID: 0
     vertices: []
     indices: 
@@ -198,10 +242,12 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Hurt_0: 1501357524
-      Hurt_1: 1361225240
-      Hurt_2: -532588651
-      Hurt_3: 787274356
+      Orc_Idle_0: -787751709
+      Orc_Idle_1: -1238508470
+      Orc_Idle_2: 1777365037
+      Orc_Idle_3: -933308107
+      Orc_Idle_4: 48111127
+      Orc_Idle_5: -769648748
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

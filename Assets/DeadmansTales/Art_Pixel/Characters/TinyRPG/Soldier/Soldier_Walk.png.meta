@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: ec750f00eacad004a820acab0b8d599f
+guid: 6d5bd4fcacf44194d8af9e0833780023
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -48,7 +48,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 12
+  spritePixelsToUnits: 10
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -97,13 +97,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Hurt_0
+      name: Soldier_Walk_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -112,20 +112,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7645c3e5ef799fb2054296ea94988701
-      internalID: 1501357524
+      spriteID: dcbedf4e1bf24714c21efdcbd909b88e
+      internalID: -1284445991
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_1
+      name: Soldier_Walk_1
       rect:
         serializedVersion: 2
-        x: 96
+        x: 100
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -134,20 +134,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: d21486cdc316d1ec6de51d2736ef182a
-      internalID: 1361225240
+      spriteID: 5b3385762bb859aa7fb6c1a211dded45
+      internalID: -903852543
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_2
+      name: Soldier_Walk_2
       rect:
         serializedVersion: 2
-        x: 192
+        x: 200
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,20 +156,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 772c6638b871560a7b5e66a3e583827e
-      internalID: -532588651
+      spriteID: 20593e4626a43834bbcd5f9e96487b60
+      internalID: -1567478610
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Hurt_3
+      name: Soldier_Walk_3
       rect:
         serializedVersion: 2
-        x: 288
+        x: 300
         y: 0
-        width: 96
-        height: 96
+        width: 100
+        height: 100
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -178,8 +178,96 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 397537b73f77f9ed2f383ccea71a64c3
-      internalID: 787274356
+      spriteID: 837f587e6ef7fc153b2daa84b615efc4
+      internalID: -183575942
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Walk_4
+      rect:
+        serializedVersion: 2
+        x: 400
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9a724290de4346a4ce4cdd23fd7e485c
+      internalID: -1470217413
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Walk_5
+      rect:
+        serializedVersion: 2
+        x: 500
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6438b22b5085c91ab7767fae50c9f321
+      internalID: -1400022175
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Walk_6
+      rect:
+        serializedVersion: 2
+        x: 600
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ab4e30840ec13f4472212700af4ff2c5
+      internalID: 1007975315
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Soldier_Walk_7
+      rect:
+        serializedVersion: 2
+        x: 700
+        y: 0
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 15108b51681f1c9658885b24102a8d4a
+      internalID: 1344293267
       vertices: []
       indices: 
       edges: []
@@ -188,7 +276,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 445244ff543d8524f992a35b8729d812
+    spriteID: 382ba5a1450969c45917f65af59d15e9
     internalID: 0
     vertices: []
     indices: 
@@ -198,10 +286,14 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Hurt_0: 1501357524
-      Hurt_1: 1361225240
-      Hurt_2: -532588651
-      Hurt_3: 787274356
+      Soldier_Walk_0: -1284445991
+      Soldier_Walk_1: -903852543
+      Soldier_Walk_2: -1567478610
+      Soldier_Walk_3: -183575942
+      Soldier_Walk_4: -1470217413
+      Soldier_Walk_5: -1400022175
+      Soldier_Walk_6: 1007975315
+      Soldier_Walk_7: 1344293267
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
