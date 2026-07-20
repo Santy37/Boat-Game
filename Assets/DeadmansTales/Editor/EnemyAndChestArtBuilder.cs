@@ -177,8 +177,15 @@ public static class EnemyAndChestArtBuilder
                             frameSize,
                             frameSize
                         ),
-                        alignment = SpriteAlignment.Center,
-                        pivot = new Vector2(0.5f, 0.5f),
+                        // Bottom-anchored (not center) so every frame in an
+                        // animated sheet shares a fixed ground-contact
+                        // point. Attack/hurt frames often draw taller or
+                        // shorter than idle within the same canvas; a
+                        // center pivot makes the character visibly bob up
+                        // and down between frames instead of standing in
+                        // place while it swings.
+                        alignment = SpriteAlignment.BottomCenter,
+                        pivot = new Vector2(0.5f, 0f),
                     }
                 );
                 nameFileIdPairs.Add(
@@ -281,7 +288,13 @@ public static class EnemyAndChestArtBuilder
 
         Sprite[] allFrames = LoadFrames(CrabSheetPath);
         Sprite[] walkFrames = allFrames.Take(4).ToArray();
-        Sprite[] attackFrames = allFrames.Skip(12).Take(4).ToArray();
+
+        // Frames 12-15 are a rearing/tail-whip telegraph that is several
+        // times taller than the crab's resting silhouette, which reads as
+        // the crab suddenly growing huge under uniform pixels-per-unit.
+        // Frames 8-11 (claws spreading wide) stay within the same height
+        // as idle/walk, so the crab's apparent size stays consistent.
+        Sprite[] attackFrames = allFrames.Skip(8).Take(4).ToArray();
 
         AnimationClip idle = CreateSpriteClip(
             CrabAnimationFolder + "/Crab_Idle.anim",
@@ -662,8 +675,13 @@ public static class EnemyAndChestArtBuilder
 
         GameObject visual = new GameObject(visualName);
         visual.transform.SetParent(root.transform, false);
-        visual.transform.localScale = new Vector3(1.4f, 1.4f, 1f);
-        visual.transform.localPosition = new Vector3(0f, 0.25f, 0f);
+
+        // Apparent size is controlled entirely by the sprite's own
+        // pixels-per-unit (auto-fit in ContentFixupBuilder); stacking an
+        // extra transform scale here just makes the true size harder to
+        // reason about.
+        visual.transform.localScale = Vector3.one;
+        visual.transform.localPosition = Vector3.zero;
         visual.SetActive(activeByDefault);
 
         SpriteRenderer renderer = visual.AddComponent<SpriteRenderer>();

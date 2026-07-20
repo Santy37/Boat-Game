@@ -609,6 +609,7 @@ MonoBehaviour:
   networkPrefabs:
   - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
   - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  - {fileID: 179407412339867597, guid: 0a6ffe1d857378240a91d3ced93a27b3, type: 3}
   alwaysSpawn: 0
   spawnChance: 0.7
   minimumStage: 2
@@ -2306,6 +2307,7 @@ MonoBehaviour:
   networkPrefabs:
   - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
   - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  - {fileID: 179407412339867597, guid: 0a6ffe1d857378240a91d3ced93a27b3, type: 3}
   alwaysSpawn: 0
   spawnChance: 0.7
   minimumStage: 2
@@ -3024,6 +3026,7 @@ MonoBehaviour:
   networkPrefabs:
   - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
   - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  - {fileID: 179407412339867597, guid: 0a6ffe1d857378240a91d3ced93a27b3, type: 3}
   alwaysSpawn: 0
   spawnChance: 0.7
   minimumStage: 2
@@ -3078,6 +3081,7 @@ MonoBehaviour:
   networkPrefabs:
   - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
   - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  - {fileID: 179407412339867597, guid: 0a6ffe1d857378240a91d3ced93a27b3, type: 3}
   alwaysSpawn: 0
   spawnChance: 0.7
   minimumStage: 2
@@ -49809,6 +49813,7 @@ MonoBehaviour:
   networkPrefabs:
   - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
   - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  - {fileID: 179407412339867597, guid: 0a6ffe1d857378240a91d3ced93a27b3, type: 3}
   alwaysSpawn: 0
   spawnChance: 0.7
   minimumStage: 2
@@ -49998,7 +50003,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 8
+  orthographic size: 11.25
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
@@ -68930,6 +68935,7 @@ MonoBehaviour:
   networkPrefabs:
   - {fileID: 7578876640082709261, guid: 4398e1b40e1b51f4fb444490b013645e, type: 3}
   - {fileID: 6361515405429152636, guid: 5140a64020dce804692e8186929b034c, type: 3}
+  - {fileID: 179407412339867597, guid: 0a6ffe1d857378240a91d3ced93a27b3, type: 3}
   alwaysSpawn: 0
   spawnChance: 0.7
   minimumStage: 2

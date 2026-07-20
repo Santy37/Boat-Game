@@ -4,7 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using DeadmansTales.Networking;
 using DeadmansTales.WorldGeneration;
+using Unity.Netcode;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
@@ -67,6 +69,10 @@ public static class ContentFixupBuilder
     private const int CharacterFrameSize = 100;
     private const int SkeletonFrameSize = 96;
     private const int CrabFrameSize = 32;
+    private const int ChestFrameSize = 32;
+
+    private const string ChestSheetPath =
+        "Assets/DeadmansTales/Art_Pixel/Props/rpg_chests.png";
 
     private const string SkeletonArtFolder =
         "Assets/DeadmansTales/Art_Pixel/Characters/SkeletonWarrior";
@@ -85,13 +91,23 @@ public static class ContentFixupBuilder
     private const float HumanoidTargetWorldHeight = 2.2f;
     private const float BruteTargetWorldHeight = 2.9f;
     private const float CrabTargetWorldHeight = 0.9f;
+    private const float ChestTargetWorldHeight = 0.75f;
+
+    // Matches Lobby_Island_2D and Boat_Gameplay_2D's camera so all three
+    // gameplay scenes share the same tiles-per-screen density.
+    private const float IslandCameraOrthographicSize = 11.25f;
 
     [MenuItem(MenuPath)]
     public static void BuildAll()
     {
+        // Rebuilds skeleton/crab/chest with the corrected crab attack
+        // frames and bottom-anchored pivots before this pass re-fits their
+        // pixels-per-unit on top.
+        EnemyAndChestArtBuilder.BuildAllFromCommandLine();
+
         SliceCharacterSheets();
 
-        // Re-slice the already-built skeleton and crab sheets at a
+        // Re-slice the already-built skeleton, crab, and chest sheets at a
         // measured, correctly-scaled pixels-per-unit. This only changes
         // pixel density, not sprite names/GUIDs, so the animation clips
         // built earlier keep working without being rebuilt.
@@ -110,6 +126,15 @@ public static class ContentFixupBuilder
                 CrabTargetWorldHeight
             )
         );
+        ConfigureGridSheet(
+            ChestSheetPath,
+            ChestFrameSize,
+            ComputeAutoPixelsPerUnit(
+                ChestSheetPath,
+                ChestFrameSize,
+                ChestTargetWorldHeight
+            )
+        );
 
         AssetDatabase.Refresh();
 
@@ -122,6 +147,8 @@ public static class ContentFixupBuilder
         UpgradeBoneBruteToOrc();
 
         AddNewEnemiesToIslandMarkers();
+        AddCoconutFoodToIslandMarkers();
+        FixIslandCameraZoom();
         FixBoatScene();
 
         AssetDatabase.SaveAssets();
@@ -130,7 +157,8 @@ public static class ContentFixupBuilder
         Debug.Log(
             "[Fixup Builder] Boat scene repaired, player overhauled to " +
             "Soldier, crab/skeleton placeholder sprites hidden, orc + " +
-            "skeleton added to island spawns."
+            "skeleton added to island spawns, coconut food added, island " +
+            "camera zoom matched to the other scenes."
         );
     }
 
@@ -723,6 +751,232 @@ public static class ContentFixupBuilder
         EditorSceneManager.SaveScene(scene);
     }
 
+    private const string CoconutPrefabPath =
+        GameplayPrefabFolder + "/NetworkFoodPickup_Coconut.prefab";
+
+    private const string GeneratedNetworkPrefabsPath =
+        "Assets/DefaultNetworkPrefabs.asset";
+    private const string BootstrapSettingsPath =
+        "Assets/DeadmansTales/Resources/Networking/" +
+        "DeadmansNetworkBootstrapSettings.asset";
+
+    // Beach prop tile index 116 is a single whole coconut, from the same
+    // catalog IslandStageBuilder already scatters as decoration.
+    private const string CoconutTileSourcePath =
+        "Assets/DeadmansTales/Art_Pixel/Tiles/BeachPropTiles/" +
+        "tf_beach_tileB_116.asset";
+
+    private static void AddCoconutFoodToIslandMarkers()
+    {
+        GameObject coconut = CreateCoconutFoodPrefab();
+
+        RegisterNetworkPrefabs(new[] { coconut });
+
+        Scene scene = EditorSceneManager.OpenScene(
+            IslandScenePath,
+            OpenSceneMode.Single
+        );
+
+        int updatedMarkers = 0;
+
+        foreach (SeededSpawnMarker2D marker in scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<SeededSpawnMarker2D>(true))
+            .Where(marker =>
+                marker.Category == SeededContentCategory.Healing))
+        {
+            SerializedObject serialized = new SerializedObject(marker);
+            SerializedProperty prefabs =
+                serialized.FindProperty("networkPrefabs");
+
+            List<UnityEngine.Object> current = Enumerable
+                .Range(0, prefabs.arraySize)
+                .Select(index => prefabs
+                    .GetArrayElementAtIndex(index).objectReferenceValue)
+                .Where(value => value != null)
+                .ToList();
+
+            if (current.Contains(coconut))
+            {
+                continue;
+            }
+
+            current.Add(coconut);
+
+            prefabs.arraySize = current.Count;
+            for (int index = 0; index < current.Count; index++)
+            {
+                prefabs.GetArrayElementAtIndex(index).objectReferenceValue =
+                    current[index];
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            updatedMarkers++;
+        }
+
+        Debug.Log(
+            $"[Fixup] Added coconut food to {updatedMarkers} island " +
+            "healing markers."
+        );
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+    }
+
+    private static GameObject CreateCoconutFoodPrefab()
+    {
+        Tile sourceTile =
+            AssetDatabase.LoadAssetAtPath<Tile>(CoconutTileSourcePath);
+
+        if (sourceTile == null || sourceTile.sprite == null)
+        {
+            throw new InvalidOperationException(
+                $"Coconut tile asset missing at {CoconutTileSourcePath}."
+            );
+        }
+
+        GameObject root = new GameObject("NetworkFoodPickup_Coconut");
+
+        try
+        {
+            root.AddComponent<NetworkObject>();
+
+            CircleCollider2D collider =
+                root.AddComponent<CircleCollider2D>();
+            collider.isTrigger = true;
+            collider.radius = 0.4f;
+
+            NetworkFoodPickup pickup =
+                root.AddComponent<NetworkFoodPickup>();
+            SetSerializedString(pickup, "foodName", "a Coconut");
+            SetSerializedFloat(pickup, "healAmount", 20f);
+            SetSerializedBool(pickup, "allowRepeatedInteraction", false);
+
+            GameObject visual = new GameObject("Visual");
+            visual.transform.SetParent(root.transform, false);
+
+            SpriteRenderer renderer =
+                visual.AddComponent<SpriteRenderer>();
+            renderer.sprite = sourceTile.sprite;
+            renderer.sortingOrder = 15;
+
+            PrefabUtility.SaveAsPrefabAsset(root, CoconutPrefabPath);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(root);
+        }
+
+        return AssetDatabase.LoadAssetAtPath<GameObject>(CoconutPrefabPath);
+    }
+
+    private static void RegisterNetworkPrefabs(GameObject[] prefabs)
+    {
+        NetworkPrefabsList generatedList =
+            AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>(
+                GeneratedNetworkPrefabsPath
+            );
+
+        if (generatedList == null)
+        {
+            throw new InvalidOperationException(
+                "DefaultNetworkPrefabs.asset was not found."
+            );
+        }
+
+        foreach (GameObject prefab in prefabs)
+        {
+            if (prefab != null && !generatedList.Contains(prefab))
+            {
+                generatedList.Add(new NetworkPrefab
+                {
+                    Override = NetworkPrefabOverride.None,
+                    Prefab = prefab,
+                });
+            }
+        }
+
+        EditorUtility.SetDirty(generatedList);
+
+        DeadmansNetworkBootstrapSettings settings =
+            AssetDatabase.LoadAssetAtPath<DeadmansNetworkBootstrapSettings>(
+                BootstrapSettingsPath
+            );
+
+        if (settings == null)
+        {
+            throw new InvalidOperationException(
+                "Bootstrap settings asset was not found."
+            );
+        }
+
+        List<GameObject> additionalPrefabs = settings
+            .AdditionalNetworkPrefabs
+            .Where(prefab => prefab != null)
+            .Distinct()
+            .ToList();
+
+        foreach (GameObject prefab in prefabs)
+        {
+            if (prefab != null && !additionalPrefabs.Contains(prefab))
+            {
+                additionalPrefabs.Add(prefab);
+            }
+        }
+
+        SerializedObject settingsObject = new SerializedObject(settings);
+        SerializedProperty additional =
+            settingsObject.FindProperty("additionalNetworkPrefabs");
+
+        additional.arraySize = additionalPrefabs.Count;
+        for (int index = 0; index < additionalPrefabs.Count; index++)
+        {
+            additional.GetArrayElementAtIndex(index).objectReferenceValue =
+                additionalPrefabs[index];
+        }
+
+        settingsObject.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(settings);
+    }
+
+    // ------------------------------------------------------------------
+    // Island: camera zoom
+    // ------------------------------------------------------------------
+
+    private static void FixIslandCameraZoom()
+    {
+        Scene scene = EditorSceneManager.OpenScene(
+            IslandScenePath,
+            OpenSceneMode.Single
+        );
+
+        Camera camera = scene
+            .GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<Camera>(true))
+            .FirstOrDefault();
+
+        if (camera == null)
+        {
+            Debug.LogWarning(
+                "[Fixup] No camera found in the island scene to fix zoom."
+            );
+            return;
+        }
+
+        float previousSize = camera.orthographicSize;
+        camera.orthographicSize = IslandCameraOrthographicSize;
+
+        Debug.Log(
+            "[Fixup] Island camera orthographic size " +
+            $"{previousSize} -> {IslandCameraOrthographicSize} (now " +
+            "matches Lobby_Island_2D and Boat_Gameplay_2D)."
+        );
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+    }
+
     // ------------------------------------------------------------------
     // Boat scene repair
     // ------------------------------------------------------------------
@@ -881,62 +1135,72 @@ public static class ContentFixupBuilder
         EditorSceneManager.SaveScene(scene);
     }
 
+    private const string ShipDeckFloorTilePath =
+        "Assets/DeadmansTales/Art_Pixel/2DShip/tileset/" +
+        "tf_ship_tileA5_interior_17.asset";
+
+    // The most-used-tile heuristic previously here picked a vertical mast
+    // segment from the props sheet (tf_ship_tileB), which blanketed the
+    // deck in repeated wooden poles instead of flooring. This is a single,
+    // visually-verified flat plank tile from the ship's own interior sheet
+    // instead.
+    private static readonly string[] LegacyBadFillTileNames =
+    {
+        "tf_ship_tileB_225",
+    };
+
     /// <summary>
     /// The teammate's ship layout only paints masts, sails, and a handful
     /// of props, leaving most of the deck's cells empty (open water shows
     /// through), so the "ship" reads as scattered debris instead of a hull.
-    /// Fills every empty cell within the painted area's bounds with the
-    /// most-used existing tile (or one whose name suggests a deck/floor
-    /// piece, if the tileset has one) so the deck is a solid, continuous
-    /// surface using only tiles the tileset already contains.
+    /// Fills every empty cell within the painted area's bounds with a
+    /// single verified flat plank floor tile so the deck reads as one
+    /// continuous surface. Also removes any cells a previous run filled
+    /// with the wrong (mast-segment) tile.
     /// </summary>
     private static void FillShipDeckGaps(Tilemap shipTilemap)
     {
         BoundsInt bounds = shipTilemap.cellBounds;
 
-        Dictionary<TileBase, int> tileFrequency =
-            new Dictionary<TileBase, int>();
+        int clearedCount = 0;
 
         for (int x = bounds.xMin; x < bounds.xMax; x++)
         {
             for (int y = bounds.yMin; y < bounds.yMax; y++)
             {
-                TileBase tile = shipTilemap.GetTile(
-                    new Vector3Int(x, y, 0)
-                );
+                Vector3Int cell = new Vector3Int(x, y, 0);
+                TileBase tile = shipTilemap.GetTile(cell);
 
-                if (tile == null)
+                if (
+                    tile != null &&
+                    LegacyBadFillTileNames.Contains(tile.name)
+                )
                 {
-                    continue;
+                    shipTilemap.SetTile(cell, null);
+                    clearedCount++;
                 }
-
-                tileFrequency.TryGetValue(tile, out int count);
-                tileFrequency[tile] = count + 1;
             }
         }
 
-        if (tileFrequency.Count == 0)
+        if (clearedCount > 0)
         {
-            Debug.LogWarning(
-                "[Fixup] Ship_prop has no painted tiles at all; nothing " +
-                "to use as deck filler."
+            Debug.Log(
+                $"[Fixup] Cleared {clearedCount} deck cells that a " +
+                "previous run filled with the wrong tile."
             );
-            return;
         }
 
-        string[] floorNameHints =
-            { "floor", "deck", "plank", "wood", "hull", "base" };
-
-        TileBase floorTile = tileFrequency.Keys.FirstOrDefault(tile =>
-            floorNameHints.Any(hint =>
-                tile.name.ToLowerInvariant().Contains(hint)));
+        TileBase floorTile = AssetDatabase.LoadAssetAtPath<TileBase>(
+            ShipDeckFloorTilePath
+        );
 
         if (floorTile == null)
         {
-            floorTile = tileFrequency
-                .OrderByDescending(pair => pair.Value)
-                .First()
-                .Key;
+            Debug.LogWarning(
+                "[Fixup] Deck floor tile is missing at " +
+                $"{ShipDeckFloorTilePath}; leaving deck gaps as-is."
+            );
+            return;
         }
 
         int filledCount = 0;
@@ -1128,8 +1392,11 @@ public static class ContentFixupBuilder
                             frameSize,
                             frameSize
                         ),
-                        alignment = SpriteAlignment.Center,
-                        pivot = new Vector2(0.5f, 0.5f),
+                        // Bottom-anchored so every animation frame shares a
+                        // fixed ground-contact point instead of visibly
+                        // bobbing between poses of different drawn height.
+                        alignment = SpriteAlignment.BottomCenter,
+                        pivot = new Vector2(0.5f, 0f),
                     }
                 );
                 nameFileIdPairs.Add(
@@ -1275,6 +1542,51 @@ public static class ContentFixupBuilder
         if (property != null)
         {
             property.objectReferenceValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+    }
+
+    private static void SetSerializedString(
+        UnityEngine.Object target,
+        string propertyName,
+        string value
+    )
+    {
+        SerializedObject serialized = new SerializedObject(target);
+        SerializedProperty property = serialized.FindProperty(propertyName);
+        if (property != null)
+        {
+            property.stringValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+    }
+
+    private static void SetSerializedFloat(
+        UnityEngine.Object target,
+        string propertyName,
+        float value
+    )
+    {
+        SerializedObject serialized = new SerializedObject(target);
+        SerializedProperty property = serialized.FindProperty(propertyName);
+        if (property != null)
+        {
+            property.floatValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+    }
+
+    private static void SetSerializedBool(
+        UnityEngine.Object target,
+        string propertyName,
+        bool value
+    )
+    {
+        SerializedObject serialized = new SerializedObject(target);
+        SerializedProperty property = serialized.FindProperty(propertyName);
+        if (property != null)
+        {
+            property.boolValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
