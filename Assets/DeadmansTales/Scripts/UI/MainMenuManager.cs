@@ -20,7 +20,6 @@ public class MainMenuManager : MonoBehaviour
     public GameObject mainMenuPanel;
     public GameObject levelSelectPanel;
     public GameObject multiplayerPanel;
-    public GameObject characterSelectPanel;
     public GameObject connectionOptions;
     public GameObject clientOptions;
     public GameObject hostOptions;
@@ -143,36 +142,7 @@ public class MainMenuManager : MonoBehaviour
         SetActive(mainMenuPanel, true);
         SetActive(levelSelectPanel, false);
         SetActive(multiplayerPanel, false);
-        SetActive(characterSelectPanel, false);
         ApplyLobbyCodeLayout(false);
-    }
-
-    public void ShowCharacterSelect()
-    {
-        SetActive(mainMenuPanel, false);
-        SetActive(levelSelectPanel, false);
-        SetActive(multiplayerPanel, false);
-        SetActive(characterSelectPanel, true);
-    }
-
-    public void SelectSoldierCharacter()
-    {
-        PlayerPrefs.SetInt(
-            NetworkPlayerCharacterSkin.PlayerPrefsKey,
-            NetworkPlayerCharacterSkin.SoldierSkinIndex
-        );
-        PlayerPrefs.Save();
-        ShowMainMenu();
-    }
-
-    public void SelectOrcCharacter()
-    {
-        PlayerPrefs.SetInt(
-            NetworkPlayerCharacterSkin.PlayerPrefsKey,
-            NetworkPlayerCharacterSkin.OrcSkinIndex
-        );
-        PlayerPrefs.Save();
-        ShowMainMenu();
     }
 
     public void ShowLevelSelectMenu()
@@ -900,31 +870,6 @@ public class MainMenuManager : MonoBehaviour
 
                 case "LEVEL 1":
                     ReplaceButtonAction(button, LoadLevelOne);
-                    break;
-
-                case "CHARACTER":
-                case "CHARACTER SELECT":
-                    ReplaceButtonAction(button, ShowCharacterSelect);
-                    break;
-
-                case "SOLDIER":
-                    ReplaceButtonAction(button, SelectSoldierCharacter);
-                    break;
-
-                case "ORC":
-                    ReplaceButtonAction(button, SelectOrcCharacter);
-                    break;
-
-                case "BACK":
-                    if (
-                        characterSelectPanel != null &&
-                        button.transform.IsChildOf(
-                            characterSelectPanel.transform
-                        )
-                    )
-                    {
-                        ReplaceButtonAction(button, ShowMainMenu);
-                    }
                     break;
             }
         }

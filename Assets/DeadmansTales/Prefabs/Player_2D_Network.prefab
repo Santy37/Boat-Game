@@ -401,7 +401,6 @@ GameObject:
   - component: {fileID: 4806634534808170409}
   - component: {fileID: 3413540391625882853}
   - component: {fileID: 3293140065508028423}
-  - component: {fileID: 7602764280559171234}
   m_Layer: 0
   m_Name: Player_2D_Network
   m_TagString: Untagged
@@ -718,25 +717,6 @@ MonoBehaviour:
   animator: {fileID: 5664192188069273860}
   facingRenderer: {fileID: 1367324835923418468}
   speedSmoothing: 12
---- !u!114 &7602764280559171234
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5438845180987550581}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7fd5bde4b21faca4186b93084749c1fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayerCharacterSkin
-  ShowTopMostFoldoutHeaderGroup: 1
-  gfxRenderer: {fileID: 1367324835923418468}
-  gfxAnimator: {fileID: 5664192188069273860}
-  soldierIdleSprite: {fileID: 1244425294, guid: bca8a75cd62916b42a7f5729c73663c7, type: 3}
-  soldierController: {fileID: 9100000, guid: b3826c56cb6a41942b5d1f95804d4267, type: 2}
-  orcIdleSprite: {fileID: -787751709, guid: 45f18ac6e789dd34c95e8bfbc697e97e, type: 3}
-  orcController: {fileID: 9100000, guid: f39b25dc52990bc40b8dc5e9c80cd81d, type: 2}
 --- !u!1 &5481718040772650924
 GameObject:
   m_ObjectHideFlags: 0
