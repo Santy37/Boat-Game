@@ -65,13 +65,16 @@ public static class ShopIslandBuilder
     private const int MotwColumns = 12;
 
     /// <summary>
-    /// The sheet is shared with the player and basicenemy prefabs, so its
-    /// import settings are untouchable — changing pixels-per-unit here
-    /// would resize the player. The traders are scaled on their transform
-    /// instead: 72px cells at 32 ppu draw a ~1.9 unit character, and the
-    /// player is ~1.0, so this brings them to a natural ~1.15.
+    /// The traders are drawn from the very sheet the player renders from
+    /// (motw_10), at the same pixels-per-unit, so they need no correction
+    /// at all — scale 1 makes an NPC exactly as tall as a player, which is
+    /// what a person standing next to another person should be.
+    ///
+    /// This was 0.61 while the player's size was being read from the
+    /// placeholder sword icon on its prefab rather than the motw sprite
+    /// its animator actually shows, which left every trader half-height.
     /// </summary>
-    private const float NpcScale = 0.61f;
+    private const float NpcScale = 1f;
 
     private sealed class VendorSpec
     {
@@ -119,7 +122,7 @@ public static class ShopIslandBuilder
             25,
             15,
             0,
-            new Vector2(-12f, 6f)
+            new Vector2(-5f, 3.4f)
         ),
         new VendorSpec(
             "Vendor_Quartermaster",
@@ -129,7 +132,7 @@ public static class ShopIslandBuilder
             30,
             20,
             0,
-            new Vector2(-8f, 6f)
+            new Vector2(-1f, 3.4f)
         ),
         new VendorSpec(
             "Vendor_Cook",
@@ -139,7 +142,7 @@ public static class ShopIslandBuilder
             15,
             5,
             0,
-            new Vector2(-4f, 6f)
+            new Vector2(3f, 3.4f)
         ),
     };
 
@@ -155,14 +158,13 @@ public static class ShopIslandBuilder
     private static readonly (string Name, int Motw, Vector2 Position)[]
         Townsfolk =
         {
-            ("Townsfolk_Dockhand", 1, new Vector2(-14.5f, 2f)),
-            ("Townsfolk_Deckhand", 49, new Vector2(-1.5f, 3f)),
-            ("Townsfolk_Traveller", 52, new Vector2(-7f, 0.5f)),
-            ("Townsfolk_Browser", 4, new Vector2(-10.6f, 4.6f)),
+            ("Townsfolk_Dockhand", 1, new Vector2(-7f, 0.6f)),
+            ("Townsfolk_Deckhand", 49, new Vector2(4.4f, 1.2f)),
+            ("Townsfolk_Traveller", 52, new Vector2(-2.6f, -0.4f)),
             // Row 1 of a character block is its side-facing walk, so this
             // villager reads as browsing the stalls rather than staring
             // out of the screen like the rest.
-            ("Townsfolk_Porter", 13, new Vector2(-3.2f, 5.2f)),
+            ("Townsfolk_Browser", 13, new Vector2(1f, 1.6f)),
         };
 
     /// <summary>
@@ -170,54 +172,36 @@ public static class ShopIslandBuilder
     /// meat rack behind the cook, and crates and barrels stacked as if
     /// goods were just unloaded. Names refer to MarketArtBuilder props.
     /// </summary>
+    /// <summary>
+    /// Sorting orders count UP as props sit further south, so anything
+    /// nearer the camera overlaps what is behind it and the market gains
+    /// depth instead of looking flat.
+    /// </summary>
     private static readonly (string Prop, Vector2 Position, int Order)[]
         Dressing =
         {
-            // Trade tools behind the relevant stalls.
-            ("forge_stone", new Vector2(-13.6f, 8.4f), 8),
-            ("meatrack", new Vector2(-3.6f, 8.6f), 8),
-            ("stall_counter", new Vector2(-16.4f, 6f), 9),
+            // Trade tools behind the stalls they belong to.
+            ("forge_stone", new Vector2(-6.5f, 4.6f), 6),
+            ("meatrack", new Vector2(4.5f, 4.9f), 6),
 
-            // Unloaded goods around the plaza edges.
-            ("crate", new Vector2(-15.4f, 4.2f), 12),
-            ("barrel", new Vector2(-14.6f, 4.2f), 12),
-            ("crate", new Vector2(-14.9f, 5.1f), 11),
-            ("barrel", new Vector2(-10.2f, 8.3f), 8),
-            ("pot", new Vector2(-9.4f, 8.3f), 8),
-            ("vase", new Vector2(-6.4f, 8.4f), 8),
-            ("crate", new Vector2(-2.2f, 6.4f), 10),
-            ("barrel", new Vector2(-1.5f, 6.4f), 10),
-            ("pot", new Vector2(-1.9f, 7.2f), 9),
-            ("vase", new Vector2(-16.2f, 2.4f), 13),
-            ("barrel", new Vector2(0.4f, 3.4f), 13),
-            ("crate", new Vector2(0.4f, 4.2f), 12),
-            ("pot", new Vector2(-13f, 1.4f), 14),
+            // Goods stacked against the back of the market row.
+            ("crate", new Vector2(-3f, 4.8f), 7),
+            ("barrel", new Vector2(-2.2f, 4.8f), 7),
+            ("pot", new Vector2(1f, 4.9f), 7),
+            ("vase", new Vector2(5.2f, 3.4f), 8),
+            ("barrel", new Vector2(-7.4f, 2.6f), 9),
+            ("crate", new Vector2(-7.4f, 1.4f), 11),
 
-            // A second, unattended row of counters facing the first so the
-            // square reads as a market street rather than one lonely line
-            // of stalls with a big empty floor in front of it.
-            ("stall_counter", new Vector2(-13.5f, 2.6f), 16),
-            ("stall_counter", new Vector2(-9.5f, 2.6f), 16),
-            ("stall_counter", new Vector2(-5.5f, 2.6f), 16),
-            ("crate", new Vector2(-12.2f, 2.7f), 16),
-            ("barrel", new Vector2(-8.2f, 2.7f), 16),
-            ("vase", new Vector2(-4.2f, 2.7f), 16),
-            ("meatrack_tall", new Vector2(-16f, 8.6f), 8),
+            // A facing row of counters turns the square into a street.
+            ("stall_counter", new Vector2(-4.5f, 0.2f), 14),
+            ("stall_counter", new Vector2(1.5f, 0.2f), 14),
+            ("crate", new Vector2(-1.6f, 0.4f), 14),
+            ("barrel", new Vector2(4.2f, 0.2f), 14),
+            ("pot", new Vector2(-6.4f, -0.6f), 16),
 
-            // Goods stacked mid-square so the walking floor is not one
-            // uninterrupted sheet of cobble.
-            ("crate", new Vector2(-12.6f, 4.5f), 13),
-            ("crate", new Vector2(-12.6f, 5.2f), 12),
-            ("barrel", new Vector2(-11.9f, 4.5f), 13),
-            ("vase", new Vector2(-6.2f, 4.4f), 13),
-            ("pot", new Vector2(-5.6f, 4.4f), 13),
-            ("barrel", new Vector2(-8.9f, 1.6f), 17),
-            ("crate", new Vector2(-15.2f, 1.5f), 17),
-            ("pot", new Vector2(-2.6f, 1.5f), 17),
-
-            // Signposts at the two plaza entrances.
-            ("market_sign", new Vector2(-9.5f, 0.6f), 18),
-            ("market_sign", new Vector2(-5.5f, 0.6f), 18),
+            // Signposts either side of the southern entrance.
+            ("market_sign", new Vector2(-2.5f, -1.4f), 18),
+            ("market_sign", new Vector2(0.5f, -1.4f), 18),
         };
 
     // Coins the player can collect on a first visit so the stalls are not
@@ -225,14 +209,14 @@ public static class ShopIslandBuilder
     // line so they never sit under an awning.
     private static readonly Vector2[] CoinPositions =
     {
-        new Vector2(-15.5f, 3f),
-        new Vector2(-12.5f, 3.5f),
-        new Vector2(-10.5f, 2.5f),
-        new Vector2(-8.5f, 4f),
-        new Vector2(-6.5f, 2.5f),
-        new Vector2(-4.5f, 3.5f),
-        new Vector2(-2.5f, 1.5f),
-        new Vector2(-11f, 0.5f),
+        new Vector2(-6f, 1.6f),
+        new Vector2(-4f, 2.4f),
+        new Vector2(-2f, 1.4f),
+        new Vector2(0f, 2.6f),
+        new Vector2(2f, 1.6f),
+        new Vector2(4f, 2.6f),
+        new Vector2(-5f, -0.6f),
+        new Vector2(2.6f, -0.6f),
     };
 
     [MenuItem(MenuPath)]
@@ -406,6 +390,29 @@ public static class ShopIslandBuilder
             UnityEngine.Object.DestroyImmediate(enemy.gameObject);
         }
 
+        // The island this scene is built from is the multiplayer lobby,
+        // which spawns a runtime wave of enemies. A market is the one
+        // place in the run where players can stand still and shop.
+        int removedSpawners = 0;
+
+        foreach (NetworkSceneEnemySpawner2D spawner in scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<NetworkSceneEnemySpawner2D>(true))
+            .ToArray())
+        {
+            UnityEngine.Object.DestroyImmediate(spawner);
+            removedSpawners++;
+        }
+
+        if (removedSpawners > 0)
+        {
+            Debug.Log(
+                $"[Shop Island] Removed {removedSpawners} runtime enemy " +
+                "spawner(s) inherited from the lobby island."
+            );
+        }
+
         Debug.Log(
             $"[Shop Island] Removed {removedMarkers} spawn markers and " +
             $"{removedGenerators} content generators."
@@ -428,11 +435,13 @@ public static class ShopIslandBuilder
     // Plaza dressing
     // ------------------------------------------------------------------
 
-    // Plaza footprint in cells.
-    private const int PlazaMinX = -17;
-    private const int PlazaMaxX = 1;
-    private const int PlazaMinY = 0;
-    private const int PlazaMaxY = 9;
+    // Plaza footprint in cells, sized for this island rather than the big
+    // one: the market should sit ON the island with beach around it, not
+    // cover it wall to wall.
+    private const int PlazaMinX = -8;
+    private const int PlazaMaxX = 5;
+    private const int PlazaMinY = -1;
+    private const int PlazaMaxY = 7;
 
     /// <summary>
     /// Lays a cobbled market square over the beach and clears the
@@ -447,19 +456,23 @@ public static class ShopIslandBuilder
     {
         Tilemap props = FindTilemap(scene, "Tilemap_Props");
         Tilemap overhead = FindTilemap(scene, "Tilemap_Overhead");
-        Tilemap detail = FindTilemap(scene, "Tilemap_GroundDetail");
+        Tilemap ground = FindTilemap(scene, "Tilemap_Ground");
         Tilemap obstacle = FindTilemap(scene, "Tilemap_ObstacleCollision");
 
-        // Wipe the inherited camp/graveyard dressing so the market is not
-        // built on top of a fenced wilderness camp.
-        for (int x = PlazaMinX - 2; x <= PlazaMaxX + 3; x++)
+        // Clearing runs a generous margin WIDER than the paving. Palm
+        // trees are several cells tall with their canopy on the overhead
+        // layer, so clearing exactly the plaza rectangle slices trees in
+        // half and leaves floating crowns and headless trunks around the
+        // border — which is what made the first market look pasted on.
+        const int clearMargin = 4;
+
+        for (int x = PlazaMinX - clearMargin; x <= PlazaMaxX + clearMargin; x++)
         {
-            for (int y = PlazaMinY - 3; y <= PlazaMaxY + 2; y++)
+            for (int y = PlazaMinY - clearMargin; y <= PlazaMaxY + clearMargin; y++)
             {
                 Vector3Int cell = new Vector3Int(x, y, 0);
                 props.SetTile(cell, null);
                 overhead.SetTile(cell, null);
-                detail.SetTile(cell, null);
                 obstacle.SetTile(cell, null);
             }
         }
@@ -486,7 +499,10 @@ public static class ShopIslandBuilder
                     y <= PlazaMinY ||
                     y >= PlazaMaxY;
 
-                detail.SetTile(
+                // Painted onto the ground layer itself: the plaza replaces
+                // the sand rather than sitting on a decal above it, so it
+                // reads as the island's floor.
+                ground.SetTile(
                     new Vector3Int(x, y, 0),
                     onRing ? border : cobble
                 );
@@ -655,14 +671,14 @@ public static class ShopIslandBuilder
         {
             VendorSpec spec = Vendors[index];
 
-            // The stall stands behind the trader. Sorting orders count
-            // DOWN as objects sit further north so nearer things overlap
-            // farther ones, which is what gives the row its depth.
+            // The stall stands behind the trader, who is drawn in front of
+            // their own counter so an awning never hides the person you
+            // are meant to walk up to.
             CreatePropObject(
                 districtRoot,
                 VendorStallProps[index % VendorStallProps.Length],
-                spec.Position + new Vector2(0f, 0.55f),
-                9
+                spec.Position + new Vector2(0f, 0.9f),
+                8
             );
         }
 
@@ -960,10 +976,31 @@ public static class ShopIslandBuilder
 
         if (portal == null)
         {
-            Debug.LogWarning(
-                "[Shop Island] No stage portal found; players would be " +
-                "unable to leave."
-            );
+            // This island inherits the lobby's rowboat, which already
+            // sails to the boat scene through LobbyRowboatInteraction, so
+            // there is nothing to repoint. Confirm it exists rather than
+            // silently leaving players stranded in the market.
+            bool hasRowboatExit = scene
+                .GetRootGameObjects()
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<LobbyRowboatInteraction>(true))
+                .Any();
+
+            if (!hasRowboatExit)
+            {
+                Debug.LogWarning(
+                    "[Shop Island] No stage portal and no rowboat exit; " +
+                    "players would be unable to leave."
+                );
+            }
+            else
+            {
+                Debug.Log(
+                    "[Shop Island] Exit is the inherited rowboat " +
+                    "(press E to sail back to the ship)."
+                );
+            }
+
             return;
         }
 

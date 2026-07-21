@@ -89,33 +89,38 @@ public static class ContentFixupBuilder
     /// non-transparent) pixel height is measured and scaled to hit a target
     /// world-space height.
     ///
-    /// The anchor for every target below is the MEASURED player: the
-    /// classic rig's body is the 16x16 "Sword2" sprite at 16 px/unit with
-    /// GFX scale 1 — about ONE world unit tall (and ground tiles are 1
-    /// unit). The old 2.2-2.9 unit targets assumed a 2.25-unit player that
-    /// does not exist in the classic rig, which is why enemies towered
-    /// over both the player and the environment.
+    /// The anchor for every target below is the MEASURED player, and that
+    /// measurement has a trap in it: the player prefab carries a 16x16
+    /// placeholder sword icon on one child, but the sprite its animator
+    /// actually renders is motw_10 on another — 68 drawn pixels at
+    /// 32 px/unit, so the crew stand about **2.1 world units** tall.
+    ///
+    /// Sizing against the placeholder (as an earlier pass did) makes every
+    /// enemy roughly half the height it should be, which is exactly how
+    /// the skeleton ended up looking like a child next to the player.
     /// </summary>
-    /// Skeleton-only since the Soldier overhaul was reverted. Raised to
-    /// match the orc: the skeleton warrior is an armed humanoid, and at
-    /// 1.25 it read as smaller than every other enemy on the island
-    /// despite being a front-line threat. Its art is drawn just 26px
-    /// inside a 96px frame, so this target — not the frame size — is the
-    /// only thing that decides how big it looks.
-    private const float SkeletonTargetWorldHeight = 1.5f;
+    private const float PlayerWorldHeight = 2.13f;
+    // Every target below is expressed as a multiple of the player so the
+    // roster stays readable at a glance: a skeleton warrior is a shade
+    // taller than a pirate, an orc is a head above that, and the demon
+    // reaver is the thing you run from.
+    private const float SkeletonTargetWorldHeight =
+        PlayerWorldHeight * 1.05f;
 
-    // Noticeably bulkier than the ~1u player without towering over 1u
-    // ground tiles. The variant's legacy 1.25x root scale is reset in
+    // The variant's legacy 1.25x root scale is reset in
     // UpgradeBoneBruteToOrc; with that gone this is the orc's real
     // on-screen height.
-    private const float BruteTargetWorldHeight = 1.55f;
-    private const float CrabTargetWorldHeight = 0.65f;
-    private const float ChestTargetWorldHeight = 0.95f;
+    private const float BruteTargetWorldHeight = PlayerWorldHeight * 1.25f;
 
-    // New island threats: the demon reaver is the elite (rarer, taller),
-    // the blood fiend is a fast low-health swarmer.
-    private const float DemonTargetWorldHeight = 1.8f;
-    private const float BloodMonsterTargetWorldHeight = 1.1f;
+    // A scuttling crab is knee-height; a chest reads as furniture.
+    private const float CrabTargetWorldHeight = PlayerWorldHeight * 0.42f;
+    private const float ChestTargetWorldHeight = PlayerWorldHeight * 0.55f;
+
+    // The demon reaver is the elite (rarer, taller), the blood fiend a
+    // fast low-health swarmer that comes up to the player's shoulder.
+    private const float DemonTargetWorldHeight = PlayerWorldHeight * 1.5f;
+    private const float BloodMonsterTargetWorldHeight =
+        PlayerWorldHeight * 0.85f;
 
     // Matches Lobby_Island_2D and Boat_Gameplay_2D's camera so all three
     // gameplay scenes share the same tiles-per-screen density.
@@ -231,7 +236,7 @@ public static class ContentFixupBuilder
         AssetDatabase.Refresh();
 
         Debug.Log(
-            "[Fixup Builder] Sprites recalibrated to the ~1u player, " +
+            "[Fixup Builder] Sprites recalibrated to the 2.13u player, " +
             "chest visuals deduplicated, demon + blood fiend added, " +
             "island polished. Boat scene untouched (teammate-owned)."
         );

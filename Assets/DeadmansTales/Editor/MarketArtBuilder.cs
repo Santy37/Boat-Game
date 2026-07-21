@@ -34,7 +34,19 @@ public static class MarketArtBuilder
     private const string BreakablesSourcePath =
         MarketFolder + "/breakables_src.png";
 
-    public const int MarketPixelsPerUnit = 32;
+    /// <summary>
+    /// The player renders motw_10 at 32 px/unit, and that character is 68
+    /// drawn pixels tall — so the crew stand about 2.1 world units, NOT
+    /// the ~1 unit the prefab's placeholder sword icon suggests. These
+    /// market sheets are drawn for 32px characters, so they must be
+    /// enlarged by roughly 68/32 to sit at the same visual scale.
+    ///
+    /// 16 px/unit does that and lands on a happy accident: the sheets use
+    /// a 16px cell, so one source cell becomes exactly one world unit and
+    /// props line up with the tile grid. A stall is then 3x5 units against
+    /// a 2.1 unit player, which is what a market stall should look like.
+    /// </summary>
+    public const int MarketPixelsPerUnit = 16;
 
     private const int Cell = 16;
 
