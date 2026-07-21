@@ -44,6 +44,10 @@ PrefabInstance:
       propertyPath: damage
       value: 12
       objectReference: {fileID: 0}
+    - target: {fileID: 5753195178114590821, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 3394465159
+      objectReference: {fileID: 0}
     - target: {fileID: 6266779270441970854, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
       propertyPath: m_Sprite
       value: 

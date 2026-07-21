@@ -565,11 +565,6 @@ internal sealed class NetworkingArchitectureTests
     }
 
     [Test]
-    [Ignore(
-        "The boat scene is teammate-owned until his finished ship lands " +
-        "in main; this branch carries main's bytes for it verbatim (no " +
-        "portal yet). Re-enable once the boat scene is integrated."
-    )]
     public void BoatSceneTransitionsToIslandThroughNetworkPortal()
     {
         int portalCount = CountSceneComponents<NetworkStagePortal>(

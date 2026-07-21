@@ -13,7 +13,32 @@ public class MainMenuManager : MonoBehaviour
     private static readonly string[] SelectableSceneNames =
     {
         "Lobby_Island_2D",
-        "Boat_Gameplay_2D"
+        "Boat_Gameplay_2D",
+        "Island_After_Ocean_01_2D"
+    };
+
+    private static readonly string[] SelectableLevelDisplayNames =
+    {
+        "LOBBY ISLAND",
+        "THE SHIP",
+        "OCEAN ISLAND"
+    };
+
+    /// <summary>
+    /// Stage index each level starts a fresh run at.
+    ///
+    /// This is not cosmetic: the post-ocean island's seeded content markers
+    /// are gated to minimumStage 2 (they represent the island you reach
+    /// AFTER the first voyage), so launching that scene directly at stage 1
+    /// would deterministically spawn nothing — no enemies, no loot, no
+    /// camp chests. Entering at stage 2 gives the same island the normal
+    /// boat -> island transition produces for a given seed.
+    /// </summary>
+    private static readonly int[] SelectableStartingStages =
+    {
+        1,
+        1,
+        2
     };
 
     [Header("Menu Panels")]
@@ -34,6 +59,36 @@ public class MainMenuManager : MonoBehaviour
 
     [SerializeField]
     private TMP_Text multiplayerStatusText;
+
+    [Header("Run Seed")]
+    [Tooltip(
+        "Reuse one seed for every run instead of rolling a random one. " +
+        "The same seed plus the same level always rebuilds the same " +
+        "island layout, spawns, and loot, which is what makes a run " +
+        "shareable and a bug reproducible."
+    )]
+    [SerializeField]
+    private bool useFixedRunSeed;
+
+    [SerializeField]
+    private int fixedRunSeed = 12345;
+
+    [Tooltip(
+        "Optional. Wire a menu input field here to let players type a " +
+        "seed. A valid number typed here overrides the settings above."
+    )]
+    [SerializeField]
+    private TMP_InputField runSeedInput;
+
+    /// <summary>
+    /// Seed of the most recently started run, so the value that generated
+    /// the current world can be read back (and re-entered) after the fact.
+    /// </summary>
+    public static int LastRunSeed
+    {
+        get;
+        private set;
+    }
 
     private OnlineLobbyService lobbyService;
     private bool lobbyOperationInProgress;
@@ -383,13 +438,49 @@ public class MainMenuManager : MonoBehaviour
 
     public void LoadLevelOne()
     {
+        LoadSelectableLevel(0);
+    }
+
+    public void LoadLevelTwo()
+    {
+        LoadSelectableLevel(1);
+    }
+
+    public void LoadLevelThree()
+    {
+        LoadSelectableLevel(2);
+    }
+
+    /// <summary>
+    /// Menu buttons for levels that have no scene yet. Says so instead of
+    /// looking broken.
+    /// </summary>
+    public void ShowLevelComingSoon()
+    {
+        SetStatus("THAT LEVEL IS NOT BUILT YET");
+    }
+
+    /// <summary>
+    /// Starts the chosen level, in the lobby session when there is one and
+    /// as a solo host otherwise. Selecting the level first means the run is
+    /// always initialized with that level's starting stage.
+    /// </summary>
+    private void LoadSelectableLevel(int levelIndex)
+    {
+        selectedSceneIndex = Mathf.Clamp(
+            levelIndex,
+            0,
+            SelectableSceneNames.Length - 1
+        );
+
+        UpdateLevelButtonLabel();
+
         if (lobbyService != null && lobbyService.IsInSession)
         {
             StartMultiplayerGame();
             return;
         }
 
-        selectedSceneIndex = 0;
         StartSinglePlayerGame();
     }
 
@@ -623,16 +714,59 @@ public class MainMenuManager : MonoBehaviour
             return false;
         }
 
-        int runSeed = UnityEngine.Random.Range(1, int.MaxValue);
+        int runSeed = ResolveRunSeed();
+        int startingStage = GetSelectedStartingStage();
 
         runState.InitializeNewRunServer(
             runSeed,
             "boat_default",
             1,
-            1
+            startingStage
+        );
+
+        LastRunSeed = runSeed;
+
+        Debug.Log(
+            $"[Main Menu] Run seed {runSeed} | stage {startingStage} | " +
+            $"scene {GetSelectedSceneName()}. Re-enter this seed with the " +
+            "same level to rebuild an identical world."
         );
 
         return true;
+    }
+
+    /// <summary>
+    /// A typed seed wins, then the inspector's fixed seed, then a fresh
+    /// random one. Seed 0 is never used: the run state treats it as unset.
+    /// </summary>
+    private int ResolveRunSeed()
+    {
+        if (
+            runSeedInput != null &&
+            int.TryParse(runSeedInput.text, out int typedSeed) &&
+            typedSeed != 0
+        )
+        {
+            return typedSeed;
+        }
+
+        if (useFixedRunSeed && fixedRunSeed != 0)
+        {
+            return fixedRunSeed;
+        }
+
+        return UnityEngine.Random.Range(1, int.MaxValue);
+    }
+
+    private int GetSelectedStartingStage()
+    {
+        int index = Mathf.Clamp(
+            selectedSceneIndex,
+            0,
+            SelectableStartingStages.Length - 1
+        );
+
+        return SelectableStartingStages[index];
     }
 
     private void EnsureLobbyService()
@@ -849,6 +983,8 @@ public class MainMenuManager : MonoBehaviour
                 case "SELECT LEVEL":
                 case "LEVEL LOBBY ISLAND":
                 case "LEVEL BOAT GAMEPLAY":
+                case "LEVEL THE SHIP":
+                case "LEVEL OCEAN ISLAND":
                     selectLevelButton = button;
                     ReplaceButtonAction(button, CycleSelectedLevel);
                     break;
@@ -868,8 +1004,28 @@ public class MainMenuManager : MonoBehaviour
                     ReplaceButtonAction(button, LeaveLobby);
                     break;
 
+                // The menu art spells these out ("Level One"), so both the
+                // written and numeric forms are accepted.
                 case "LEVEL 1":
+                case "LEVEL ONE":
                     ReplaceButtonAction(button, LoadLevelOne);
+                    break;
+
+                case "LEVEL 2":
+                case "LEVEL TWO":
+                    ReplaceButtonAction(button, LoadLevelTwo);
+                    break;
+
+                case "LEVEL 3":
+                case "LEVEL THREE":
+                    ReplaceButtonAction(button, LoadLevelThree);
+                    break;
+
+                case "LEVEL 4":
+                case "LEVEL FOUR":
+                case "LEVEL 5":
+                case "LEVEL FIVE":
+                    ReplaceButtonAction(button, ShowLevelComingSoon);
                     break;
             }
         }
@@ -995,9 +1151,13 @@ public class MainMenuManager : MonoBehaviour
 
     private string GetSelectedLevelDisplayName()
     {
-        return selectedSceneIndex == 0
-            ? "LOBBY ISLAND"
-            : "BOAT GAMEPLAY";
+        int index = Mathf.Clamp(
+            selectedSceneIndex,
+            0,
+            SelectableLevelDisplayNames.Length - 1
+        );
+
+        return SelectableLevelDisplayNames[index];
     }
 
     private void CacheLobbyCodeLayout()
