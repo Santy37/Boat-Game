@@ -211,8 +211,44 @@ public sealed class PlayerAttack : NetworkBehaviour
             return;
         }
 
+        // Javier's four directional swing clips. The state is chosen from
+        // the aim vector rather than from PlayerAnimation2D's local facing
+        // enum, because this method also runs on every remote client from
+        // PlayAttackAnimationRpc — the aim direction is networked, a
+        // remote player's local facing is not, so this is what makes
+        // everyone see the same swing.
+        string directionalState = ResolveAttackState(aimDirection);
+
+        if (directionalState != null && HasState(directionalState))
+        {
+            anim.Play(directionalState, 0, 0f);
+            return;
+        }
+
         anim.ResetTrigger(AttackTrigger);
         anim.SetTrigger(AttackTrigger);
+    }
+
+    private static string ResolveAttackState(Vector2 aimDirection)
+    {
+        Vector2 aim = SanitizeAimDirection(aimDirection);
+
+        if (Mathf.Abs(aim.x) >= Mathf.Abs(aim.y))
+        {
+            return aim.x >= 0f ? "Attack_Right" : "Attack_Left";
+        }
+
+        return aim.y >= 0f ? "Attack_Up" : "Attack_Down";
+    }
+
+    /// <summary>
+    /// Guards against controllers that predate the directional clips, so
+    /// a rig still on the single "Attack" trigger keeps working instead of
+    /// silently playing nothing.
+    /// </summary>
+    private bool HasState(string stateName)
+    {
+        return anim.HasState(0, Animator.StringToHash(stateName));
     }
 
     private void ApplyServerHits(Vector2 aimDirection)

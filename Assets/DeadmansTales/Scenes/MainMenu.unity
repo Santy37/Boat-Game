@@ -160,6 +160,7 @@ MonoBehaviour:
   createOrJoinText: {fileID: 1514541215}
   playerListText: {fileID: 1121495785}
   enterCodeText: {fileID: 1177160845}
+  multiplayerStatusText: {fileID: 0}
 --- !u!4 &32604456
 Transform:
   m_ObjectHideFlags: 0

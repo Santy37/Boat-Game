@@ -2,13 +2,14 @@ using UnityEngine;
 
 public class PlayerAnimation2D : MonoBehaviour
 {
-    private enum FacingDirection
+    public enum FacingDirection
     {
         Down,
         Left,
         Right,
         Up
     }
+    public FacingDirection CurrentFacingDirection => facingDirection;
 
     [Header("References")]
     [SerializeField] private Animator animator;
