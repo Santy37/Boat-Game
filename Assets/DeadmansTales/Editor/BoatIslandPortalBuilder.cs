@@ -32,23 +32,21 @@ public static class BoatIslandPortalBuilder
 
     private const string PortalObjectName = "PostOceanIslandPortal";
 
-    private const string RowboatSpritePath =
-        "Assets/DeadmansTales/Art_Pixel/Props/rowboat.png";
-
     /// <summary>
     /// Placed by measuring the teammate's own deck collider (centre
     /// ~(3.2, 12.7), size ~24.5 x 6.3) rather than by hard-coded world
-    /// coordinates, so the portal follows his ship if he reshapes it.
+    /// coordinates, so the trigger follows his ship if he reshapes it.
     ///
-    /// These offsets land it on the open planking between the aft mast
-    /// (cell x 6) and the bow crate (cells x 10-11) — the rowboat sprite
-    /// is ~2.9 x 1.4 units, so this is the widest stretch of deck it fits
-    /// on without covering any of his props. The bow tip looks tidier but
-    /// the hull tapers too sharply there for the sprite to sit inside it.
+    /// This sits over the bow half of the deck. Because the trigger is
+    /// invisible it is deliberately generous — walking toward the front
+    /// of the ship has to be enough to raise the prompt, since there is
+    /// no marker to aim at.
     /// </summary>
-    private const float BowInset = 7f;
+    private const float BowInset = 4f;
 
     private const float DeckHeightOffset = 0.26f;
+
+    private static readonly Vector2 TriggerSize = new Vector2(7f, 5f);
 
     [MenuItem(MenuPath)]
     public static void BuildAll()
@@ -91,7 +89,7 @@ public static class BoatIslandPortalBuilder
         // Interactables are discovered with a physics overlap, so the
         // portal needs a collider; a trigger keeps it walk-through.
         trigger.isTrigger = true;
-        trigger.size = new Vector2(3f, 2f);
+        trigger.size = TriggerSize;
 
         NetworkStagePortal portal =
             portalObject.GetComponent<NetworkStagePortal>();
@@ -115,7 +113,8 @@ public static class BoatIslandPortalBuilder
         SetSerializedBool(portal, "allowRepeatedInteraction", false);
         SetSerializedFloat(portal, "additionalServerRange", 0.25f);
 
-        AddRowboatVisual(portalObject, 20);
+        EnsureNoVisual(portalObject);
+        HidePrototypeOverlay(scene);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -138,6 +137,35 @@ public static class BoatIslandPortalBuilder
         BuildAll();
     }
 
+    /// <summary>
+    /// The scene ships with a fullscreen "PROTOTYPE COMPLETE! / Press
+    /// Escape To Go Back To Main Menu" canvas that nothing ever toggles,
+    /// so it covers the ship for the whole session and reads as if the
+    /// level ended the moment it loads.
+    ///
+    /// It is deactivated rather than deleted: the object, its text, and
+    /// its layout stay exactly as authored, so re-enabling it is one
+    /// checkbox if it turns out to be wanted.
+    /// </summary>
+    private static void HidePrototypeOverlay(Scene scene)
+    {
+        GameObject overlay = scene
+            .GetRootGameObjects()
+            .FirstOrDefault(root => root.name == "Prototype");
+
+        if (overlay == null || !overlay.activeSelf)
+        {
+            return;
+        }
+
+        overlay.SetActive(false);
+
+        Debug.Log(
+            "[Boat Portal] Hid the always-on PROTOTYPE COMPLETE overlay " +
+            "(deactivated, not deleted)."
+        );
+    }
+
     private static Bounds FindDeckBounds(Scene scene)
     {
         EdgeCollider2D deckCollider = scene
@@ -157,35 +185,27 @@ public static class BoatIslandPortalBuilder
         return deckCollider.bounds;
     }
 
-    private static void AddRowboatVisual(
-        GameObject target,
-        int sortingOrder
-    )
+    /// <summary>
+    /// The exit is intentionally invisible. The ship's art is the
+    /// teammate's to author, so this adds no sprite of its own — nothing
+    /// appears on his deck that he did not put there. Strips a renderer
+    /// from an earlier build of this object if one is present.
+    /// </summary>
+    private static void EnsureNoVisual(GameObject target)
     {
-        Sprite rowboatSprite = AssetDatabase
-            .LoadAllAssetsAtPath(RowboatSpritePath)
-            .OfType<Sprite>()
-            .FirstOrDefault();
+        SpriteRenderer renderer = target.GetComponent<SpriteRenderer>();
 
-        if (rowboatSprite == null)
+        if (renderer == null)
         {
-            Debug.LogWarning(
-                "[Boat Portal] The rowboat sprite is missing; the portal " +
-                "will work but stay invisible."
-            );
             return;
         }
 
-        SpriteRenderer renderer = target.GetComponent<SpriteRenderer>();
-        if (renderer == null)
-        {
-            renderer = target.AddComponent<SpriteRenderer>();
-        }
+        UnityEngine.Object.DestroyImmediate(renderer, true);
 
-        renderer.sprite = rowboatSprite;
-
-        // Above the props tilemap (order 3) so it reads as sitting on deck.
-        renderer.sortingOrder = sortingOrder;
+        Debug.Log(
+            "[Boat Portal] Removed the portal's visual; the exit is now " +
+            "an invisible trigger."
+        );
     }
 
     private static void SetSerializedString(

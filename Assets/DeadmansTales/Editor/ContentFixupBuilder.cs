@@ -96,7 +96,13 @@ public static class ContentFixupBuilder
     /// does not exist in the classic rig, which is why enemies towered
     /// over both the player and the environment.
     /// </summary>
-    private const float HumanoidTargetWorldHeight = 1.25f;
+    /// Skeleton-only since the Soldier overhaul was reverted. Raised to
+    /// match the orc: the skeleton warrior is an armed humanoid, and at
+    /// 1.25 it read as smaller than every other enemy on the island
+    /// despite being a front-line threat. Its art is drawn just 26px
+    /// inside a 96px frame, so this target — not the frame size — is the
+    /// only thing that decides how big it looks.
+    private const float SkeletonTargetWorldHeight = 1.5f;
 
     // Noticeably bulkier than the ~1u player without towering over 1u
     // ground tiles. The variant's legacy 1.25x root scale is reset in
@@ -151,7 +157,7 @@ public static class ContentFixupBuilder
         AutoSliceCharacterFolder(
             SkeletonArtFolder,
             SkeletonFrameSize,
-            HumanoidTargetWorldHeight,
+            SkeletonTargetWorldHeight,
             new[] { "All-spritesheet" }
         );
         ConfigureGridSheet(
