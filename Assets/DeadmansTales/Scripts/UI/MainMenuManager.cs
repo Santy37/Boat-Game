@@ -14,14 +14,16 @@ public class MainMenuManager : MonoBehaviour
     {
         "Lobby_Island_2D",
         "Boat_Gameplay_2D",
-        "Island_After_Ocean_01_2D"
+        "Island_After_Ocean_01_2D",
+        "Island_Shop_2D"
     };
 
     private static readonly string[] SelectableLevelDisplayNames =
     {
         "LOBBY ISLAND",
         "THE SHIP",
-        "OCEAN ISLAND"
+        "OCEAN ISLAND",
+        "PORT MARKET"
     };
 
     /// <summary>
@@ -38,6 +40,7 @@ public class MainMenuManager : MonoBehaviour
     {
         1,
         1,
+        2,
         2
     };
 
@@ -449,6 +452,11 @@ public class MainMenuManager : MonoBehaviour
     public void LoadLevelThree()
     {
         LoadSelectableLevel(2);
+    }
+
+    public void LoadLevelFour()
+    {
+        LoadSelectableLevel(3);
     }
 
     /// <summary>
@@ -985,6 +993,7 @@ public class MainMenuManager : MonoBehaviour
                 case "LEVEL BOAT GAMEPLAY":
                 case "LEVEL THE SHIP":
                 case "LEVEL OCEAN ISLAND":
+                case "LEVEL PORT MARKET":
                     selectLevelButton = button;
                     ReplaceButtonAction(button, CycleSelectedLevel);
                     break;
@@ -1023,6 +1032,9 @@ public class MainMenuManager : MonoBehaviour
 
                 case "LEVEL 4":
                 case "LEVEL FOUR":
+                    ReplaceButtonAction(button, LoadLevelFour);
+                    break;
+
                 case "LEVEL 5":
                 case "LEVEL FIVE":
                     ReplaceButtonAction(button, ShowLevelComingSoon);
