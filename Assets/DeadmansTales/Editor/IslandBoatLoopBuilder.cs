@@ -58,6 +58,10 @@ public static class IslandBoatLoopBuilder
     private const int FoodFrameSize = 16;
     private const int FoodPixelsPerUnit = 14;
 
+    // Readonly (not const) so the early-out below doesn't trip the
+    // unreachable-code warning while the boat scene is hands-off.
+    private static readonly bool BoatSceneIsTeammateOwned = true;
+
     private static readonly Vector2[] FoodMarkerPositions =
     {
         new Vector2(-15f, -9f),
@@ -627,6 +631,18 @@ public static class IslandBoatLoopBuilder
 
     private static void WireBoatShipSurvival()
     {
+        // The boat scene belongs to the teammate's branch now; this branch
+        // carries main's bytes for it verbatim so the merge stays clean.
+        // Rewiring it here would recreate a competing version.
+        if (BoatSceneIsTeammateOwned)
+        {
+            Debug.Log(
+                "[Island/Boat Builder] Boat scene is teammate-owned; " +
+                "ship survival wiring skipped."
+            );
+            return;
+        }
+
         Scene scene = EditorSceneManager.OpenScene(
             BoatScenePath,
             OpenSceneMode.Single

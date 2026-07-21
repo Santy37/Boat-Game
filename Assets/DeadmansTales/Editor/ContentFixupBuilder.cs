@@ -5,7 +5,6 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using DeadmansTales.Networking;
-using DeadmansTales.Ship;
 using DeadmansTales.WorldGeneration;
 using Unity.Netcode;
 using UnityEditor;
@@ -15,31 +14,24 @@ using UnityEditor.U2D.Sprites;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
-using UnityEngine.UI;
 
 /// <summary>
-/// Playtest-feedback fixup pass:
-///  - Boat scene: the layout is the teammate's own (adopted verbatim from
-///    main, with the boat root Unity lost in his merge re-spliced back).
-///    This pass only removes the "PROTOTYPE COMPLETE" overlay and rebuilds
-///    the ship-survival stations + HUD on his deck, positioned from his
-///    deck EdgeCollider2D. It never touches his tiles, hull, or camera.
+/// Playtest-feedback fixup pass. The boat scene is deliberately NOT
+/// touched anymore: it belongs to the teammate's branch and this branch
+/// carries main's bytes for it verbatim, so merging stays clean.
 ///  - Crab/skeleton: hides the leftover placeholder sprite on the prefab
 ///    roots that rendered alongside the real art.
 ///  - Island: skeleton warriors and the orc join the enemy marker pools.
 ///  - Orc (BoneBrute): orc art, and the variant's legacy 1.25x root scale
 ///    is reset so the measured pixels-per-unit is the ONLY thing deciding
-///    its size. The player prefab is main's original rig — not touched.
+///    its size. The player prefab is the classic rig — not touched.
 ///
 /// Idempotent: safe to run repeatedly.
 /// </summary>
 public static class ContentFixupBuilder
 {
     private const string MenuPath =
-        "Deadman's Tales/Fix Boat Scene + Character Overhaul";
-
-    private const string BoatScenePath =
-        "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity";
+        "Deadman's Tales/Island Content Fixup";
 
     private const string IslandScenePath =
         "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
@@ -48,11 +40,21 @@ public static class ContentFixupBuilder
         "Assets/DeadmansTales/Art_Pixel/Characters/TinyRPG";
 
     private const string OrcFolder = TinyRpgFolder + "/Orc";
+    private const string DemonFolder = TinyRpgFolder + "/DemonA";
+    private const string BloodMonsterFolder =
+        TinyRpgFolder + "/BloodMonsterA";
 
     private const string AnimationFolder =
         "Assets/DeadmansTales/Animations";
     private const string OrcAnimationFolder =
         AnimationFolder + "/OrcBrute2D";
+    private const string DemonAnimationFolder =
+        AnimationFolder + "/DemonReaver2D";
+    private const string BloodMonsterAnimationFolder =
+        AnimationFolder + "/BloodFiend2D";
+
+    private const string BasicEnemyPrefabPath =
+        "Assets/DeadmansTales/Prefabs/basicenemy.prefab";
 
     private const string GameplayPrefabFolder =
         "Assets/DeadmansTales/Prefabs/Gameplay";
@@ -62,6 +64,10 @@ public static class ContentFixupBuilder
         GameplayPrefabFolder + "/Enemy_SkeletonWarrior.prefab";
     private const string BoneBrutePrefabPath =
         GameplayPrefabFolder + "/Enemy_BoneBrute.prefab";
+    private const string DemonPrefabPath =
+        GameplayPrefabFolder + "/Enemy_DemonReaver.prefab";
+    private const string BloodFiendPrefabPath =
+        GameplayPrefabFolder + "/Enemy_BloodFiend.prefab";
 
     private const int CharacterFrameSize = 100;
     private const int SkeletonFrameSize = 96;
@@ -81,18 +87,29 @@ public static class ContentFixupBuilder
     /// (room for weapon swings), so pixels-per-unit cannot be derived from
     /// the frame size directly. Instead each sheet's actual drawn (trimmed,
     /// non-transparent) pixel height is measured and scaled to hit a target
-    /// world-space height, matching the original placeholder's on-screen
-    /// scale (72px tall at 32 px/unit = 2.25 units) so nothing looks like a
-    /// doll standing next to giants or vice versa.
+    /// world-space height.
+    ///
+    /// The anchor for every target below is the MEASURED player: the
+    /// classic rig's body is the 16x16 "Sword2" sprite at 16 px/unit with
+    /// GFX scale 1 — about ONE world unit tall (and ground tiles are 1
+    /// unit). The old 2.2-2.9 unit targets assumed a 2.25-unit player that
+    /// does not exist in the classic rig, which is why enemies towered
+    /// over both the player and the environment.
     /// </summary>
-    private const float HumanoidTargetWorldHeight = 2.2f;
+    private const float HumanoidTargetWorldHeight = 1.25f;
 
-    // A head taller than the 2.2 player, no more. The variant's legacy
-    // 1.25x root scale is reset in UpgradeBoneBruteToOrc; with that gone,
-    // this is the orc's real on-screen height.
-    private const float BruteTargetWorldHeight = 2.5f;
-    private const float CrabTargetWorldHeight = 0.9f;
-    private const float ChestTargetWorldHeight = 0.75f;
+    // Noticeably bulkier than the ~1u player without towering over 1u
+    // ground tiles. The variant's legacy 1.25x root scale is reset in
+    // UpgradeBoneBruteToOrc; with that gone this is the orc's real
+    // on-screen height.
+    private const float BruteTargetWorldHeight = 1.55f;
+    private const float CrabTargetWorldHeight = 0.65f;
+    private const float ChestTargetWorldHeight = 0.95f;
+
+    // New island threats: the demon reaver is the elite (rarer, taller),
+    // the blood fiend is a fast low-health swarmer.
+    private const float DemonTargetWorldHeight = 1.8f;
+    private const float BloodMonsterTargetWorldHeight = 1.1f;
 
     // Matches Lobby_Island_2D and Boat_Gameplay_2D's camera so all three
     // gameplay scenes share the same tiles-per-screen density.
@@ -106,13 +123,25 @@ public static class ContentFixupBuilder
         // pixels-per-unit on top.
         EnemyAndChestArtBuilder.BuildAllFromCommandLine();
 
-        // Orc sheets only: the player stays on main's original rig, so the
+        // Orc sheets only: the player stays on the classic rig, so the
         // Soldier half of the pack is no longer sliced or animated here.
         AutoSliceCharacterFolder(
             OrcFolder,
             CharacterFrameSize,
             BruteTargetWorldHeight,
             new[] { "Orc" }
+        );
+        AutoSliceCharacterFolder(
+            DemonFolder,
+            CharacterFrameSize,
+            DemonTargetWorldHeight,
+            new[] { "Demon_A" }
+        );
+        AutoSliceCharacterFolder(
+            BloodMonsterFolder,
+            CharacterFrameSize,
+            BloodMonsterTargetWorldHeight,
+            new[] { "BloodMonster_A" }
         );
 
         // Re-slice the already-built skeleton, crab, and chest sheets at a
@@ -147,24 +176,58 @@ public static class ContentFixupBuilder
         AssetDatabase.Refresh();
 
         BuildOrcAnimations();
+        BuildTinyRpgEnemyAnimations(
+            "Demon_A",
+            DemonFolder,
+            DemonAnimationFolder,
+            "DemonReaver2D"
+        );
+        BuildTinyRpgEnemyAnimations(
+            "BloodMonster_A",
+            BloodMonsterFolder,
+            BloodMonsterAnimationFolder,
+            "BloodFiend2D"
+        );
 
         HideLegacyRootSprite(CrabPrefabPath);
         HideLegacyRootSprite(SkeletonPrefabPath);
         UpgradeBoneBruteToOrc();
+        NormalizeEnemyRootScale(CrabPrefabPath);
+        NormalizeEnemyRootScale(SkeletonPrefabPath);
+
+        GameObject demon = BuildTinyRpgEnemyVariant(
+            DemonPrefabPath,
+            DemonFolder + "/Demon_A_Idle.png",
+            DemonAnimationFolder + "/DemonReaver2D.controller",
+            maxHealth: 240f,
+            chaseSpeed: 2.4f,
+            wanderSpeed: 1.1f,
+            damage: 22f
+        );
+        GameObject bloodFiend = BuildTinyRpgEnemyVariant(
+            BloodFiendPrefabPath,
+            BloodMonsterFolder + "/BloodMonster_A_Idle.png",
+            BloodMonsterAnimationFolder + "/BloodFiend2D.controller",
+            maxHealth: 70f,
+            chaseSpeed: 3.6f,
+            wanderSpeed: 1.7f,
+            damage: 8f
+        );
+        RegisterNetworkPrefabs(new[] { demon, bloodFiend });
 
         AddNewEnemiesToIslandMarkers();
         AddCoconutFoodToIslandMarkers();
         FixIslandCameraZoom();
-        FixBoatScene();
+
+        IslandPolishBuilder.BuildAllFromCommandLine();
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
         Debug.Log(
-            "[Fixup Builder] Boat scene: teammate layout kept, survival " +
-            "stations + HUD rebuilt on his deck. Orc rescaled (root scale " +
-            "reset, 2.5u tall). Chest visuals deduplicated. Player prefab " +
-            "left on main's original rig."
+            "[Fixup Builder] Sprites recalibrated to the ~1u player, " +
+            "chest visuals deduplicated, demon + blood fiend added, " +
+            "island polished. Boat scene untouched (teammate-owned)."
         );
     }
 
@@ -362,6 +425,60 @@ public static class ContentFixupBuilder
 
         BuildCharacterController(
             OrcAnimationFolder + "/OrcBrute2D.controller",
+            idle,
+            walk,
+            attack,
+            hurt,
+            death
+        );
+    }
+
+    /// <summary>
+    /// Same clip set as the orc for any Tiny RPG pack character: the packs
+    /// share the 100px frame layout and animation naming.
+    /// </summary>
+    private static void BuildTinyRpgEnemyAnimations(
+        string prefix,
+        string artFolder,
+        string animationFolder,
+        string controllerName
+    )
+    {
+        EnsureFolder(animationFolder);
+
+        AnimationClip idle = CreateSpriteClip(
+            animationFolder + $"/{prefix}_Idle.anim",
+            LoadFrames(artFolder + $"/{prefix}_Idle.png"),
+            6f,
+            true
+        );
+        AnimationClip walk = CreateSpriteClip(
+            animationFolder + $"/{prefix}_Walk.anim",
+            LoadFrames(artFolder + $"/{prefix}_Walk.png"),
+            10f,
+            true
+        );
+        AnimationClip attack = CreateSpriteClip(
+            animationFolder + $"/{prefix}_Attack.anim",
+            LoadFrames(artFolder + $"/{prefix}_Attack01.png"),
+            14f,
+            false
+        );
+        AnimationClip hurt = CreateSpriteClip(
+            animationFolder + $"/{prefix}_Hurt.anim",
+            LoadFrames(artFolder + $"/{prefix}_Hurt.png"),
+            12f,
+            false
+        );
+        AnimationClip death = CreateSpriteClip(
+            animationFolder + $"/{prefix}_Death.anim",
+            LoadFrames(artFolder + $"/{prefix}_Death.png"),
+            8f,
+            false
+        );
+
+        BuildCharacterController(
+            animationFolder + $"/{controllerName}.controller",
             idle,
             walk,
             attack,
@@ -593,6 +710,168 @@ public static class ContentFixupBuilder
         }
     }
 
+    /// <summary>
+    /// Clears any legacy transform-scale multiplier on an enemy prefab so
+    /// the sprite's measured pixels-per-unit is the only thing deciding
+    /// its size (the crab variant shipped with a 0.85x root scale, the
+    /// brute with 1.25x).
+    /// </summary>
+    private static void NormalizeEnemyRootScale(string prefabPath)
+    {
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+        {
+            return;
+        }
+
+        GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
+
+        try
+        {
+            root.transform.localScale = Vector3.one;
+
+            Transform gfx = FindDeepChild(root.transform, "GFX");
+            if (gfx != null)
+            {
+                gfx.localScale = Vector3.one;
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
+    /// <summary>
+    /// Creates (or refreshes) a basicenemy prefab variant skinned with a
+    /// Tiny RPG character: real idle sprite, its animator controller, the
+    /// motion animator driving Speed/facing, no leftover placeholder
+    /// renderers, no transform-scale multipliers, and tuned combat stats.
+    /// </summary>
+    private static GameObject BuildTinyRpgEnemyVariant(
+        string variantPath,
+        string idleSheetPath,
+        string controllerPath,
+        float maxHealth,
+        float chaseSpeed,
+        float wanderSpeed,
+        float damage
+    )
+    {
+        EnsurePrefabVariant(BasicEnemyPrefabPath, variantPath);
+
+        GameObject root = PrefabUtility.LoadPrefabContents(variantPath);
+
+        try
+        {
+            root.transform.localScale = Vector3.one;
+
+            DisableNonGfxSpriteRenderers(root);
+
+            Transform gfx = FindDeepChild(root.transform, "GFX");
+            if (gfx == null)
+            {
+                throw new InvalidOperationException(
+                    $"{variantPath} has no GFX child."
+                );
+            }
+
+            gfx.localScale = Vector3.one;
+
+            SpriteRenderer renderer = gfx.GetComponent<SpriteRenderer>();
+            renderer.sprite = LoadFrames(idleSheetPath)[0];
+            renderer.color = Color.white;
+            renderer.enabled = true;
+
+            Animator animator = gfx.GetComponent<Animator>();
+            if (animator == null)
+            {
+                animator = gfx.gameObject.AddComponent<Animator>();
+            }
+
+            animator.runtimeAnimatorController =
+                AssetDatabase.LoadAssetAtPath<AnimatorController>(
+                    controllerPath
+                );
+
+            EnemyMotionAnimator motion =
+                root.GetComponent<EnemyMotionAnimator>();
+            if (motion == null)
+            {
+                motion = root.AddComponent<EnemyMotionAnimator>();
+            }
+
+            SerializedObject serializedMotion = new SerializedObject(motion);
+            serializedMotion.FindProperty("animator").objectReferenceValue =
+                animator;
+            serializedMotion.FindProperty("facingRenderer")
+                .objectReferenceValue = renderer;
+            serializedMotion.ApplyModifiedPropertiesWithoutUndo();
+
+            Enemy enemy = root.GetComponent<Enemy>();
+            if (enemy != null)
+            {
+                SetSerializedFloat(enemy, "maxHealth", maxHealth);
+            }
+
+            EnemyAI ai = root.GetComponentInChildren<EnemyAI>(true);
+            if (ai != null)
+            {
+                SetSerializedFloat(ai, "chaseSpeed", chaseSpeed);
+                SetSerializedFloat(ai, "wanderSpeed", wanderSpeed);
+            }
+
+            EnemyAttack attack =
+                root.GetComponentInChildren<EnemyAttack>(true);
+            if (attack != null)
+            {
+                SetSerializedFloat(attack, "damage", damage);
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(root, variantPath);
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+
+        return AssetDatabase.LoadAssetAtPath<GameObject>(variantPath);
+    }
+
+    private static void EnsurePrefabVariant(
+        string sourcePath,
+        string variantPath
+    )
+    {
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(variantPath) != null)
+        {
+            return;
+        }
+
+        GameObject source =
+            AssetDatabase.LoadAssetAtPath<GameObject>(sourcePath);
+
+        if (source == null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot create a variant of a missing prefab: {sourcePath}"
+            );
+        }
+
+        GameObject instance =
+            (GameObject)PrefabUtility.InstantiatePrefab(source);
+
+        try
+        {
+            PrefabUtility.SaveAsPrefabAsset(instance, variantPath);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(instance);
+        }
+    }
+
     // ------------------------------------------------------------------
     // Island: enemy variety
     // ------------------------------------------------------------------
@@ -603,6 +882,10 @@ public static class ContentFixupBuilder
             AssetDatabase.LoadAssetAtPath<GameObject>(SkeletonPrefabPath);
         GameObject orc =
             AssetDatabase.LoadAssetAtPath<GameObject>(BoneBrutePrefabPath);
+        GameObject bloodFiend =
+            AssetDatabase.LoadAssetAtPath<GameObject>(BloodFiendPrefabPath);
+        GameObject demon =
+            AssetDatabase.LoadAssetAtPath<GameObject>(DemonPrefabPath);
 
         Scene scene = EditorSceneManager.OpenScene(
             IslandScenePath,
@@ -611,13 +894,21 @@ public static class ContentFixupBuilder
 
         int updatedMarkers = 0;
 
-        foreach (SeededSpawnMarker2D marker in scene
+        SeededSpawnMarker2D[] enemyMarkers = scene
             .GetRootGameObjects()
             .SelectMany(root =>
                 root.GetComponentsInChildren<SeededSpawnMarker2D>(true))
             .Where(marker =>
-                marker.Category == SeededContentCategory.Enemy))
+                marker.Category == SeededContentCategory.Enemy)
+            .OrderBy(marker => marker.name, StringComparer.Ordinal)
+            .ToArray();
+
+        for (int markerIndex = 0;
+            markerIndex < enemyMarkers.Length;
+            markerIndex++)
         {
+            SeededSpawnMarker2D marker = enemyMarkers[markerIndex];
+
             SerializedObject serialized = new SerializedObject(marker);
             SerializedProperty prefabs =
                 serialized.FindProperty("networkPrefabs");
@@ -631,7 +922,20 @@ public static class ContentFixupBuilder
 
             bool changed = false;
 
-            foreach (GameObject candidate in new[] { skeleton, orc })
+            // Blood fiends swarm everywhere; the demon reaver is an elite
+            // that only stalks every third camp so it stays scary.
+            List<GameObject> wanted = new List<GameObject>
+            {
+                skeleton,
+                orc,
+                bloodFiend,
+            };
+            if (markerIndex % 3 == 0)
+            {
+                wanted.Add(demon);
+            }
+
+            foreach (GameObject candidate in wanted)
             {
                 if (candidate != null && !current.Contains(candidate))
                 {
@@ -657,8 +961,9 @@ public static class ContentFixupBuilder
         }
 
         Debug.Log(
-            $"[Fixup] Added skeleton/orc to {updatedMarkers} island enemy " +
-            "markers."
+            "[Fixup] Enemy pools updated on " +
+            $"{updatedMarkers}/{enemyMarkers.Length} island markers " +
+            "(skeleton/orc/blood fiend everywhere, demon on every 3rd)."
         );
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -889,472 +1194,6 @@ public static class ContentFixupBuilder
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
-    }
-
-    // ------------------------------------------------------------------
-    // Boat scene repair
-    // ------------------------------------------------------------------
-
-    private static void FixBoatScene()
-    {
-        Scene scene = EditorSceneManager.OpenScene(
-            BoatScenePath,
-            OpenSceneMode.Single
-        );
-
-        // 1. Remove the fullscreen "PROTOTYPE COMPLETE" overlay canvas that
-        //    hid the entire scene (it ships inside the teammate's layout).
-        GameObject prototypeOverlay = scene
-            .GetRootGameObjects()
-            .FirstOrDefault(root => root.name == "Prototype");
-
-        if (prototypeOverlay != null)
-        {
-            UnityEngine.Object.DestroyImmediate(prototypeOverlay);
-            Debug.Log("[Fixup] Removed the PROTOTYPE COMPLETE overlay.");
-        }
-
-        // 2. Sanity-check the re-spliced Boat root. The teammate's pushed
-        //    scene lost this object in a text-level merge: his Ship_prop
-        //    tilemap, deck collider, and BoatBob all pointed at a
-        //    GameObject with no document in the file, and a tilemap
-        //    without a Grid ancestor cannot render at all. The scene in
-        //    this branch restores that root (same fileIDs, so his
-        //    references reconnect) plus a Ship_Hull sprite rebuilt from
-        //    his own deck-collider outline and the ship tileset.
-        GameObject boatRoot = scene
-            .GetRootGameObjects()
-            .FirstOrDefault(root => root.name == "Boat");
-
-        if (boatRoot == null || boatRoot.GetComponent<Grid>() == null)
-        {
-            throw new InvalidOperationException(
-                "The Boat root (with its Grid) is missing from the boat " +
-                "scene; the teammate's ship tilemap cannot render " +
-                "without it."
-            );
-        }
-
-        Tilemap propTilemap = boatRoot.GetComponentInChildren<Tilemap>(true);
-        int propTileCount = propTilemap != null
-            ? propTilemap.GetUsedTilesCount()
-            : 0;
-
-        // 3. Everything gameplay-side is positioned from the teammate's
-        //    own deck collider — the walkable ship outline he drew.
-        EdgeCollider2D deckCollider = boatRoot
-            .GetComponentsInChildren<EdgeCollider2D>(true)
-            .FirstOrDefault();
-
-        if (deckCollider == null)
-        {
-            throw new InvalidOperationException(
-                "The deck EdgeCollider2D is missing from the boat scene."
-            );
-        }
-
-        Bounds deckBounds = deckCollider.bounds;
-
-        Debug.Log(
-            $"[Fixup] Teammate deck bounds: center {deckBounds.center}, " +
-            $"size {deckBounds.size}; prop tiles: {propTileCount}."
-        );
-
-        RebuildShipSurvival(scene, deckBounds);
-        EnsureIslandPortal(scene, deckBounds);
-
-        // 4. Player spawns stay exactly where the teammate put them unless
-        //    one sits off the ship entirely.
-        GameObject spawnRoot = FindSceneObject(scene, "PlayerSpawns");
-
-        if (spawnRoot != null)
-        {
-            Vector3 deckCenter =
-                new Vector3(deckBounds.center.x, deckBounds.center.y, 0f);
-            Bounds worldDeck = new Bounds(deckCenter, deckBounds.size);
-            bool anyOutside = spawnRoot
-                .GetComponentsInChildren<Transform>(true)
-                .Where(child => child.name.StartsWith("PlayerSpawn_"))
-                .Any(child => !worldDeck.Contains(
-                    new Vector3(
-                        child.position.x,
-                        child.position.y,
-                        worldDeck.center.z
-                    )
-                ));
-
-            if (anyOutside)
-            {
-                Transform[] spawns = spawnRoot
-                    .GetComponentsInChildren<Transform>(true)
-                    .Where(child => child.name.StartsWith("PlayerSpawn_"))
-                    .OrderBy(child => child.name, StringComparer.Ordinal)
-                    .ToArray();
-
-                for (int index = 0; index < spawns.Length; index++)
-                {
-                    float offset = (index - (spawns.Length - 1) * 0.5f);
-                    spawns[index].position = deckCenter +
-                        new Vector3(offset * 0.9f, -0.4f, 0f);
-                }
-
-                Debug.Log(
-                    $"[Fixup] Moved {spawns.Length} player spawns onto " +
-                    "the deck."
-                );
-            }
-        }
-
-        // 5. The old HUD died with the overlay canvas; rebuild it on its
-        //    own dedicated canvas. Clear any stragglers first so reruns
-        //    never leave duplicates.
-        GameObject existingHudCanvas = scene
-            .GetRootGameObjects()
-            .FirstOrDefault(root => root.name == "GameHUDCanvas");
-
-        if (existingHudCanvas != null)
-        {
-            UnityEngine.Object.DestroyImmediate(existingHudCanvas);
-        }
-
-        GameObject strandedHud;
-        while ((strandedHud = FindSceneObject(scene, "ShipHealthHUD")) != null)
-        {
-            UnityEngine.Object.DestroyImmediate(strandedHud);
-        }
-
-        BuildHudCanvas();
-
-        EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene);
-    }
-
-    // ------------------------------------------------------------------
-    // Ship survival rig (positioned on the teammate's deck)
-    // ------------------------------------------------------------------
-
-    private const string FoodSheetPath =
-        "Assets/DeadmansTales/Art_Pixel/Props/island_food_items.png";
-
-    /// <summary>
-    /// Destroys and recreates the ShipSurvival rig (hull health + leak
-    /// director, repair station, three leaks) with every position derived
-    /// from the teammate's deck collider bounds, so the stations sit on
-    /// his ship no matter how he reshapes it. Offsets are relative to the
-    /// deck center: the repair station on the open foredeck, leaks along
-    /// the lower (waterline) rail.
-    /// </summary>
-    private static void RebuildShipSurvival(Scene scene, Bounds deckBounds)
-    {
-        GameObject existing = FindSceneObject(scene, "ShipSurvival");
-        if (existing != null)
-        {
-            UnityEngine.Object.DestroyImmediate(existing);
-        }
-
-        GameObject survivalRoot = new GameObject("ShipSurvival");
-        survivalRoot.transform.position = new Vector3(
-            deckBounds.center.x,
-            deckBounds.center.y,
-            0f
-        );
-
-        // Shared hull health + leak pacing. One in-scene NetworkObject.
-        GameObject shipCore = new GameObject("ShipCore");
-        shipCore.transform.SetParent(survivalRoot.transform, false);
-        shipCore.AddComponent<NetworkObject>();
-        NetworkShipHealth shipHealth =
-            shipCore.AddComponent<NetworkShipHealth>();
-        SetSerializedFloat(shipHealth, "maximumHealth", 500f);
-        ShipLeakDirector director =
-            shipCore.AddComponent<ShipLeakDirector>();
-
-        // Open deck between the two masts, clear of the aft mast footing.
-        GameObject repairStation = new GameObject("ShipRepairStation");
-        repairStation.transform.SetParent(survivalRoot.transform, false);
-        repairStation.transform.localPosition =
-            new Vector3(1.2f, -0.6f, 0f);
-        repairStation.AddComponent<NetworkObject>();
-
-        BoxCollider2D repairCollider =
-            repairStation.AddComponent<BoxCollider2D>();
-        repairCollider.isTrigger = true;
-        repairCollider.size = new Vector2(1.1f, 1.1f);
-
-        NetworkShipRepairStation repair =
-            repairStation.AddComponent<NetworkShipRepairStation>();
-        SetSerializedFloat(repair, "repairPerUse", 40f);
-        SetSerializedObject(repair, "shipHealth", shipHealth);
-
-        GameObject repairVisual = new GameObject("Visual");
-        repairVisual.transform.SetParent(repairStation.transform, false);
-        SpriteRenderer repairRenderer =
-            repairVisual.AddComponent<SpriteRenderer>();
-        repairRenderer.sprite = LoadFoodSheetSprite(2);
-        repairRenderer.sortingOrder = 15;
-
-        // Leaks hug the lower rail (the waterline side of the deck).
-        Vector3[] leakOffsets =
-        {
-            new Vector3(-8.25f, -1.55f, 0f),
-            new Vector3(-2.25f, -2.05f, 0f),
-            new Vector3(7.25f, -1.35f, 0f),
-        };
-
-        List<NetworkShipLeak> leaks = new List<NetworkShipLeak>();
-
-        for (int index = 0; index < leakOffsets.Length; index++)
-        {
-            GameObject leakObject = new GameObject($"ShipLeak_{index:D2}");
-            leakObject.transform.SetParent(survivalRoot.transform, false);
-            leakObject.transform.localPosition = leakOffsets[index];
-            leakObject.AddComponent<NetworkObject>();
-
-            CircleCollider2D leakCollider =
-                leakObject.AddComponent<CircleCollider2D>();
-            leakCollider.isTrigger = true;
-            leakCollider.radius = 0.55f;
-
-            NetworkShipLeak leak =
-                leakObject.AddComponent<NetworkShipLeak>();
-            SetSerializedFloat(leak, "damagePerSecond", 4f);
-            SetSerializedObject(leak, "shipHealth", shipHealth);
-
-            GameObject leakVisual = new GameObject("LeakVisual");
-            leakVisual.transform.SetParent(leakObject.transform, false);
-            SpriteRenderer leakRenderer =
-                leakVisual.AddComponent<SpriteRenderer>();
-            leakRenderer.sprite = LoadFoodSheetSprite(3);
-            leakRenderer.sortingOrder = 16;
-            leakVisual.SetActive(false);
-
-            SetSerializedObject(leak, "leakVisual", leakVisual);
-            leaks.Add(leak);
-        }
-
-        SerializedObject directorObject = new SerializedObject(director);
-        SerializedProperty leaksProperty =
-            directorObject.FindProperty("leaks");
-        leaksProperty.arraySize = leaks.Count;
-        for (int index = 0; index < leaks.Count; index++)
-        {
-            leaksProperty.GetArrayElementAtIndex(index).objectReferenceValue =
-                leaks[index];
-        }
-
-        directorObject.FindProperty("shipHealth").objectReferenceValue =
-            shipHealth;
-        directorObject.ApplyModifiedPropertiesWithoutUndo();
-    }
-
-    // The raft sprite the old boat scene used for its portal visual.
-    private const string PortalSpriteGuid =
-        "65acbb6745c81164c9def1bac0337509";
-    private const long PortalSpriteFileId = 570913329L;
-
-    /// <summary>
-    /// The teammate's scene has no stage exit; without exactly one
-    /// NetworkStagePortal the boat-to-island loop (and its architecture
-    /// test) breaks. Creates or repositions the portal at the bow.
-    /// </summary>
-    private static void EnsureIslandPortal(Scene scene, Bounds deckBounds)
-    {
-        NetworkStagePortal existing = scene
-            .GetRootGameObjects()
-            .SelectMany(root =>
-                root.GetComponentsInChildren<NetworkStagePortal>(true))
-            .FirstOrDefault();
-
-        GameObject portal;
-
-        if (existing != null)
-        {
-            portal = existing.gameObject;
-        }
-        else
-        {
-            portal = new GameObject("PostOceanIslandPortal");
-            portal.AddComponent<NetworkObject>();
-
-            BoxCollider2D trigger = portal.AddComponent<BoxCollider2D>();
-            trigger.isTrigger = true;
-            trigger.size = new Vector2(3f, 2f);
-
-            NetworkStagePortal stagePortal =
-                portal.AddComponent<NetworkStagePortal>();
-            SetSerializedString(
-                stagePortal,
-                "destinationSceneName",
-                "Island_After_Ocean_01_2D"
-            );
-            SetSerializedBool(stagePortal, "advanceStage", true);
-            SetSerializedBool(
-                stagePortal,
-                "allowRepeatedInteraction",
-                false
-            );
-            SetSerializedFloat(stagePortal, "additionalServerRange", 0.25f);
-
-            SpriteRenderer renderer = portal.AddComponent<SpriteRenderer>();
-            renderer.sprite = LoadPortalSprite();
-            renderer.sortingOrder = 20;
-
-            Debug.Log("[Fixup] Re-added the island stage portal.");
-        }
-
-        // Open bow-side deck: right of the aft mast and repair station,
-        // short of the crate his layout parks at the bow rail.
-        portal.transform.position = new Vector3(
-            deckBounds.max.x - 5.3f,
-            deckBounds.center.y + 0.2f,
-            0f
-        );
-    }
-
-    private static Sprite LoadPortalSprite()
-    {
-        string path = AssetDatabase.GUIDToAssetPath(PortalSpriteGuid);
-        if (string.IsNullOrEmpty(path))
-        {
-            return null;
-        }
-
-        Sprite[] sprites = AssetDatabase
-            .LoadAllAssetRepresentationsAtPath(path)
-            .OfType<Sprite>()
-            .ToArray();
-
-        foreach (Sprite sprite in sprites)
-        {
-            if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
-                    sprite,
-                    out _,
-                    out long localId
-                ) && localId == PortalSpriteFileId)
-            {
-                return sprite;
-            }
-        }
-
-        return sprites.FirstOrDefault();
-    }
-
-    private static Sprite LoadFoodSheetSprite(int index)
-    {
-        Sprite sprite = AssetDatabase
-            .LoadAllAssetRepresentationsAtPath(FoodSheetPath)
-            .OfType<Sprite>()
-            .FirstOrDefault(candidate =>
-                candidate.name.EndsWith($"_{index}"));
-
-        if (sprite == null)
-        {
-            throw new InvalidOperationException(
-                $"Food sheet frame {index} did not import."
-            );
-        }
-
-        return sprite;
-    }
-
-    private static void BuildHudCanvas()
-    {
-        GameObject canvasObject = new GameObject(
-            "GameHUDCanvas",
-            typeof(RectTransform)
-        );
-
-        Canvas canvas = canvasObject.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 10;
-
-        CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.matchWidthOrHeight = 0.5f;
-
-        canvasObject.AddComponent<GraphicRaycaster>();
-
-        GameObject hudRoot = new GameObject(
-            "ShipHealthHUD",
-            typeof(RectTransform)
-        );
-        hudRoot.transform.SetParent(canvasObject.transform, false);
-
-        RectTransform hudRect = hudRoot.GetComponent<RectTransform>();
-        hudRect.anchorMin = new Vector2(0.5f, 1f);
-        hudRect.anchorMax = new Vector2(0.5f, 1f);
-        hudRect.pivot = new Vector2(0.5f, 1f);
-        hudRect.anchoredPosition = new Vector2(0f, -18f);
-        hudRect.sizeDelta = new Vector2(340f, 48f);
-
-        GameObject sliderObject = new GameObject(
-            "HullBar",
-            typeof(RectTransform)
-        );
-        sliderObject.transform.SetParent(hudRoot.transform, false);
-        RectTransform sliderRect = sliderObject.GetComponent<RectTransform>();
-        sliderRect.anchorMin = new Vector2(0f, 0f);
-        sliderRect.anchorMax = new Vector2(1f, 0f);
-        sliderRect.pivot = new Vector2(0.5f, 0f);
-        sliderRect.anchoredPosition = Vector2.zero;
-        sliderRect.sizeDelta = new Vector2(0f, 18f);
-
-        Image background = sliderObject.AddComponent<Image>();
-        background.color = new Color(0.08f, 0.09f, 0.12f, 0.85f);
-
-        GameObject fillArea = new GameObject(
-            "FillArea",
-            typeof(RectTransform)
-        );
-        fillArea.transform.SetParent(sliderObject.transform, false);
-        RectTransform fillAreaRect = fillArea.GetComponent<RectTransform>();
-        fillAreaRect.anchorMin = Vector2.zero;
-        fillAreaRect.anchorMax = Vector2.one;
-        fillAreaRect.offsetMin = new Vector2(2f, 2f);
-        fillAreaRect.offsetMax = new Vector2(-2f, -2f);
-
-        GameObject fill = new GameObject("Fill", typeof(RectTransform));
-        fill.transform.SetParent(fillArea.transform, false);
-        RectTransform fillRect = fill.GetComponent<RectTransform>();
-        fillRect.anchorMin = Vector2.zero;
-        fillRect.anchorMax = Vector2.one;
-        fillRect.offsetMin = Vector2.zero;
-        fillRect.offsetMax = Vector2.zero;
-
-        Image fillImage = fill.AddComponent<Image>();
-        fillImage.color = new Color(0.78f, 0.34f, 0.2f, 1f);
-
-        Slider slider = sliderObject.AddComponent<Slider>();
-        slider.interactable = false;
-        slider.transition = Selectable.Transition.None;
-        slider.fillRect = fillRect;
-        slider.minValue = 0f;
-        slider.maxValue = 1f;
-        slider.value = 1f;
-
-        GameObject labelObject = new GameObject(
-            "Label",
-            typeof(RectTransform)
-        );
-        labelObject.transform.SetParent(hudRoot.transform, false);
-        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
-        labelRect.anchorMin = new Vector2(0f, 0f);
-        labelRect.anchorMax = new Vector2(1f, 1f);
-        labelRect.offsetMin = new Vector2(0f, 20f);
-        labelRect.offsetMax = Vector2.zero;
-
-        Text label = labelObject.AddComponent<Text>();
-        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        label.fontSize = 20;
-        label.alignment = TextAnchor.MiddleCenter;
-        label.color = Color.white;
-        label.text = "Ship";
-
-        DeadmansTales.UI.ShipHealthHUD hud =
-            hudRoot.AddComponent<DeadmansTales.UI.ShipHealthHUD>();
-        SetSerializedObject(hud, "healthSlider", slider);
-        SetSerializedObject(hud, "label", label);
     }
 
     // ------------------------------------------------------------------

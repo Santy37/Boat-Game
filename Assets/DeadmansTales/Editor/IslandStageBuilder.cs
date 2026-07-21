@@ -1779,6 +1779,15 @@ internal static class IslandStageBuilder
 
     private static void AddIslandPortalToBoatScene()
     {
+        // The boat scene belongs to the teammate's branch; this branch
+        // carries main's bytes for it verbatim so the merge stays clean.
+        Debug.Log(
+            "[Island Builder] Boat scene is teammate-owned; portal " +
+            "wiring into it skipped."
+        );
+        return;
+
+#pragma warning disable CS0162
         Scene scene = EditorSceneManager.OpenScene(
             BoatScenePath,
             OpenSceneMode.Single
@@ -1837,6 +1846,7 @@ internal static class IslandStageBuilder
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, BoatScenePath);
+#pragma warning restore CS0162
     }
 
     private static void EnsureBuildSettings()
