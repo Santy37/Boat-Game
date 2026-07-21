@@ -48,9 +48,6 @@ public static class ShopIslandBuilder
     private const string TileFolder =
         "Assets/DeadmansTales/Art_Pixel/Tiles/OpenRPGTiles";
 
-    private const string ObstacleCollisionTilePath =
-        "Assets/DeadmansTales/Palettes/Island_ObstacleCollision_Grid.asset";
-
     private const string GeneratedNetworkPrefabsPath =
         "Assets/DefaultNetworkPrefabs.asset";
     private const string BootstrapSettingsPath =
@@ -109,9 +106,9 @@ public static class ShopIslandBuilder
         public Vector2 Position { get; }
     }
 
-    // Laid out along the plaza's north side so players walking up the trail
-    // from the beach meet the stalls face-on. motw indices are the
-    // forward-facing idle of each character block.
+    // The market runs east-west along the top of the plaza. Each trader
+    // stands just in front of their own counter, so the stall behind them
+    // reads as their business and they are never hidden by their awning.
     private static readonly VendorSpec[] Vendors =
     {
         new VendorSpec(
@@ -122,7 +119,7 @@ public static class ShopIslandBuilder
             25,
             15,
             0,
-            new Vector2(-12.5f, 6.2f)
+            new Vector2(-12f, 6f)
         ),
         new VendorSpec(
             "Vendor_Quartermaster",
@@ -132,7 +129,7 @@ public static class ShopIslandBuilder
             30,
             20,
             0,
-            new Vector2(-8.5f, 6.2f)
+            new Vector2(-8f, 6f)
         ),
         new VendorSpec(
             "Vendor_Cook",
@@ -142,31 +139,100 @@ public static class ShopIslandBuilder
             15,
             5,
             0,
-            new Vector2(-4.5f, 6.2f)
+            new Vector2(-4f, 6f)
         ),
+    };
+
+    /// <summary>Stall sprite drawn behind each trader, in the same order.</summary>
+    private static readonly string[] VendorStallProps =
+    {
+        "stall_red",
+        "stall_blue",
+        "stall_green",
     };
 
     // Idle townsfolk: no stall, purely to make the port feel inhabited.
     private static readonly (string Name, int Motw, Vector2 Position)[]
         Townsfolk =
         {
-            ("Townsfolk_Dockhand", 1, new Vector2(-14.5f, 2.5f)),
-            ("Townsfolk_Deckhand", 49, new Vector2(-2.5f, 2.2f)),
-            ("Townsfolk_Traveller", 52, new Vector2(-6.5f, 0.5f)),
+            ("Townsfolk_Dockhand", 1, new Vector2(-14.5f, 2f)),
+            ("Townsfolk_Deckhand", 49, new Vector2(-1.5f, 3f)),
+            ("Townsfolk_Traveller", 52, new Vector2(-7f, 0.5f)),
+            ("Townsfolk_Browser", 4, new Vector2(-10.6f, 4.6f)),
+            // Row 1 of a character block is its side-facing walk, so this
+            // villager reads as browsing the stalls rather than staring
+            // out of the screen like the rest.
+            ("Townsfolk_Porter", 13, new Vector2(-3.2f, 5.2f)),
+        };
+
+    /// <summary>
+    /// Scenery that sells the market: a working forge behind the smith, a
+    /// meat rack behind the cook, and crates and barrels stacked as if
+    /// goods were just unloaded. Names refer to MarketArtBuilder props.
+    /// </summary>
+    private static readonly (string Prop, Vector2 Position, int Order)[]
+        Dressing =
+        {
+            // Trade tools behind the relevant stalls.
+            ("forge_stone", new Vector2(-13.6f, 8.4f), 8),
+            ("meatrack", new Vector2(-3.6f, 8.6f), 8),
+            ("stall_counter", new Vector2(-16.4f, 6f), 9),
+
+            // Unloaded goods around the plaza edges.
+            ("crate", new Vector2(-15.4f, 4.2f), 12),
+            ("barrel", new Vector2(-14.6f, 4.2f), 12),
+            ("crate", new Vector2(-14.9f, 5.1f), 11),
+            ("barrel", new Vector2(-10.2f, 8.3f), 8),
+            ("pot", new Vector2(-9.4f, 8.3f), 8),
+            ("vase", new Vector2(-6.4f, 8.4f), 8),
+            ("crate", new Vector2(-2.2f, 6.4f), 10),
+            ("barrel", new Vector2(-1.5f, 6.4f), 10),
+            ("pot", new Vector2(-1.9f, 7.2f), 9),
+            ("vase", new Vector2(-16.2f, 2.4f), 13),
+            ("barrel", new Vector2(0.4f, 3.4f), 13),
+            ("crate", new Vector2(0.4f, 4.2f), 12),
+            ("pot", new Vector2(-13f, 1.4f), 14),
+
+            // A second, unattended row of counters facing the first so the
+            // square reads as a market street rather than one lonely line
+            // of stalls with a big empty floor in front of it.
+            ("stall_counter", new Vector2(-13.5f, 2.6f), 16),
+            ("stall_counter", new Vector2(-9.5f, 2.6f), 16),
+            ("stall_counter", new Vector2(-5.5f, 2.6f), 16),
+            ("crate", new Vector2(-12.2f, 2.7f), 16),
+            ("barrel", new Vector2(-8.2f, 2.7f), 16),
+            ("vase", new Vector2(-4.2f, 2.7f), 16),
+            ("meatrack_tall", new Vector2(-16f, 8.6f), 8),
+
+            // Goods stacked mid-square so the walking floor is not one
+            // uninterrupted sheet of cobble.
+            ("crate", new Vector2(-12.6f, 4.5f), 13),
+            ("crate", new Vector2(-12.6f, 5.2f), 12),
+            ("barrel", new Vector2(-11.9f, 4.5f), 13),
+            ("vase", new Vector2(-6.2f, 4.4f), 13),
+            ("pot", new Vector2(-5.6f, 4.4f), 13),
+            ("barrel", new Vector2(-8.9f, 1.6f), 17),
+            ("crate", new Vector2(-15.2f, 1.5f), 17),
+            ("pot", new Vector2(-2.6f, 1.5f), 17),
+
+            // Signposts at the two plaza entrances.
+            ("market_sign", new Vector2(-9.5f, 0.6f), 18),
+            ("market_sign", new Vector2(-5.5f, 0.6f), 18),
         };
 
     // Coins the player can collect on a first visit so the stalls are not
-    // dead content before they have plundered anywhere.
+    // dead content before they have plundered anywhere. Kept off the stall
+    // line so they never sit under an awning.
     private static readonly Vector2[] CoinPositions =
     {
-        new Vector2(-16.5f, 4.5f),
-        new Vector2(-15.5f, 0.5f),
-        new Vector2(-10.5f, 3.5f),
-        new Vector2(-6.5f, 4.5f),
-        new Vector2(-3.5f, 3.5f),
-        new Vector2(-1.5f, 6.5f),
-        new Vector2(1.5f, 2.5f),
-        new Vector2(4.5f, 4.5f),
+        new Vector2(-15.5f, 3f),
+        new Vector2(-12.5f, 3.5f),
+        new Vector2(-10.5f, 2.5f),
+        new Vector2(-8.5f, 4f),
+        new Vector2(-6.5f, 2.5f),
+        new Vector2(-4.5f, 3.5f),
+        new Vector2(-2.5f, 1.5f),
+        new Vector2(-11f, 0.5f),
     };
 
     [MenuItem(MenuPath)]
@@ -183,10 +249,12 @@ public static class ShopIslandBuilder
 
         StripHostileContent(scene);
         ClearPreviousDistrict(scene);
+        CreateCobbleTiles();
 
         Transform districtRoot = new GameObject(DistrictRootName).transform;
 
         PaintPlaza(scene);
+        BuildDressing(districtRoot);
         BuildStalls(districtRoot);
         BuildTownsfolk(districtRoot);
         PlaceCoins(districtRoot, coinPrefab);
@@ -360,10 +428,20 @@ public static class ShopIslandBuilder
     // Plaza dressing
     // ------------------------------------------------------------------
 
+    // Plaza footprint in cells.
+    private const int PlazaMinX = -17;
+    private const int PlazaMaxX = 1;
+    private const int PlazaMinY = 0;
+    private const int PlazaMaxY = 9;
+
     /// <summary>
-    /// Replaces the wilderness camp fence with an open market plaza: a
-    /// paved-feeling run of stalls, awnings, barrels and crates, with the
-    /// approach left clear so players can walk straight in.
+    /// Lays a cobbled market square over the beach and clears the
+    /// wilderness dressing the scene inherited.
+    ///
+    /// The paving is what makes this read as a port town rather than three
+    /// stalls abandoned on a beach: it gives the market a floor, an edge,
+    /// and somewhere the eye understands as "indoors". Edges are ragged by
+    /// a cheap deterministic hash so the square does not look stamped.
     /// </summary>
     private static void PaintPlaza(Scene scene)
     {
@@ -372,14 +450,11 @@ public static class ShopIslandBuilder
         Tilemap detail = FindTilemap(scene, "Tilemap_GroundDetail");
         Tilemap obstacle = FindTilemap(scene, "Tilemap_ObstacleCollision");
 
-        Tile obstacleTile =
-            AssetDatabase.LoadAssetAtPath<Tile>(ObstacleCollisionTilePath);
-
-        // Wipe the inherited camp/graveyard dressing across the plaza so the
-        // market is not built on top of a fenced wilderness camp.
-        for (int x = -18; x <= 6; x++)
+        // Wipe the inherited camp/graveyard dressing so the market is not
+        // built on top of a fenced wilderness camp.
+        for (int x = PlazaMinX - 2; x <= PlazaMaxX + 3; x++)
         {
-            for (int y = -1; y <= 10; y++)
+            for (int y = PlazaMinY - 3; y <= PlazaMaxY + 2; y++)
             {
                 Vector3Int cell = new Vector3Int(x, y, 0);
                 props.SetTile(cell, null);
@@ -389,80 +464,185 @@ public static class ShopIslandBuilder
             }
         }
 
-        // Stall counters behind each trader, plus awnings above them.
-        foreach (VendorSpec vendor in Vendors)
-        {
-            int x = Mathf.FloorToInt(vendor.Position.x);
-            int y = Mathf.FloorToInt(vendor.Position.y);
+        Tile cobble = LoadShopTile("cobble_a");
+        Tile border = LoadShopTile("cobble_edge");
 
-            PlaceTile(props, obstacle, obstacleTile, x, y + 1, "vendor_stand_a");
-            PlaceTile(props, obstacle, obstacleTile, x + 1, y + 1, "vendor_stand_b");
-            PlaceTile(overhead, null, null, x, y + 2, "tentw_ml");
-            PlaceTile(overhead, null, null, x + 1, y + 2, "tentw_mr");
+        int paved = 0;
+
+        for (int x = PlazaMinX; x <= PlazaMaxX; x++)
+        {
+            for (int y = PlazaMinY; y <= PlazaMaxY; y++)
+            {
+                if (IsRaggedEdge(x, y))
+                {
+                    continue;
+                }
+
+                // A ring of worn sandstone eases the cobble into the beach
+                // instead of ending it against the sand like a cut-out.
+                bool onRing =
+                    x <= PlazaMinX + 1 ||
+                    x >= PlazaMaxX - 1 ||
+                    y <= PlazaMinY ||
+                    y >= PlazaMaxY;
+
+                detail.SetTile(
+                    new Vector3Int(x, y, 0),
+                    onRing ? border : cobble
+                );
+                paved++;
+            }
         }
 
-        // Market clutter, all clear of the walking lanes between stalls.
-        (int X, int Y, string Tile, bool Blocking)[] clutter =
-        {
-            (-16, 6, "barrels_double", true),
-            (-16, 5, "barrel_open", true),
-            (-15, 8, "logpile", true),
-            (-11, 8, "barrel_basket", true),
-            (-7, 8, "jug", false),
-            (-3, 8, "pot_flower", false),
-            (-2, 6, "barrel_open", true),
-            (1, 6, "barrels_double", true),
-            (1, 4, "well_or_torch", false),
-            (-17, 2, "bush_a", false),
-            (2, 2, "bush_b", false),
-            (-13, 0, "flowers", false),
-            (-5, -1, "flowers", false),
-        };
-
-        foreach ((int cx, int cy, string tile, bool blocking) in clutter)
-        {
-            string resolved = tile == "well_or_torch" ? "torch" : tile;
-            PlaceTile(
-                props,
-                blocking ? obstacle : null,
-                blocking ? obstacleTile : null,
-                cx,
-                cy,
-                resolved
-            );
-        }
-
-        // Lantern posts marking the plaza entrance from the beach trail.
-        PlaceTile(props, null, null, -9, -1, "torch");
-        PlaceTile(props, null, null, -6, -1, "torch");
+        Debug.Log($"[Shop Island] Paved {paved} plaza cells.");
     }
 
-    private static void PlaceTile(
-        Tilemap target,
-        Tilemap obstacleMap,
-        Tile obstacleTile,
-        int x,
-        int y,
-        string tileName
-    )
+    /// <summary>
+    /// Nibbles the outermost ring of the plaza so the paving meets the
+    /// sand in a worn, irregular line instead of a perfect rectangle.
+    /// </summary>
+    private static bool IsRaggedEdge(int x, int y)
+    {
+        bool onEdge =
+            x == PlazaMinX ||
+            x == PlazaMaxX ||
+            y == PlazaMinY ||
+            y == PlazaMaxY;
+
+        if (!onEdge)
+        {
+            return false;
+        }
+
+        return (Mathf.Abs(Hash(x, y)) % 10) < 4;
+    }
+
+    private static int Hash(int x, int y)
+    {
+        unchecked
+        {
+            int hash = x * 73856093 ^ y * 19349663 ^ ScatterSalt;
+            hash ^= hash >> 13;
+            return hash * 1274126177;
+        }
+    }
+
+    private const int ScatterSalt = 20260721;
+
+    private static Tile LoadShopTile(string name)
     {
         Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(
-            $"{TileFolder}/orpg_{tileName}.asset"
+            $"{TileFolder}/orpg_{name}.asset"
         );
 
         if (tile == null)
         {
-            Debug.LogWarning($"[Shop Island] Missing tile orpg_{tileName}.");
-            return;
+            throw new InvalidOperationException(
+                $"Shop tile orpg_{name} is missing."
+            );
         }
 
-        Vector3Int cell = new Vector3Int(x, y, 0);
-        target.SetTile(cell, tile);
+        return tile;
+    }
 
-        if (obstacleMap != null && obstacleTile != null)
+    /// <summary>
+    /// Creates the cobblestone tile assets the plaza is paved with, cut
+    /// from the openRPG exterior sheet that the island polish pass already
+    /// slices.
+    /// </summary>
+    private static void CreateCobbleTiles()
+    {
+        // Only fully-enclosed fill cells. The neighbouring cells in this
+        // sheet are autotile EDGE pieces with wall bars baked into them,
+        // which scatter stray dark bars across a plaza if used as fill.
+        (string Name, int Column, int Row)[] cobbles =
         {
-            obstacleMap.SetTile(cell, obstacleTile);
+            ("cobble_a", 10, 10),
+            ("cobble_edge", 4, 14),
+        };
+
+        foreach ((string name, int column, int row) in cobbles)
+        {
+            string path = $"{TileFolder}/orpg_{name}.asset";
+            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(path);
+
+            if (tile == null)
+            {
+                tile = ScriptableObject.CreateInstance<Tile>();
+                AssetDatabase.CreateAsset(tile, path);
+            }
+
+            int index = row * 30 + column;
+
+            Sprite sprite = AssetDatabase
+                .LoadAllAssetRepresentationsAtPath(PropsSheetPath)
+                .OfType<Sprite>()
+                .FirstOrDefault(candidate =>
+                    candidate.name == $"openrpg_exterior_{index}");
+
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    "The openRPG exterior sheet is not sliced; run the " +
+                    "island polish builder first."
+                );
+            }
+
+            tile.sprite = sprite;
+            tile.colliderType = Tile.ColliderType.None;
+            EditorUtility.SetDirty(tile);
         }
+    }
+
+    /// <summary>
+    /// Places the market's scenery as sprites rather than tiles: a stall is
+    /// a 3x5 cell object that must sit at half-cell offsets and overlap its
+    /// neighbours' sort order, which a 1-unit tile grid cannot express.
+    /// </summary>
+    private static void BuildDressing(Transform districtRoot)
+    {
+        GameObject dressingRoot = new GameObject("Dressing");
+        dressingRoot.transform.SetParent(districtRoot, false);
+
+        foreach ((string prop, Vector2 position, int order) in Dressing)
+        {
+            CreatePropObject(
+                dressingRoot.transform,
+                prop,
+                position,
+                order
+            );
+        }
+    }
+
+    private static GameObject CreatePropObject(
+        Transform parent,
+        string propName,
+        Vector2 position,
+        int sortingOrder
+    )
+    {
+        Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+            MarketArtBuilder.PropPath(propName)
+        );
+
+        if (sprite == null)
+        {
+            throw new InvalidOperationException(
+                $"Market prop '{propName}' is missing; run " +
+                "'Deadman's Tales/Build Market Art' first."
+            );
+        }
+
+        GameObject prop = new GameObject(propName);
+        prop.transform.SetParent(parent, false);
+        prop.transform.position = position;
+
+        SpriteRenderer renderer = prop.AddComponent<SpriteRenderer>();
+        renderer.sprite = sprite;
+        renderer.sortingOrder = sortingOrder;
+
+        return prop;
     }
 
     // ------------------------------------------------------------------
@@ -471,6 +651,21 @@ public static class ShopIslandBuilder
 
     private static void BuildStalls(Transform districtRoot)
     {
+        for (int index = 0; index < Vendors.Length; index++)
+        {
+            VendorSpec spec = Vendors[index];
+
+            // The stall stands behind the trader. Sorting orders count
+            // DOWN as objects sit further north so nearer things overlap
+            // farther ones, which is what gives the row its depth.
+            CreatePropObject(
+                districtRoot,
+                VendorStallProps[index % VendorStallProps.Length],
+                spec.Position + new Vector2(0f, 0.55f),
+                9
+            );
+        }
+
         foreach (VendorSpec spec in Vendors)
         {
             GameObject vendorObject = new GameObject(spec.ObjectName);
@@ -531,8 +726,9 @@ public static class ShopIslandBuilder
         SpriteRenderer renderer = visual.AddComponent<SpriteRenderer>();
         renderer.sprite = LoadMotwSprite(motwIndex);
 
-        // Above the props tilemap so a trader is never hidden by their own
-        // stall counter.
+        // Above the stalls (order 9) so a trader is never swallowed by
+        // their own awning, and above the dressing so nothing occludes the
+        // person you are meant to walk up to and talk to.
         renderer.sortingOrder = 20;
     }
 
