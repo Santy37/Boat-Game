@@ -246,7 +246,7 @@ public class MainMenuManager : MonoBehaviour
 
         if (lobbyCodeText != null)
         {
-            lobbyCodeText.text = "LOBBY";
+            lobbyCodeText.text = "";
         }
 
         RefreshLobbyUi();
@@ -273,7 +273,7 @@ public class MainMenuManager : MonoBehaviour
 
         if (lobbyCodeText != null)
         {
-            lobbyCodeText.text = "LOBBY";
+            lobbyCodeText.text = "";
         }
 
         HandleJoinCodeInputChanged(
@@ -903,7 +903,7 @@ public class MainMenuManager : MonoBehaviour
         {
             if (lobbyCodeText != null)
             {
-                lobbyCodeText.text = "LOBBY";
+                lobbyCodeText.text = "";
             }
 
             if (playerListText != null && playerListText.gameObject.activeSelf)
