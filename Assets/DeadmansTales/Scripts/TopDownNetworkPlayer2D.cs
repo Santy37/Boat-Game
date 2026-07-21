@@ -19,6 +19,9 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     private Rigidbody2D rb;
     private Vector2 serverMoveInput;
 
+    /// <summary>True while the player is locked to a station (cannon/helm).</summary>
+    public bool ControlLocked { get; private set; }
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -112,6 +115,13 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
             return;
         }
 
+        // While seated at a cannon/helm, stop the character and hold still.
+        if (ControlLocked)
+        {
+            SubmitMoveInputServerRpc(Vector2.zero);
+            return;
+        }
+
         Vector2 input = Vector2.zero;
 
         if (
@@ -156,6 +166,56 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     {
         serverMoveInput =
             Vector2.ClampMagnitude(input, 1f);
+    }
+
+    /// <summary>
+    /// Snap this player to a station (cannon/helm), face a direction, and lock
+    /// movement. Called on the owning client by a station interactable.
+    /// </summary>
+    public void EnterStation(Vector2 seatPosition, Vector2 facing)
+    {
+        ControlLocked = true;
+        SeatServerRpc(seatPosition);
+
+        PlayerAnimation2D animation =
+            GetComponentInChildren<PlayerAnimation2D>();
+
+        if (animation != null)
+        {
+            animation.LockFacing(facing);
+        }
+    }
+
+    /// <summary>Release the player from a station and restore movement.</summary>
+    public void ExitStation()
+    {
+        ControlLocked = false;
+
+        PlayerAnimation2D animation =
+            GetComponentInChildren<PlayerAnimation2D>();
+
+        if (animation != null)
+        {
+            animation.UnlockFacing();
+        }
+    }
+
+    [ServerRpc]
+    private void SeatServerRpc(Vector2 seatPosition)
+    {
+        serverMoveInput = Vector2.zero;
+
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+        rb.position = seatPosition;
+
+        transform.position = new Vector3(
+            seatPosition.x,
+            seatPosition.y,
+            0f
+        );
+
+        rb.WakeUp();
     }
 
     private void FixedUpdate()

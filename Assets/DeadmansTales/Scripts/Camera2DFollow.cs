@@ -21,6 +21,26 @@ public class Camera2DFollow : MonoBehaviour
     private Transform target;
     private Camera cam;
 
+    /// <summary>
+    /// Lets other systems (e.g. the ship's helm) read or drive the camera zoom.
+    /// Camera2DFollow keeps applying this value to the camera each frame.
+    /// </summary>
+    public float OrthographicSize
+    {
+        get => orthographicSize;
+        set => orthographicSize = value;
+    }
+
+    /// <summary>
+    /// Lets other systems (e.g. the helm) switch the camera between following
+    /// the player and holding the fixed island/water view.
+    /// </summary>
+    public bool FollowLocalPlayer
+    {
+        get => followLocalPlayer;
+        set => followLocalPlayer = value;
+    }
+
     private void Awake()
     {
         cam = GetComponent<Camera>();
