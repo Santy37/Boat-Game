@@ -41,10 +41,11 @@ public static class MarketArtBuilder
     /// market sheets are drawn for 32px characters, so they must be
     /// enlarged by roughly 68/32 to sit at the same visual scale.
     ///
-    /// 16 px/unit does that and lands on a happy accident: the sheets use
-    /// a 16px cell, so one source cell becomes exactly one world unit and
-    /// props line up with the tile grid. A stall is then 3x5 units against
-    /// a 2.1 unit player, which is what a market stall should look like.
+    /// 16 px/unit does that and matches the rest of the world: the beach
+    /// terrain is 32px cells at 32 px/unit and the openRPG tiles are 16px
+    /// cells at 16 px/unit, so on every sheet in the game one source cell
+    /// is exactly one world unit. A stall is then 3x4 units beside a 2.1
+    /// unit player — counter at chest height, awning above head height.
     /// </summary>
     public const int MarketPixelsPerUnit = 16;
 
@@ -107,31 +108,34 @@ public static class MarketArtBuilder
 
     private static readonly PropRecipe[] Recipes =
     {
-        // Stalls: a 3x3 awning stacked directly on a 3x2 counter, giving a
-        // 3x5 cell prop. The three colourways let neighbouring stalls read
-        // as separate businesses rather than one long tent.
+        // Stalls: rows 3-6 of the sheet are COMPLETE stalls — the artist
+        // already drew awning, posts and counter together as one 3x4 cell
+        // unit, aligned and lit consistently.
+        //
+        // These were previously welded together from a row-0 awning and an
+        // unrelated counter strip. That put a transparent seam between the
+        // two halves (60px of art in an 80px canvas) and, with the
+        // bottom-centre pivot, floated the whole stall above the ground.
+        // Take the artist's version instead of inventing one.
         new PropRecipe(
             "stall_red",
             StallsSourcePath,
-            Part(0, 0, 3, 3),
-            Part(3, 5, 3, 2, 0, 3)
+            Part(0, 3, 3, 4)
         ),
         new PropRecipe(
             "stall_blue",
             StallsSourcePath,
-            Part(3, 0, 3, 3),
-            Part(6, 7, 3, 2, 0, 3)
+            Part(3, 3, 3, 4)
         ),
         new PropRecipe(
             "stall_green",
             StallsSourcePath,
-            Part(6, 0, 3, 3),
-            Part(3, 7, 3, 2, 0, 3)
+            Part(6, 3, 3, 4)
         ),
         new PropRecipe(
             "stall_counter",
             StallsSourcePath,
-            Part(0, 5, 3, 2)
+            Part(3, 7, 3, 2)
         ),
         new PropRecipe(
             "market_sign",
@@ -242,6 +246,8 @@ public static class MarketArtBuilder
                 CopyPart(sheet, part, width, height, output);
             }
 
+            TrimToInk(ref output, ref width, ref height);
+
             WriteTexture(recipe.Name, width, height, output);
         }
         finally
@@ -250,6 +256,76 @@ public static class MarketArtBuilder
         }
 
         ImportProp(recipe.Name);
+    }
+
+    /// <summary>
+    /// Crops the finished prop down to the pixels actually drawn.
+    ///
+    /// These sheets pad their art inside the cell grid — a stall block is
+    /// 48x64 but the stall itself only occupies rows 4..55, and a pot uses
+    /// 15 rows of a 32 row cell. Every prop is imported with a bottom-centre
+    /// pivot, so that padding is not cosmetic: it lifts the prop off the
+    /// ground by exactly as many pixels as the sheet left empty, which is
+    /// half a world unit for a stall and a full unit for a pot. Trimming to
+    /// the ink makes the pivot the thing's actual base.
+    /// </summary>
+    private static void TrimToInk(
+        ref Color32[] pixels,
+        ref int width,
+        ref int height
+    )
+    {
+        int minX = width;
+        int maxX = -1;
+        int minY = height;
+        int maxY = -1;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                if (pixels[y * width + x].a <= 4)
+                {
+                    continue;
+                }
+
+                minX = Mathf.Min(minX, x);
+                maxX = Mathf.Max(maxX, x);
+                minY = Mathf.Min(minY, y);
+                maxY = Mathf.Max(maxY, y);
+            }
+        }
+
+        if (maxX < 0)
+        {
+            throw new InvalidOperationException(
+                "A market prop composited to nothing but transparency; " +
+                "its source cells are probably wrong."
+            );
+        }
+
+        int trimmedWidth = maxX - minX + 1;
+        int trimmedHeight = maxY - minY + 1;
+
+        if (trimmedWidth == width && trimmedHeight == height)
+        {
+            return;
+        }
+
+        Color32[] trimmed = new Color32[trimmedWidth * trimmedHeight];
+
+        for (int y = 0; y < trimmedHeight; y++)
+        {
+            for (int x = 0; x < trimmedWidth; x++)
+            {
+                trimmed[y * trimmedWidth + x] =
+                    pixels[(minY + y) * width + (minX + x)];
+            }
+        }
+
+        pixels = trimmed;
+        width = trimmedWidth;
+        height = trimmedHeight;
     }
 
     /// <summary>
