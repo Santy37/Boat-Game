@@ -380,6 +380,7 @@ GameObject:
   - component: {fileID: 3413540391625882853}
   - component: {fileID: 4681165931704119982}
   - component: {fileID: 4424567147886695379}
+  - component: {fileID: -8238804328379113519}
   m_Layer: 0
   m_Name: Player_2D_Network
   m_TagString: Untagged
@@ -646,7 +647,7 @@ MonoBehaviour:
   alwaysShowBar: 1
   visibleTime: 2
   fadeTime: 1
-  animator: {fileID: 0}
+  animator: {fileID: 128342377273715214}
   disableOnDeath:
   - {fileID: 93961699430243165}
   - {fileID: 465610624872256257}
@@ -721,6 +722,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCharacter
   playerIndex: 0
   bindings: {fileID: 0}
+--- !u!114 &-8238804328379113519
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5438845180987550581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc9ae406983390f41bf54c2582c3b546, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSoulVFX
+  ShowTopMostFoldoutHeaderGroup: 1
+  soulFrames:
+  - {fileID: 392877701, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: 163876693, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: -340037243, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: 1976479395, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  framesPerSecond: 8
+  startOffset: {x: 0, y: 0.5, z: 0}
+  riseDistance: 2.5
+  duration: 1.2
+  soulScale: 0.65
 --- !u!1 &5481718040772650924
 GameObject:
   m_ObjectHideFlags: 0
