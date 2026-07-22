@@ -103,6 +103,7 @@ public static class VoyageLoopBuilder
         );
 
         NameSpawnMarkers(scene);
+        ConnectHelmToShip(scene);
         EnsureIslandPortal(scene);
         EnsureEventSystem(scene);
 
@@ -187,6 +188,56 @@ public static class VoyageLoopBuilder
     // offset towards the standing spot -- and the scene is right. The check
     // in the scripts is what is wrong, and it is fixed there rather than by
     // bolting a third collider onto his objects here.
+
+    /// <summary>
+    /// Hands the helm the ship it is supposed to steer.
+    ///
+    /// ShipHelm moves whatever Transform is in its 'ship' field, and that
+    /// field is empty in the scene. Everything else about steering works —
+    /// you can walk up, press E, take the wheel, watch the camera pull back
+    /// — and then WASD does nothing at all, because every line that would
+    /// move the ship sits behind a null check that never passes. Taking the
+    /// helm of a ship that cannot move is a worse bug than not being able to
+    /// take it.
+    ///
+    /// The helm is a child of the ship root, so the root is what it steers.
+    /// </summary>
+    private static void ConnectHelmToShip(Scene scene)
+    {
+        ShipHelm[] helms = scene
+            .GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<ShipHelm>(true))
+            .ToArray();
+
+        foreach (ShipHelm helm in helms)
+        {
+            SerializedObject serialized = new SerializedObject(helm);
+            SerializedProperty property = serialized.FindProperty("ship");
+
+            if (property == null || property.objectReferenceValue != null)
+            {
+                continue;
+            }
+
+            Transform shipRoot = helm.transform.root;
+
+            if (shipRoot == null || shipRoot == helm.transform)
+            {
+                Debug.LogWarning(
+                    $"[Voyage Loop] '{helm.name}' is not parented under a " +
+                    "ship, so there is nothing for it to steer."
+                );
+                continue;
+            }
+
+            property.objectReferenceValue = shipRoot;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            Debug.Log(
+                $"[Voyage Loop] '{helm.name}' now steers '{shipRoot.name}'."
+            );
+        }
+    }
 
     /// <summary>
     /// Puts the island exit back on the ship. Without it the boat is a dead

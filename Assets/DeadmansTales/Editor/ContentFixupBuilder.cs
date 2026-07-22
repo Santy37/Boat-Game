@@ -110,7 +110,14 @@ public static class ContentFixupBuilder
     // The variant's legacy 1.25x root scale is reset in
     // UpgradeBoneBruteToOrc; with that gone this is the orc's real
     // on-screen height.
-    private const float BruteTargetWorldHeight = PlayerWorldHeight * 1.25f;
+    //
+    // Was 1.25x, and it played far bigger than that number suggests. These
+    // targets are measured on a frame's trimmed HEIGHT, but the orc is drawn
+    // holding an axe out to one side and a shield out to the other, so it
+    // eats roughly twice the player's width at any given height. Height
+    // parity is what makes it read as a heavy rather than a giant; the bulk
+    // does the rest.
+    private const float BruteTargetWorldHeight = PlayerWorldHeight * 1.0f;
 
     // A scuttling crab is knee-height; a chest reads as furniture.
     private const float CrabTargetWorldHeight = PlayerWorldHeight * 0.42f;
@@ -118,7 +125,13 @@ public static class ContentFixupBuilder
 
     // The demon reaver is the elite (rarer, taller), the blood fiend a
     // fast low-health swarmer that comes up to the player's shoulder.
-    private const float DemonTargetWorldHeight = PlayerWorldHeight * 1.5f;
+    //
+    // The demon was 1.5x and measured 1.78x the player once its horns were
+    // counted, which is the tallest thing in the game standing next to the
+    // smallest — it stopped reading as an enemy and started reading as
+    // scenery you had wandered into. At 1.15x it is still visibly the
+    // biggest creature on the island without dwarfing the crew.
+    private const float DemonTargetWorldHeight = PlayerWorldHeight * 1.15f;
     private const float BloodMonsterTargetWorldHeight =
         PlayerWorldHeight * 0.85f;
 
