@@ -779,6 +779,7 @@ public static class IslandTerrainBuilder
     {
         Tilemap props = FindTilemap(scene, "Tilemap_Props");
         Tilemap overhead = FindTilemap(scene, "Tilemap_Overhead");
+        Tilemap obstacle = FindTilemap(scene, "Tilemap_ObstacleCollision");
         int planted = 0;
 
         foreach (Vector2Int anchor in anchors)
@@ -814,6 +815,17 @@ public static class IslandTerrainBuilder
                 if (prop != null)
                 {
                     props.SetTile(position, prop);
+
+                    // Trunks are solid; canopies are not. Blocking the
+                    // canopy would put an invisible wall in the air above
+                    // the beach.
+                    if (vocabulary.ObstacleCollision != null)
+                    {
+                        obstacle.SetTile(
+                            position,
+                            vocabulary.ObstacleCollision
+                        );
+                    }
                 }
 
                 if (canopy != null)

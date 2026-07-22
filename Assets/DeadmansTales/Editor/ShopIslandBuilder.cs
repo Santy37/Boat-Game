@@ -156,24 +156,23 @@ public static class ShopIslandBuilder
     /// <summary>Cell row the stall counters stand on.</summary>
     private const int StallRowY = 6;
 
+    /// <summary>Height of a stall's counter, in cells.</summary>
+    private const float CounterHeight = 1f;
+
     /// <summary>
-    /// Where a trader stands relative to their stall, and why it cannot be
-    /// "inside" it.
+    /// Where a trader stands: just behind their counter.
     ///
-    /// Measured from the art: from the stall's base, the counter is solid to
-    /// +0.94, the posts leave an opening only +1.0 to +1.5, and the awning
-    /// is solid from +1.56 to +3.19. That opening is 0.5 units tall and the
-    /// crew are 2.12 units, so a trader standing behind the counter has
-    /// their legs hidden by it and their head hidden by their own canopy,
-    /// leaving a visible sliver of torso. This art was drawn for characters
-    /// roughly half our height; no placement fixes that.
+    /// A single stall sprite could never allow this. It can only be wholly
+    /// in front of a character or wholly behind one, and neither reads as
+    /// working a stall — in front hid the trader, behind hid them under
+    /// their own canopy. The stall is now two sprites and the trader is
+    /// sandwiched: counter in front of them, awning and posts behind.
     ///
-    /// So they stand just in front of the counter instead, low enough that
-    /// their head clears the awning (5.2 + 2.12 = 7.32, awning starts at
-    /// 7.56). Fully visible, obviously attached to their stall, and no
-    /// sprite is drawn over the canopy.
+    /// 0.3 of a cell back puts their feet inside the counter's footprint so
+    /// it covers their legs, while their head reaches 0.3 + 2.12 = 2.42 —
+    /// below the 2.56 where the lengthened posts hand over to the canopy.
     /// </summary>
-    private const float VendorRowY = StallRowY - 0.8f;
+    private const float VendorRowY = StallRowY + 0.3f;
 
     private static readonly VendorSpec[] Vendors =
     {
@@ -224,28 +223,32 @@ public static class ShopIslandBuilder
     /// Positions are the cell each prop stands in; props are centred on
     /// that cell with their base on its lower edge.
     /// </summary>
-    private static readonly (string Prop, float CellX, float CellY)[]
-        Dressing =
+    /// <summary>
+    /// Market scenery. SolidWidth is how many cells of the base row block
+    /// movement; 0 leaves the prop walkable.
+    /// </summary>
+    private static readonly
+        (string Prop, float CellX, float CellY, int SolidWidth)[] Dressing =
         {
             // Trade tools, in the yards either end of the stall row.
-            ("forge_stone", -7.5f, 6f),
-            ("meatrack", 6.5f, 5f),
+            ("forge_stone", -7.5f, 6f, 2),
+            ("meatrack", 6.5f, 5f, 4),
 
             // Goods stacked in the two gaps between the three stalls,
             // which fall on cells -2 and 2.
-            ("crate", -2.2f, 6.2f),
-            ("barrel", -1.8f, 5.4f),
-            ("pot", 2.2f, 6.2f),
-            ("barrel", -6.4f, 5.2f),
-            ("crate", 6.4f, 6.4f),
+            ("crate", -2.2f, 6.2f, 1),
+            ("barrel", -1.8f, 5.4f, 1),
+            ("pot", 2.2f, 6.2f, 1),
+            ("barrel", -6.4f, 5.2f, 1),
+            ("crate", 6.4f, 6.4f, 1),
 
             // A facing row of counters turns the square into a street.
-            ("stall_counter", -2.5f, 1.2f),
-            ("stall_counter", 2.5f, 1.2f),
+            ("stall_counter", -2.5f, 1.2f, 3),
+            ("stall_counter", 2.5f, 1.2f, 3),
 
             // One signpost where the road leaves for the pier. Two read as
             // a pair of odd poles rather than as wayfinding.
-            ("market_sign", 5.5f, 3.2f),
+            ("market_sign", 5.5f, 3.2f, 1),
         };
 
     /// <summary>
@@ -389,7 +392,14 @@ public static class ShopIslandBuilder
         // went in first.
         PlantTownTiles(props, obstacle, vocabulary.ObstacleCollision);
 
-        Vector2Int? camp = BuildOutpost(props, overhead, land, footprint);
+        Vector2Int? camp = BuildOutpost(
+            props,
+            overhead,
+            obstacle,
+            vocabulary.ObstacleCollision,
+            land,
+            footprint
+        );
 
         if (camp.HasValue)
         {
@@ -409,8 +419,18 @@ public static class ShopIslandBuilder
 
         Transform districtRoot = new GameObject(DistrictRootName).transform;
 
-        BuildDressing(districtRoot, ground);
-        BuildStalls(districtRoot, ground);
+        BuildDressing(
+            districtRoot,
+            ground,
+            obstacle,
+            vocabulary.ObstacleCollision
+        );
+        BuildStalls(
+            districtRoot,
+            ground,
+            obstacle,
+            vocabulary.ObstacleCollision
+        );
         PlaceCoins(districtRoot, ground, footprint, coinPrefab);
         EnsureShopHud(scene);
         PointExitAtBoat(scene);
@@ -769,6 +789,8 @@ public static class ShopIslandBuilder
     private static Vector2Int? BuildOutpost(
         Tilemap props,
         Tilemap overhead,
+        Tilemap obstacle,
+        TileBase solidTile,
         HashSet<Vector2Int> land,
         HashSet<Vector2Int> footprint
     )
@@ -795,10 +817,17 @@ public static class ShopIslandBuilder
 
             foreach ((string tile, int dx, int dy) in FisherCamp)
             {
-                props.SetTile(
-                    new Vector3Int(anchor.x + dx, anchor.y + dy, 0),
-                    LoadShopTile(tile)
-                );
+                Vector3Int cell =
+                    new Vector3Int(anchor.x + dx, anchor.y + dy, 0);
+
+                props.SetTile(cell, LoadShopTile(tile));
+
+                // Every piece of the camp is something you walk around: a
+                // tent, a fire, a woodpile, a barrel.
+                if (solidTile != null)
+                {
+                    obstacle.SetTile(cell, solidTile);
+                }
             }
 
             Debug.Log($"[Shop Island] Pitched the fisher camp at {anchor}.");
@@ -940,6 +969,40 @@ public static class ShopIslandBuilder
         }
 
         Debug.Log($"[Shop Island] Scattered {planted} pieces of undergrowth.");
+    }
+
+    /// <summary>
+    /// Stamps blocking cells under a prop, so players walk up to the market
+    /// furniture instead of straight through it.
+    ///
+    /// Only the base row is marked. These are drawn in a 2.5D projection: a
+    /// stall's awning hangs over ground you should still be able to walk
+    /// past, and blocking the whole sprite would wall off the square.
+    /// </summary>
+    private static void MarkSolid(
+        Tilemap obstacle,
+        TileBase tile,
+        float centreCellX,
+        float baseCellY,
+        int widthCells
+    )
+    {
+        if (tile == null || widthCells <= 0)
+        {
+            return;
+        }
+
+        int centre = Mathf.RoundToInt(centreCellX);
+        int row = Mathf.RoundToInt(baseCellY);
+        int start = centre - (widthCells - 1) / 2;
+
+        for (int offset = 0; offset < widthCells; offset++)
+        {
+            obstacle.SetTile(
+                new Vector3Int(start + offset, row, 0),
+                tile
+            );
+        }
     }
 
     private static Tile LoadShopTile(string name)
@@ -1167,12 +1230,18 @@ public static class ShopIslandBuilder
     // Market objects
     // ------------------------------------------------------------------
 
-    private static void BuildDressing(Transform districtRoot, Tilemap ground)
+    private static void BuildDressing(
+        Transform districtRoot,
+        Tilemap ground,
+        Tilemap obstacle,
+        TileBase solidTile
+    )
     {
         GameObject dressingRoot = new GameObject("Dressing");
         dressingRoot.transform.SetParent(districtRoot, false);
 
-        foreach ((string prop, float cellX, float cellY) in Dressing)
+        foreach ((string prop, float cellX, float cellY, int solidWidth)
+            in Dressing)
         {
             CreatePropObject(
                 dressingRoot.transform,
@@ -1181,6 +1250,8 @@ public static class ShopIslandBuilder
                 cellX,
                 cellY
             );
+
+            MarkSolid(obstacle, solidTile, cellX, cellY, solidWidth);
         }
     }
 
@@ -1217,21 +1288,44 @@ public static class ShopIslandBuilder
         return prop;
     }
 
-    private static void BuildStalls(Transform districtRoot, Tilemap ground)
+    private static void BuildStalls(
+        Transform districtRoot,
+        Tilemap ground,
+        Tilemap obstacle,
+        TileBase solidTile
+    )
     {
         foreach (VendorSpec spec in Vendors)
         {
-            GameObject stall = CreatePropObject(
+            // The awning and posts stand a counter's height further back,
+            // BEHIND the trader.
+            GameObject back = CreatePropObject(
                 districtRoot,
                 ground,
-                spec.StallProp,
+                spec.StallProp + "_back",
+                spec.CellX,
+                StallRowY + CounterHeight
+            );
+
+            int stallOrder = back
+                .GetComponent<SpriteRenderer>()
+                .sortingOrder;
+
+            // The counter draws IN FRONT of the trader and hides their legs,
+            // which is what actually sells "standing behind the stall".
+            GameObject front = CreatePropObject(
+                districtRoot,
+                ground,
+                spec.StallProp + "_front",
                 spec.CellX,
                 StallRowY
             );
 
-            int stallOrder = stall
-                .GetComponent<SpriteRenderer>()
-                .sortingOrder;
+            front.GetComponent<SpriteRenderer>().sortingOrder =
+                Mathf.Min(stallOrder + 2, 19);
+
+            // A counter is solid: you walk up to it, not through it.
+            MarkSolid(obstacle, solidTile, spec.CellX, StallRowY, 3);
 
             GameObject vendorObject = new GameObject(spec.ObjectName);
             vendorObject.transform.SetParent(districtRoot, false);
