@@ -12,6 +12,12 @@ public class AutoStartHost : MonoBehaviour
 {
     private IEnumerator Start()
     {
+        // Local couch co-op never starts a host.
+        if (GameMode.IsLocal)
+        {
+            yield break;
+        }
+
         // Wait for the NetworkManager that DeadmansNetworkBootstrap builds on load.
         while (NetworkManager.Singleton == null)
         {
