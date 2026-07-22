@@ -17,6 +17,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity
     guid: 28693e7621350f14cacdd21719ac8127
+  - enabled: 1
+    path: Assets/DeadmansTales/Scenes/Island_Shop_2D.unity
+    guid: 9f3ac2b71d4e84f2ea77c015d3b6e841
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

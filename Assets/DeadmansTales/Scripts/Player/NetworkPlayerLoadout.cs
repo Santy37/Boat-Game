@@ -41,6 +41,18 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
             NetworkVariableWritePermission.Server
         );
 
+    /// <summary>
+    /// Plunder carried by this player, spent at the shop island's stalls.
+    /// Server-authoritative like every other loadout value, so a client
+    /// cannot mint coins by editing its own copy.
+    /// </summary>
+    public readonly NetworkVariable<int> Coins =
+        new NetworkVariable<int>(
+            0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
     public float BonusDamage =>
         Mathf.Max(0, WeaponTier.Value) * DamagePerWeaponTier;
 
@@ -49,6 +61,34 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
 
     public float BonusMaxHealth =>
         Mathf.Max(0, HealthUpgrades.Value) * MaxHealthPerUpgrade;
+
+    /// <summary>Server-only: adds plundered coins to this player.</summary>
+    public bool AddCoinsServer(int amount)
+    {
+        if (!IsSpawned || !IsServer || amount <= 0)
+        {
+            return false;
+        }
+
+        Coins.Value += amount;
+        return true;
+    }
+
+    /// <summary>
+    /// Server-only: spends coins if the player can afford it. Returns false
+    /// and changes nothing when they cannot, so callers can drive this
+    /// straight from a purchase without checking the balance twice.
+    /// </summary>
+    public bool TrySpendCoinsServer(int price)
+    {
+        if (!IsSpawned || !IsServer || price < 0 || Coins.Value < price)
+        {
+            return false;
+        }
+
+        Coins.Value -= price;
+        return true;
+    }
 
     /// <summary>Server-only: raises this player's weapon tier by one.</summary>
     public bool GrantWeaponServer()
