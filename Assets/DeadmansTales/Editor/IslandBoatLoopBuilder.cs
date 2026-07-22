@@ -35,7 +35,7 @@ public static class IslandBoatLoopBuilder
         "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
 
     private const string BoatScenePath =
-        "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity";
+        "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
 
     private const string FoodSheetPath =
         "Assets/DeadmansTales/Art_Pixel/Props/island_food_items.png";

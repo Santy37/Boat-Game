@@ -213,6 +213,57 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 043e3f5625bf88e4393b45ae2317dece, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnPoint2D
+--- !u!1 &225645538
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 225645539}
+  - component: {fileID: 225645540}
+  m_Layer: 0
+  m_Name: BoatLeg
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &225645539
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 225645538}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.67959, y: 11.995, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &225645540
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 225645538}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d91ba76c874a7842bf2804556bc0d6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BoatLegProgress
+  progress01: 0.5
+  showButtonAlways: 1
+  buttonLabel: Land on Island
+  buttonSize: {x: 260, y: 56}
+  cornerMargin: {x: 120, y: 24}
+  showDamageButton: 1
+  debugDamageAmount: 10
 --- !u!1 &235887345
 GameObject:
   m_ObjectHideFlags: 0
@@ -263,8 +314,10 @@ Transform:
   - {fileID: 543750386}
   - {fileID: 1474078327}
   - {fileID: 754887838}
+  - {fileID: 1361659282}
   - {fileID: 1710980762}
   - {fileID: 497979623}
+  - {fileID: 1515593423}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &349770252
@@ -451,8 +504,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d6fde0a68e8f040baf1b40665ac7cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShipCannon
-  manKey: 101
-  fireKey: 32
   standPoint: {fileID: 999406446}
   facing: {x: 0, y: 1}
   muzzle: {fileID: 1809852439}
@@ -462,6 +513,9 @@ MonoBehaviour:
   cooldown: 1
   aimRange: 8
   aimSpeed: 6
+  cannonCameraZoom: 16
+  fallbackManKey: 101
+  fallbackFireKey: 32
 --- !u!1 &373136901
 GameObject:
   m_ObjectHideFlags: 0
@@ -519,6 +573,7 @@ GameObject:
   - component: {fileID: 379537963}
   - component: {fileID: 379537962}
   - component: {fileID: 379537961}
+  - component: {fileID: 379537966}
   m_Layer: 0
   m_Name: Alpha_Main_Camera
   m_TagString: MainCamera
@@ -533,7 +588,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 379537960}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a435bf3b92499e0449d74e0d0fb128e8, type: 3}
   m_Name: 
@@ -664,6 +719,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &379537966
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 379537960}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f6995804ca4eae4eab32880807f6a6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalCoopCamera
+  padding: 3
+  minZoom: 6
+  maxZoom: 14
+  smooth: 5
+  zOffset: -10
+  leashPlayers: 1
+  leashMargin: 1
+  perspectiveOffset: {x: 0, y: 9, z: -11}
 --- !u!1 &399490506
 GameObject:
   m_ObjectHideFlags: 0
@@ -688,7 +763,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 399490506}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3ae87fb72e218f24ca455c9e109d21e5, type: 3}
   m_Name: 
@@ -865,7 +940,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 535c0a828bb06b84ebd5fa8f3ade5c46, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShipHelm
-  manKey: 101
   standPoint: {fileID: 2125084019}
   facing: {x: -1, y: 0}
   ship: {fileID: 235887347}
@@ -873,6 +947,7 @@ MonoBehaviour:
   moveBounds: {x: 5, y: 3}
   steeringCameraZoom: 25
   zoomLerpSpeed: 5
+  fallbackManKey: 101
 --- !u!61 &497979626
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1013,8 +1088,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d6fde0a68e8f040baf1b40665ac7cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShipCannon
-  manKey: 101
-  fireKey: 32
   standPoint: {fileID: 2019477642}
   facing: {x: 0, y: 1}
   muzzle: {fileID: 22986013}
@@ -1024,6 +1097,9 @@ MonoBehaviour:
   cooldown: 1
   aimRange: 8
   aimSpeed: 6
+  cannonCameraZoom: 16
+  fallbackManKey: 101
+  fallbackFireKey: 32
 --- !u!61 &521539598
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1185,7 +1261,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 541964772}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
@@ -1226,7 +1302,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 541964772}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4c173d1290a6de644a240463392b8169, type: 3}
   m_Name: 
@@ -2330,6 +2406,58 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1435242197}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &947335586
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 947335588}
+  - component: {fileID: 947335587}
+  m_Layer: 0
+  m_Name: SceneSetup
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &947335587
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947335586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fdfd77490679e24689ebcba7b5b4218, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SceneRunProfile
+  kind: 3
+  spawnPlayers: 1
+  playerPrefab: {fileID: 5438845180987550581, guid: 08eecfd24c0a8b746b0475197df3e275, type: 3}
+  spawnPoints:
+  - {fileID: 373136902}
+  - {fileID: 349770253}
+  - {fileID: 526012972}
+  - {fileID: 195111147}
+--- !u!4 &947335588
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947335586}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.17171, y: 9.51711, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &974094523
 GameObject:
   m_ObjectHideFlags: 0
@@ -2427,6 +2555,126 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1435242197}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1361659281
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1361659282}
+  - component: {fileID: 1361659284}
+  - component: {fileID: 1361659283}
+  m_Layer: 0
+  m_Name: ShipHitBox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1361659282
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1361659281}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 235887347}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!50 &1361659283
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1361659281}
+  m_BodyType: 1
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 0
+  m_Constraints: 0
+--- !u!60 &1361659284
+PolygonCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1361659281}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Points:
+    m_Paths:
+    - - {x: 7.1272078, y: 6.5456777}
+      - {x: 13.499728, y: 8.155733}
+      - {x: 16.152828, y: 11.61698}
+      - {x: 13.339349, y: 15.878587}
+      - {x: -2, y: 16}
+      - {x: -7.6023483, y: 16.05159}
+      - {x: -9.467106, y: 12.985814}
+      - {x: -7.4574966, y: 8.994354}
+      - {x: -3.2150183, y: 7.3996916}
+      - {x: -1.9510565, y: 7.309017}
+      - {x: -0.5877852, y: 7.190983}
+      - {x: 0.58778536, y: 7.190983}
+      - {x: 2.9510565, y: 7.309017}
+  m_UseDelaunayMesh: 1
 --- !u!1 &1435242196
 GameObject:
   m_ObjectHideFlags: 0
@@ -2567,8 +2815,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d6fde0a68e8f040baf1b40665ac7cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShipCannon
-  manKey: 101
-  fireKey: 32
   standPoint: {fileID: 1173185783}
   facing: {x: 0, y: -1}
   muzzle: {fileID: 870088633}
@@ -2578,6 +2824,9 @@ MonoBehaviour:
   cooldown: 1
   aimRange: 8
   aimSpeed: 6
+  cannonCameraZoom: 16
+  fallbackManKey: 101
+  fallbackFireKey: 32
 --- !u!1 &1456519512
 GameObject:
   m_ObjectHideFlags: 0
@@ -2718,8 +2967,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d6fde0a68e8f040baf1b40665ac7cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShipCannon
-  manKey: 101
-  fireKey: 32
   standPoint: {fileID: 1559606318}
   facing: {x: 0, y: -1}
   muzzle: {fileID: 418975921}
@@ -2729,6 +2976,9 @@ MonoBehaviour:
   cooldown: 1
   aimRange: 8
   aimSpeed: 6
+  cannonCameraZoom: 16
+  fallbackManKey: 101
+  fallbackFireKey: 32
 --- !u!1 &1474078326
 GameObject:
   m_ObjectHideFlags: 0
@@ -5916,6 +6166,59 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1515593422
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1515593423}
+  - component: {fileID: 1515593424}
+  m_Layer: 0
+  m_Name: ShipHealthUI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1515593423
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1515593422}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.36770236, y: 6.4347935, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 235887347}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1515593424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1515593422}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb4074daacdaa534fbc0fbfde8d9fe1d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShipHealthBar
+  offsetFromTopCenter: {x: 0, y: 20}
+  barSize: {x: 420, y: 26}
+  alwaysShow: 0
+  showCrewHealth: 0
+  healthyColor: {r: 0.25, g: 0.75, b: 0.35, a: 1}
+  hurtColor: {r: 0.85, g: 0.65, b: 0.15, a: 1}
+  criticalColor: {r: 0.85, g: 0.25, b: 0.2, a: 1}
+  flashColor: {r: 1, g: 1, b: 1, a: 1}
+  backdropColor: {r: 0, g: 0, b: 0, a: 0.55}
 --- !u!1 &1559606317
 GameObject:
   m_ObjectHideFlags: 0
@@ -6507,3 +6810,5 @@ SceneRoots:
   - {fileID: 399490508}
   - {fileID: 1875922520}
   - {fileID: 411916074}
+  - {fileID: 225645539}
+  - {fileID: 947335588}

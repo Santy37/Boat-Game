@@ -26,7 +26,7 @@ public static class BoatIslandPortalBuilder
     private const string MenuPath = "Deadman's Tales/Add Boat Island Portal";
 
     private const string BoatScenePath =
-        "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity";
+        "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
 
     private const string IslandSceneName = "Island_After_Ocean_01_2D";
 

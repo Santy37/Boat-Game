@@ -14,7 +14,7 @@ public static class ScenePreviewCapture
     public static void CaptureBoatScene()
     {
         Capture(
-            "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity",
+            "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity",
             "codex-boat-preview.png",
             new Vector3(2f, 12f, -10f),
             18f

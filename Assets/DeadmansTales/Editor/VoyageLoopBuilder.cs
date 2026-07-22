@@ -37,7 +37,7 @@ public static class VoyageLoopBuilder
     private const string MenuPath = "Deadman's Tales/Build Voyage Loop";
 
     private const string BoatScenePath =
-        "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity";
+        "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
     private const string IslandScenePath =
         "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
     private const string ShopScenePath =
@@ -45,6 +45,9 @@ public static class VoyageLoopBuilder
 
     private const string IslandSceneName = "Island_After_Ocean_01_2D";
     private const string ShopSceneName = "Island_Shop_2D";
+
+    private const string NetworkPlayerPrefabPath =
+        "Assets/DeadmansTales/Prefabs/Players/Player_2D_Network.prefab";
 
     private const string PortalName = "PostOceanIslandPortal";
 
@@ -74,6 +77,7 @@ public static class VoyageLoopBuilder
     {
         BuildBoatScene();
         PointIslandAtMarket();
+        EnsurePlayerCharacterOnNetworkedPlayer();
         EnsureBuildSettings();
 
         AssetDatabase.SaveAssets();
@@ -600,12 +604,61 @@ public static class VoyageLoopBuilder
         );
     }
 
+    /// <summary>
+    /// Puts <c>PlayerCharacter</c> on the NETWORKED player prefab.
+    ///
+    /// Michelin's local co-op pass rewrote the ship's stations to talk to
+    /// PlayerCharacter — a thin facade that forwards to whichever movement
+    /// driver a player actually has, so one cannon script serves both a couch
+    /// player and a networked one. His local prefab carries it. The networked
+    /// prefab is the one main has been developing on this whole time, and it
+    /// did not: his branch never saw the attack, health and loadout work that
+    /// landed on it, so the merge kept main's copy of the prefab whole.
+    ///
+    /// Without this the multiplayer cannons are dead. Their trigger asks for
+    /// GetComponentInParent&lt;PlayerCharacter&gt;() and gets null, so no
+    /// prompt, no seating, nothing — with no error to explain it.
+    ///
+    /// Left at its defaults on purpose: no key bindings, which is exactly how
+    /// PlayerCharacter tells a networked player from a couch one. With
+    /// bindings null it falls through to the NetworkObject's IsOwner, and the
+    /// station reads ownership the way the rest of the netcode does.
+    /// </summary>
+    private static void EnsurePlayerCharacterOnNetworkedPlayer()
+    {
+        GameObject prefab =
+            AssetDatabase.LoadAssetAtPath<GameObject>(NetworkPlayerPrefabPath);
+
+        if (prefab == null)
+        {
+            Debug.LogWarning(
+                $"[Voyage Loop] No player prefab at " +
+                $"'{NetworkPlayerPrefabPath}'; the networked cannons cannot " +
+                "be bridged to PlayerCharacter."
+            );
+            return;
+        }
+
+        if (prefab.GetComponent<PlayerCharacter>() != null)
+        {
+            return;
+        }
+
+        prefab.AddComponent<PlayerCharacter>();
+        PrefabUtility.SavePrefabAsset(prefab);
+
+        Debug.Log(
+            "[Voyage Loop] Added PlayerCharacter to the networked player " +
+            "prefab so the ship's stations can see a multiplayer crew."
+        );
+    }
+
     private static void EnsureBuildSettings()
     {
         string[] required =
         {
             "Assets/DeadmansTales/Scenes/MainMenu.unity",
-            "Assets/DeadmansTales/Scenes/Lobby_Island_2D.unity",
+            "Assets/DeadmansTales/Scenes/Island/Lobby_Island_2D.unity",
             BoatScenePath,
             IslandScenePath,
             ShopScenePath,

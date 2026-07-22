@@ -31,7 +31,7 @@ using UnityEngine.Tilemaps;
 public static class IslandTerrainBuilder
 {
     private const string LobbyScenePath =
-        "Assets/DeadmansTales/Scenes/Lobby_Island_2D.unity";
+        "Assets/DeadmansTales/Scenes/Island/Lobby_Island_2D.unity";
     private const string OceanScenePath =
         "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
 
