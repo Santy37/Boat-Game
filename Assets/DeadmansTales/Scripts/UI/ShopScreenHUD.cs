@@ -45,6 +45,8 @@ namespace DeadmansTales.UI
         private GUIStyle priceStyle;
         private GUIStyle placeholderStyle;
         private GUIStyle iconStyle;
+        private GUIStyle buyStyle;
+        private GUIStyle buyDisabledStyle;
 
         private void OnGUI()
         {
@@ -140,21 +142,29 @@ namespace DeadmansTales.UI
 
             bool buyable = !soldOut && affordable;
 
-            using (new GuiEnabledScope(buyable))
-            {
-                string label = soldOut
-                    ? "Sold out"
-                    : affordable ? "Buy  (E)" : "Too dear";
+            string label = soldOut
+                ? "Sold out"
+                : affordable ? "Buy  (E)" : "Too dear";
 
-                if (
-                    GUI.Button(
-                        new Rect(row.xMax - 128f, row.y + 14f, 116f, 38f),
-                        label
-                    )
-                )
-                {
-                    input.RequestInteractionWithCurrentTarget();
-                }
+            // Drawn as a Box and hit-tested by hand rather than using
+            // GUI.Button. Interactive IMGUI controls allocate control IDs
+            // that must line up across the Layout, MouseDown and Repaint
+            // passes of a frame; this panel appears and disappears with the
+            // player's proximity, so that count is not stable, and a
+            // mismatch is exactly the kind of thing that wedges the editor.
+            // A Box allocates nothing, so no mismatch is possible.
+            Rect buyRect = new Rect(row.xMax - 128f, row.y + 14f, 116f, 38f);
+            GUI.Box(buyRect, label, buyable ? buyStyle : buyDisabledStyle);
+
+            if (
+                buyable &&
+                Event.current.type == EventType.MouseDown &&
+                Event.current.button == 0 &&
+                buyRect.Contains(Event.current.mousePosition)
+            )
+            {
+                Event.current.Use();
+                input.RequestInteractionWithCurrentTarget();
             }
 
             y += 74f;
@@ -252,6 +262,16 @@ namespace DeadmansTales.UI
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
             };
+
+            buyStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+            };
+
+            buyDisabledStyle = new GUIStyle(buyStyle);
+            buyDisabledStyle.normal.textColor = new Color(1f, 1f, 1f, 0.45f);
         }
 
         private NetworkInteractionInput2D ResolveInput()
@@ -277,26 +297,6 @@ namespace DeadmansTales.UI
                 .GetComponent<NetworkInteractionInput2D>();
 
             return cachedInput;
-        }
-
-        /// <summary>
-        /// Restores GUI.enabled even if the drawing code throws, so one bad
-        /// frame cannot leave the whole IMGUI layer greyed out.
-        /// </summary>
-        private readonly struct GuiEnabledScope : System.IDisposable
-        {
-            private readonly bool previous;
-
-            public GuiEnabledScope(bool enabled)
-            {
-                previous = GUI.enabled;
-                GUI.enabled = enabled;
-            }
-
-            public void Dispose()
-            {
-                GUI.enabled = previous;
-            }
         }
     }
 }

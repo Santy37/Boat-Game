@@ -169,17 +169,23 @@ public static class ShopIslandBuilder
     private const int StallRowY = 6;
 
     /// <summary>
-    /// Traders stand AT their counter rather than out in the square.
+    /// Where a trader stands relative to their stall, and why it cannot be
+    /// "inside" it.
     ///
-    /// Measured from the art: a stall's counter occupies the bottom 0.94
-    /// units, the posts leave a gap only 0.5 units tall, and the awning is
-    /// solid above that. So a trader placed properly behind the stall would
-    /// be almost entirely hidden by their own canopy. They are instead put
-    /// half a cell back — far enough that the counter reads as being in
-    /// front of them — and drawn one order ABOVE the stall so they stay
-    /// visible, which is how these RPG-Maker market scenes are composed.
+    /// Measured from the art: from the stall's base, the counter is solid to
+    /// +0.94, the posts leave an opening only +1.0 to +1.5, and the awning
+    /// is solid from +1.56 to +3.19. That opening is 0.5 units tall and the
+    /// crew are 2.12 units, so a trader standing behind the counter has
+    /// their legs hidden by it and their head hidden by their own canopy,
+    /// leaving a visible sliver of torso. This art was drawn for characters
+    /// roughly half our height; no placement fixes that.
+    ///
+    /// So they stand just in front of the counter instead, low enough that
+    /// their head clears the awning (5.2 + 2.12 = 7.32, awning starts at
+    /// 7.56). Fully visible, obviously attached to their stall, and no
+    /// sprite is drawn over the canopy.
     /// </summary>
-    private const float VendorRowY = StallRowY + 0.5f;
+    private const float VendorRowY = StallRowY - 0.8f;
 
     private static readonly VendorSpec[] Vendors =
     {
