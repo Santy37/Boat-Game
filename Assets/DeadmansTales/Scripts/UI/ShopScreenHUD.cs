@@ -36,6 +36,17 @@ namespace DeadmansTales.UI
             "Charts",
         };
 
+        /// <summary>
+        /// True while the pointer is over an open stall panel.
+        ///
+        /// This panel is IMGUI, and IMGUI is invisible to
+        /// EventSystem.IsPointerOverGameObject — the check gameplay code uses
+        /// to avoid acting on clicks that belong to the UI. So a click on Buy
+        /// also swung the player's sword. Gameplay input consults this flag
+        /// for the same reason it consults PauseMenu.InputBlocked.
+        /// </summary>
+        public static bool PointerOverPanel { get; private set; }
+
         private NetworkInteractionInput2D cachedInput;
 
         private GUIStyle panelStyle;
@@ -50,23 +61,20 @@ namespace DeadmansTales.UI
 
         private void OnGUI()
         {
-            if (PauseMenu.InputBlocked)
+            NetworkShopVendor vendor = null;
+            NetworkInteractionInput2D input = null;
+
+            if (!PauseMenu.InputBlocked)
             {
-                return;
+                input = ResolveInput();
+                vendor = input == null
+                    ? null
+                    : input.CurrentTarget as NetworkShopVendor;
             }
-
-            NetworkInteractionInput2D input = ResolveInput();
-
-            if (input == null)
-            {
-                return;
-            }
-
-            NetworkShopVendor vendor =
-                input.CurrentTarget as NetworkShopVendor;
 
             if (vendor == null)
             {
+                PointerOverPanel = false;
                 return;
             }
 
@@ -85,6 +93,15 @@ namespace DeadmansTales.UI
                 PanelWidth,
                 PanelHeight
             );
+
+            // Event.current.mousePosition is only meaningful during real
+            // events, so this is sampled on Repaint, which happens every
+            // frame the panel is open.
+            if (Event.current.type == EventType.Repaint)
+            {
+                PointerOverPanel =
+                    panel.Contains(Event.current.mousePosition);
+            }
 
             GUI.Box(panel, GUIContent.none, panelStyle);
 

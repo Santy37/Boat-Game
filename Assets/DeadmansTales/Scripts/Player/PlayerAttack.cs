@@ -75,6 +75,14 @@ public sealed class PlayerAttack : NetworkBehaviour
             return;
         }
 
+        // The check above only sees uGUI. The stall counter is IMGUI and is
+        // invisible to it, so without this a click on the shop's Buy button
+        // also swung the sword.
+        if (DeadmansTales.UI.ShopScreenHUD.PointerOverPanel)
+        {
+            return;
+        }
+
         if (Input.GetMouseButtonDown(0))
         {
             bufferedAttackUntil =

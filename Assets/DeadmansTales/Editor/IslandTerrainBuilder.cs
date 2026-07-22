@@ -773,7 +773,8 @@ public static class IslandTerrainBuilder
         Scene scene,
         HashSet<Vector2Int> land,
         TerrainVocabulary vocabulary,
-        IEnumerable<Vector2Int> anchors
+        IEnumerable<Vector2Int> anchors,
+        int maximum
     )
     {
         Tilemap props = FindTilemap(scene, "Tilemap_Props");
@@ -782,6 +783,11 @@ public static class IslandTerrainBuilder
 
         foreach (Vector2Int anchor in anchors)
         {
+            if (planted >= maximum)
+            {
+                break;
+            }
+
             bool fits = vocabulary.PalmGrove.All(part =>
             {
                 Vector2Int cell = anchor + part.Offset;

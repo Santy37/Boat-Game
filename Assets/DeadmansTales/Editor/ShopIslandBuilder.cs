@@ -280,6 +280,38 @@ public static class ShopIslandBuilder
         ("barrels_double", 5, 4),
     };
 
+    /// <summary>
+    /// A fisherman's camp for the western beach: a tent, a fire, a logpile
+    /// and a barrel.
+    ///
+    /// The west half of the island was open sand you only crossed to get
+    /// somewhere else — dead space, in mapping terms. A second inhabited
+    /// spot gives that half a reason to exist and an anchor for the eye,
+    /// and a dirt trail from it to the market turns crossing the island
+    /// into following a road rather than wandering.
+    /// </summary>
+    private static readonly (string Tile, int DX, int DY)[] FisherCamp =
+    {
+        ("tentw_bl", 0, 0),
+        ("tentw_br", 1, 0),
+        ("tentw_ml", 0, 1),
+        ("tentw_mr", 1, 1),
+        ("tentw_tl", 0, 2),
+        ("tentw_tr", 1, 2),
+        ("campfire", 3, 0),
+        ("logpile", 4, 1),
+        ("barrel_open", 3, 2),
+    };
+
+    /// <summary>Where to try putting the camp, best spot first.</summary>
+    private static readonly Vector2Int[] CampAnchors =
+    {
+        new Vector2Int(-11, 2),
+        new Vector2Int(-11, 4),
+        new Vector2Int(-10, 1),
+        new Vector2Int(-12, 3),
+    };
+
     /// <summary>Cells the well occupies, which players must not walk through.</summary>
     private static readonly Vector2Int[] SolidTownCells =
     {
@@ -350,15 +382,29 @@ public static class ShopIslandBuilder
 
         PavePlaza(ground, footprint);
 
+        // Deliberate landmarks are placed before filler. Palm groves check
+        // that their footprint is clear before planting, so putting them
+        // last means they flow around the camp instead of dropping a canopy
+        // across its tent — which is exactly what happened when the groves
+        // went in first.
+        PlantTownTiles(props, obstacle, vocabulary.ObstacleCollision);
+
+        Vector2Int? camp = BuildOutpost(props, overhead, land, footprint);
+
+        if (camp.HasValue)
+        {
+            PaveCampTrail(ground, props, land, footprint, camp.Value);
+        }
+
         int groves = IslandTerrainBuilder.PlantGroves(
             scene,
             land,
             vocabulary,
-            GroveAnchors(land, footprint)
+            GroveAnchors(land, footprint),
+            GroveLimit
         );
         Debug.Log($"[Shop Island] Planted {groves} palm groves.");
 
-        PlantTownTiles(props, obstacle, vocabulary.ObstacleCollision);
         ScatterUndergrowth(ground, props, overhead, footprint);
 
         Transform districtRoot = new GameObject(DistrictRootName).transform;
@@ -566,11 +612,14 @@ public static class ShopIslandBuilder
     {
         List<Vector2Int> anchors = new List<Vector2Int>();
 
-        // A coarse lattice over the island keeps the groves spread out
-        // instead of clumping wherever the first few happened to fit.
-        for (int x = -16; x <= 12; x += 3)
+        // A lattice over the island keeps the groves spread out instead of
+        // clumping wherever the first few happened to fit. It is finer than
+        // the number of groves wanted, because most anchors are rejected —
+        // for being at sea, in the town, or on top of the camp — and a
+        // coarse lattice left the island bare.
+        for (int x = -16; x <= 12; x += 2)
         {
-            for (int y = -5; y <= 12; y += 3)
+            for (int y = -5; y <= 12; y += 2)
             {
                 Vector2Int anchor = new Vector2Int(x, y);
 
@@ -712,6 +761,96 @@ public static class ShopIslandBuilder
         Debug.Log($"[Shop Island] Paved {footprint.Count} plaza cells.");
     }
 
+    /// <summary>
+    /// Pitches the fisherman's camp at the first anchor where every cell is
+    /// dry land and nothing already stands. Returns the anchor used, or null
+    /// if the coast this build produced has no room for it.
+    /// </summary>
+    private static Vector2Int? BuildOutpost(
+        Tilemap props,
+        Tilemap overhead,
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint
+    )
+    {
+        foreach (Vector2Int anchor in CampAnchors)
+        {
+            bool fits = FisherCamp.All(part =>
+            {
+                Vector2Int cell =
+                    new Vector2Int(anchor.x + part.DX, anchor.y + part.DY);
+
+                // The overhead layer matters as much as the prop layer: it
+                // carries tree canopies, which draw over everything.
+                return land.Contains(cell) &&
+                    !footprint.Contains(cell) &&
+                    !props.HasTile((Vector3Int)cell) &&
+                    !overhead.HasTile((Vector3Int)cell);
+            });
+
+            if (!fits)
+            {
+                continue;
+            }
+
+            foreach ((string tile, int dx, int dy) in FisherCamp)
+            {
+                props.SetTile(
+                    new Vector3Int(anchor.x + dx, anchor.y + dy, 0),
+                    LoadShopTile(tile)
+                );
+            }
+
+            Debug.Log($"[Shop Island] Pitched the fisher camp at {anchor}.");
+            return anchor;
+        }
+
+        Debug.LogWarning(
+            "[Shop Island] No room for the fisher camp on this coastline."
+        );
+        return null;
+    }
+
+    /// <summary>
+    /// Beats a dirt trail from the camp to the market square, so the walk
+    /// across the island follows a road instead of open sand.
+    /// </summary>
+    private static void PaveCampTrail(
+        Tilemap ground,
+        Tilemap props,
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint,
+        Vector2Int camp
+    )
+    {
+        Tile trail = LoadShopTile("trail_dirt");
+        int trailY = camp.y + 1;
+        int laid = 0;
+
+        for (int x = camp.x + 2; x < PlazaCentreX; x++)
+        {
+            // Meandering by a cell keeps it from reading as a ruled line.
+            int y = trailY + (Mathf.Abs(Hash(x, 0)) % 3 - 1);
+
+            foreach (int step in new[] { 0, 1 })
+            {
+                Vector2Int cell = new Vector2Int(x, y + step);
+
+                if (!land.Contains(cell) ||
+                    footprint.Contains(cell) ||
+                    props.HasTile((Vector3Int)cell))
+                {
+                    continue;
+                }
+
+                ground.SetTile((Vector3Int)cell, trail);
+                laid++;
+            }
+        }
+
+        Debug.Log($"[Shop Island] Beat a {laid}-cell trail to the market.");
+    }
+
     private static void PlantTownTiles(
         Tilemap props,
         Tilemap obstacle,
@@ -746,6 +885,12 @@ public static class ShopIslandBuilder
     /// things the eye lands on.
     /// </summary>
     private const int UndergrowthPercent = 11;
+
+    /// <summary>
+    /// How many palm groves to plant. Enough to frame the island without
+    /// walling the market off from the shore.
+    /// </summary>
+    private const int GroveLimit = 7;
 
     private static void ScatterUndergrowth(
         Tilemap ground,
