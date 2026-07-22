@@ -503,6 +503,48 @@ public static class VoyageLoopBuilder
     }
 
     /// <summary>
+    /// Strips every EventSystem from a scene, for the case where another
+    /// branch owns the one that should be there. Removes the whole object
+    /// when it carries nothing else, so no empty husk is left behind in the
+    /// hierarchy for someone to wonder about later.
+    /// </summary>
+    private static void RemoveEventSystems(Scene scene)
+    {
+        EventSystem[] found = scene
+            .GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<EventSystem>(true))
+            .ToArray();
+
+        foreach (EventSystem system in found)
+        {
+            GameObject owner = system.gameObject;
+
+            bool onlyTheEventSystem = owner.GetComponents<Component>()
+                .All(part =>
+                    part is Transform ||
+                    part is EventSystem ||
+                    part is BaseInputModule);
+
+            if (onlyTheEventSystem && owner.transform.childCount == 0)
+            {
+                Object.DestroyImmediate(owner);
+            }
+            else
+            {
+                Object.DestroyImmediate(system);
+            }
+        }
+
+        if (found.Length > 0)
+        {
+            Debug.Log(
+                $"[Voyage Loop] Removed {found.Length} EventSystem(s) from " +
+                $"'{scene.name}'; another branch owns that fix."
+            );
+        }
+    }
+
+    /// <summary>
     /// Sends the hostile island's exit to the market instead of straight
     /// back to the ship.
     ///
@@ -537,9 +579,18 @@ public static class VoyageLoopBuilder
         SetSerializedString(portal, "destinationSceneName", ShopSceneName);
         SetSerializedBool(portal, "advanceStage", true);
 
-        // The island never had one either, so the pause menu was dead on the
-        // one scene you most want to leave.
-        EnsureEventSystem(scene);
+        // No EventSystem here, deliberately.
+        //
+        // This scene had none, so the pause menu drew and ignored you, and an
+        // earlier pass added one. Shay fixed the same gap on the UI branch,
+        // in the same scene, as part of their pause-menu prefab — and two
+        // EventSystems in one scene is a Unity warning and flaky UI input, so
+        // only one of the two fixes can survive. UI is their lane, and their
+        // version arrives attached to the menu it serves, so ours goes.
+        //
+        // Until NEWUI merges, the island's pause menu is unresponsive again.
+        // That is the known cost of standing down, not an oversight.
+        RemoveEventSystems(scene);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
