@@ -25,6 +25,8 @@ public class PlayerAnimation2D : MonoBehaviour
 
     private int currentStateHash;
 
+    private bool facingLocked;
+
     private void Awake()
     {
         if (animator == null)
@@ -58,6 +60,14 @@ public class PlayerAnimation2D : MonoBehaviour
 
     private void LateUpdate()
     {
+        // While seated at a station, keep the forced facing and ignore movement.
+        if (facingLocked)
+        {
+            PlayCurrentState(false);
+            previousPosition = transform.position;
+            return;
+        }
+
         Vector3 currentPosition =
             transform.position;
 
@@ -122,5 +132,28 @@ public class PlayerAnimation2D : MonoBehaviour
         );
 
         currentStateHash = stateHash;
+    }
+
+    /// <summary>
+    /// Force the character to face a direction and stop reacting to movement
+    /// (used while seated at a station). Pass a direction such as Vector2.up.
+    /// </summary>
+    public void LockFacing(Vector2 direction)
+    {
+        facingLocked = true;
+
+        if (direction.sqrMagnitude > 0.0001f)
+        {
+            UpdateFacingDirection(direction);
+        }
+
+        PlayCurrentState(false);
+    }
+
+    /// <summary>Resume normal movement-based facing.</summary>
+    public void UnlockFacing()
+    {
+        facingLocked = false;
+        previousPosition = transform.position;
     }
 }

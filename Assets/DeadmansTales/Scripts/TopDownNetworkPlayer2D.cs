@@ -36,6 +36,9 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
 
     public bool IsLobbyReady => lobbyReady.Value;
 
+    /// <summary>True while the player is locked to a station (cannon/helm).</summary>
+    public bool ControlLocked { get; private set; }
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -114,7 +117,15 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
             return;
         }
 
-        if (PauseMenu.InputBlocked)
+        // Frozen by the pause menu, or seated at a cannon or the helm:
+        // either way, stop the character and hold still. These two arrived
+        // from different branches and are not alternatives — a player can
+        // open the menu while sitting at the helm.
+        //
+        // Sent through the throttle rather than straight down the RPC: a
+        // seated player holds one input for as long as they man the station,
+        // and the direct call would push an unreliable RPC every frame of it.
+        if (PauseMenu.InputBlocked || ControlLocked)
         {
             SubmitMoveInputIfNeeded(Vector2.zero);
             return;
@@ -180,6 +191,56 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
         // pending input so the server never keeps applying a stale vector.
         serverMoveInput = Vector2.zero;
         lastSubmittedMoveInput = Vector2.zero;
+    }
+
+    /// <summary>
+    /// Snap this player to a station (cannon/helm), face a direction, and lock
+    /// movement. Called on the owning client by a station interactable.
+    /// </summary>
+    public void EnterStation(Vector2 seatPosition, Vector2 facing)
+    {
+        ControlLocked = true;
+        SeatServerRpc(seatPosition);
+
+        PlayerAnimation2D animation =
+            GetComponentInChildren<PlayerAnimation2D>();
+
+        if (animation != null)
+        {
+            animation.LockFacing(facing);
+        }
+    }
+
+    /// <summary>Release the player from a station and restore movement.</summary>
+    public void ExitStation()
+    {
+        ControlLocked = false;
+
+        PlayerAnimation2D animation =
+            GetComponentInChildren<PlayerAnimation2D>();
+
+        if (animation != null)
+        {
+            animation.UnlockFacing();
+        }
+    }
+
+    [ServerRpc]
+    private void SeatServerRpc(Vector2 seatPosition)
+    {
+        serverMoveInput = Vector2.zero;
+
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+        rb.position = seatPosition;
+
+        transform.position = new Vector3(
+            seatPosition.x,
+            seatPosition.y,
+            0f
+        );
+
+        rb.WakeUp();
     }
 
     private void FixedUpdate()
