@@ -57,6 +57,73 @@ namespace DeadmansTales.Networking
 
         public string VendorName => vendorName;
 
+        /// <summary>This stall shows its own counter panel.</summary>
+        public override bool DrawsOwnScreen => true;
+
+        public ShopStock Stock => stock;
+
+        /// <summary>Shop-window name of the goods, e.g. "Sharpen Blade".</summary>
+        public string StockDisplayName => StockLabel();
+
+        /// <summary>One line of flavour and effect for the shop window.</summary>
+        public string StockDescription
+        {
+            get
+            {
+                switch (stock)
+                {
+                    case ShopStock.WeaponTier:
+                        return "Hone your cutlass. +1 blade tier.";
+
+                    case ShopStock.FullHeal:
+                        return "A hot meal and a sit down. Full health.";
+
+                    default:
+                        return "Ship's kit. A lasting crew upgrade.";
+                }
+            }
+        }
+
+        /// <summary>
+        /// What this stall charges the LOCAL player right now. Prices are
+        /// per-buyer, so the shop window must ask for the local purse rather
+        /// than show a single shared number.
+        /// </summary>
+        public int LocalPrice
+        {
+            get
+            {
+                NetworkPlayerLoadout loadout = FindLocalLoadout();
+
+                return loadout == null
+                    ? basePrice
+                    : PriceFor(GetPurchaseCount(loadout.OwnerClientId));
+            }
+        }
+
+        public bool IsSoldOutForLocalPlayer
+        {
+            get
+            {
+                NetworkPlayerLoadout loadout = FindLocalLoadout();
+
+                return loadout != null &&
+                    IsSoldOut(GetPurchaseCount(loadout.OwnerClientId));
+            }
+        }
+
+        /// <summary>Coins the local player is carrying, or 0 before they exist.</summary>
+        public int LocalCoins
+        {
+            get
+            {
+                NetworkPlayerLoadout loadout = FindLocalLoadout();
+                return loadout == null ? 0 : loadout.Coins.Value;
+            }
+        }
+
+        public bool LocalPlayerCanAfford => LocalCoins >= LocalPrice;
+
         public override string InteractionPrompt
         {
             get

@@ -20,6 +20,25 @@ namespace DeadmansTales.Networking
         private const string BoatSceneName = "Boat_Gameplay_2D";
         private const string IslandStageSceneName =
             "Island_After_Ocean_01_2D";
+        private const string ShopSceneName = "Island_Shop_2D";
+
+        /// <summary>
+        /// Scenes this coordinator positions players in.
+        ///
+        /// A scene missing from this list fails SILENTLY and in the worst
+        /// possible way: no spawn pass is scheduled, so not even the "no
+        /// marker found" error fires, and NGO leaves every player standing
+        /// at the player prefab's own origin — off the island, in the sea.
+        /// Any new playable scene must be added here as well as to Build
+        /// Settings and the menu.
+        /// </summary>
+        private static readonly string[] GameplaySceneNames =
+        {
+            LobbySceneName,
+            BoatSceneName,
+            IslandStageSceneName,
+            ShopSceneName,
+        };
 
         private readonly Dictionary<ulong, int> clientSlots =
             new Dictionary<ulong, int>();
@@ -657,10 +676,7 @@ namespace DeadmansTales.Networking
 
         private static bool IsGameplayScene(string sceneName)
         {
-            return
-                sceneName == LobbySceneName ||
-                sceneName == BoatSceneName ||
-                sceneName == IslandStageSceneName;
+            return System.Array.IndexOf(GameplaySceneNames, sceneName) >= 0;
         }
     }
 }

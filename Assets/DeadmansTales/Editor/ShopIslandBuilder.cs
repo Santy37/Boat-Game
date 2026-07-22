@@ -169,11 +169,17 @@ public static class ShopIslandBuilder
     private const int StallRowY = 6;
 
     /// <summary>
-    /// Traders stand half a cell in front of their own counter, so the
-    /// awning never hides the person you are meant to walk up to, and the
-    /// depth sort still draws them over their stall.
+    /// Traders stand AT their counter rather than out in the square.
+    ///
+    /// Measured from the art: a stall's counter occupies the bottom 0.94
+    /// units, the posts leave a gap only 0.5 units tall, and the awning is
+    /// solid above that. So a trader placed properly behind the stall would
+    /// be almost entirely hidden by their own canopy. They are instead put
+    /// half a cell back — far enough that the counter reads as being in
+    /// front of them — and drawn one order ABOVE the stall so they stay
+    /// visible, which is how these RPG-Maker market scenes are composed.
     /// </summary>
-    private const float VendorRowY = 5.5f;
+    private const float VendorRowY = StallRowY + 0.5f;
 
     private static readonly VendorSpec[] Vendors =
     {
@@ -212,19 +218,11 @@ public static class ShopIslandBuilder
         ),
     };
 
-    // Idle townsfolk: no stall, purely to make the port feel inhabited.
-    // Kept clear of cells (-2..1, 3) where the four players spawn.
-    private static readonly (string Name, int Motw, float CellX, float CellY)[]
-        Townsfolk =
-        {
-            ("Townsfolk_Dockhand", 1, 6.5f, 2.4f),
-            ("Townsfolk_Deckhand", 49, -6.5f, 3.4f),
-            ("Townsfolk_Traveller", 52, -3.5f, 1.2f),
-            // Row 1 of a character block is its side-facing walk, so this
-            // villager reads as browsing the stalls rather than staring
-            // out of the screen like the rest.
-            ("Townsfolk_Browser", 13, 2.5f, 7.2f),
-        };
+    // Idle townsfolk were cut deliberately. They read as interactable — a
+    // player walks up, presses E, and nothing happens — so four of them
+    // standing around a small square cost more in confusion and clutter
+    // than they bought in atmosphere. Everyone left on this island now
+    // does something.
 
     /// <summary>
     /// Scenery that sells the market: a working forge in the smith's yard,
@@ -244,7 +242,6 @@ public static class ShopIslandBuilder
             ("crate", -2.2f, 6.2f),
             ("barrel", -1.8f, 5.4f),
             ("pot", 2.2f, 6.2f),
-            ("vase", 1.8f, 5.4f),
             ("barrel", -6.4f, 5.2f),
             ("crate", 6.4f, 6.4f),
 
@@ -252,9 +249,9 @@ public static class ShopIslandBuilder
             ("stall_counter", -2.5f, 1.2f),
             ("stall_counter", 2.5f, 1.2f),
 
-            // Signposts either side of the road down to the pier.
+            // One signpost where the road leaves for the pier. Two read as
+            // a pair of odd poles rather than as wayfinding.
             ("market_sign", 5.5f, 3.2f),
-            ("market_sign", 5.5f, 0.2f),
         };
 
     /// <summary>
@@ -279,9 +276,10 @@ public static class ShopIslandBuilder
 
         // Kept off the stall row and the counter line: the prop tilemap
         // draws at order 2, below every market sprite, so anything placed
-        // under a stall would simply be painted over.
-        ("pot_flower", -2, 3),
-        ("pot_flower", 2, 3),
+        // under a stall would simply be painted over. Also kept off row 3,
+        // where the four players land.
+        ("pot_flower", -5, 5),
+        ("pot_flower", 5, 5),
         ("jug", 5, 3),
         ("sack", -6, 2),
         ("barrel_open", -5, 1),
@@ -299,9 +297,12 @@ public static class ShopIslandBuilder
 
     /// <summary>
     /// How many coins are scattered around the square, so the stalls are
-    /// not dead content before players have plundered anywhere.
+    /// not dead content before players have plundered anywhere. Kept small:
+    /// these are a starter float, and a square littered with floating gold
+    /// looks like debris rather than treasure. The real income is meant to
+    /// come from the hostile island.
     /// </summary>
-    private const int CoinCount = 8;
+    private const int CoinCount = 5;
 
     /// <summary>
     /// Cells the four players drop into. Coins auto-collect on touch, so
@@ -359,9 +360,8 @@ public static class ShopIslandBuilder
 
         BuildDressing(districtRoot, ground);
         BuildStalls(districtRoot, ground);
-        BuildTownsfolk(districtRoot, ground);
         PlaceCoins(districtRoot, ground, footprint, coinPrefab);
-        EnsureCoinHud(scene);
+        EnsureShopHud(scene);
         PointExitAtBoat(scene);
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -379,8 +379,8 @@ public static class ShopIslandBuilder
         //   -executeMethod NetworkSceneIdentityRepair.RepairFromCommandLine
 
         Debug.Log(
-            $"[Shop Island] Built {Vendors.Length} stalls and " +
-            $"{Townsfolk.Length} townsfolk; hostile spawns removed."
+            $"[Shop Island] Built {Vendors.Length} staffed stalls; " +
+            "hostile spawns removed."
         );
     }
 
@@ -867,10 +867,18 @@ public static class ShopIslandBuilder
     }
 
     /// <summary>
-    /// Sprinkles bushes and flowers over the beach outside the town. Only
-    /// cells surrounded by land are eligible, so nothing sprouts on the
-    /// shoreline where it would hang over the water.
+    /// Sprinkles greenery over the beach outside the town. Only cells
+    /// surrounded by land are eligible, so nothing sprouts on the shoreline
+    /// where it would hang over the water.
+    ///
+    /// Density is deliberately low. At 16% the beach filled with lone
+    /// bushes, stumps and flower tufts spaced one cell apart, which read as
+    /// static rather than as planting — the island looked busier but not
+    /// fuller. Sparse clumps let the palm groves and the market be the
+    /// things the eye lands on.
     /// </summary>
+    private const int UndergrowthPercent = 7;
+
     private static void ScatterUndergrowth(
         Tilemap ground,
         Tilemap props,
@@ -878,7 +886,9 @@ public static class ShopIslandBuilder
         HashSet<Vector2Int> footprint
     )
     {
-        string[] undergrowth = { "bush_a", "bush_b", "flowers", "stump" };
+        // Stumps read as felled trees and drew the eye as though they
+        // mattered; the scatter is greenery only.
+        string[] undergrowth = { "bush_a", "bush_b", "flowers" };
         int planted = 0;
 
         foreach (Vector3Int cell in ground.cellBounds.allPositionsWithin)
@@ -906,7 +916,7 @@ public static class ShopIslandBuilder
 
             int roll = Mathf.Abs(Hash(cell.x * 7, cell.y * 13));
 
-            if (roll % 100 >= 16)
+            if (roll % 100 >= UndergrowthPercent)
             {
                 continue;
             }
@@ -1217,17 +1227,18 @@ public static class ShopIslandBuilder
     {
         foreach (VendorSpec spec in Vendors)
         {
-            CreatePropObject(
+            GameObject stall = CreatePropObject(
                 districtRoot,
                 ground,
                 spec.StallProp,
                 spec.CellX,
                 StallRowY
             );
-        }
 
-        foreach (VendorSpec spec in Vendors)
-        {
+            int stallOrder = stall
+                .GetComponent<SpriteRenderer>()
+                .sortingOrder;
+
             GameObject vendorObject = new GameObject(spec.ObjectName);
             vendorObject.transform.SetParent(districtRoot, false);
 
@@ -1240,10 +1251,11 @@ public static class ShopIslandBuilder
             BoxCollider2D trigger =
                 vendorObject.AddComponent<BoxCollider2D>();
             trigger.isTrigger = true;
-            // Offset upward: the transform sits at the trader's feet, so a
-            // centred box would hang below the ground.
-            trigger.offset = new Vector2(0f, 1f);
-            trigger.size = new Vector2(2f, 2.2f);
+            // Reaches down into the square: the trader stands back at their
+            // counter, so the trigger has to cover where a shopper actually
+            // stands, not just where the trader does.
+            trigger.offset = new Vector2(0f, 0.1f);
+            trigger.size = new Vector2(3f, 3.4f);
 
             NetworkShopVendor vendor =
                 vendorObject.AddComponent<NetworkShopVendor>();
@@ -1264,28 +1276,16 @@ public static class ShopIslandBuilder
 
             // Stalls restock, so the interaction must not be one-shot.
             SetSerializedBool(vendor, "allowRepeatedInteraction", true);
-            SetSerializedFloat(vendor, "additionalServerRange", 0.75f);
+            SetSerializedFloat(vendor, "additionalServerRange", 1.5f);
 
+            // One order above their own stall. Depth-sorting alone would
+            // put the trader behind it — they stand further north — and the
+            // canopy is solid, so they would vanish.
             AddNpcVisual(
                 vendorObject.transform,
                 spec.MotwIndex,
-                DepthOrder(position.y)
+                stallOrder + 1
             );
-        }
-    }
-
-    private static void BuildTownsfolk(Transform districtRoot, Tilemap ground)
-    {
-        foreach ((string name, int motw, float cellX, float cellY)
-            in Townsfolk)
-        {
-            GameObject person = new GameObject(name);
-            person.transform.SetParent(districtRoot, false);
-
-            Vector3 position = CellPoint(ground, cellX, cellY);
-            person.transform.position = position;
-
-            AddNpcVisual(person.transform, motw, DepthOrder(position.y));
         }
     }
 
@@ -1565,20 +1565,34 @@ public static class ShopIslandBuilder
     // Scene wiring
     // ------------------------------------------------------------------
 
-    private static void EnsureCoinHud(Scene scene)
+    /// <summary>
+    /// Adds the purse readout and the stall counter window. Both are plain
+    /// OnGUI components with no wiring, which is what lets this builder
+    /// author the whole shop without a canvas prefab.
+    /// </summary>
+    private static void EnsureShopHud(Scene scene)
     {
-        CoinPurseHUD existing = scene
+        bool hasPurse = scene
             .GetRootGameObjects()
-            .SelectMany(root => root.GetComponentsInChildren<CoinPurseHUD>(true))
-            .FirstOrDefault();
+            .SelectMany(root =>
+                root.GetComponentsInChildren<CoinPurseHUD>(true))
+            .Any();
 
-        if (existing != null)
+        if (!hasPurse)
         {
-            return;
+            new GameObject("CoinPurseHUD").AddComponent<CoinPurseHUD>();
         }
 
-        GameObject hud = new GameObject("CoinPurseHUD");
-        hud.AddComponent<CoinPurseHUD>();
+        bool hasShopScreen = scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<ShopScreenHUD>(true))
+            .Any();
+
+        if (!hasShopScreen)
+        {
+            new GameObject("ShopScreenHUD").AddComponent<ShopScreenHUD>();
+        }
     }
 
     /// <summary>
