@@ -3661,7 +3661,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   allowRepeatedInteraction: 0
   additionalServerRange: 0.25
-  destinationSceneName: Boat_Gameplay_2D
+  destinationSceneName: Island_Shop_2D
   requireGenerationComplete: 1
   requireAllEnemiesDefeated: 1
   advanceStage: 1

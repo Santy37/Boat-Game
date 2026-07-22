@@ -79,6 +79,12 @@ namespace DeadmansTales.Networking
                 networkManager =
                     managerObject.AddComponent<NetworkManager>();
 
+                // A NetworkManager created via AddComponent has no NetworkConfig
+                // (that object normally comes from the Inspector), so create one
+                // before using it. Without this, playing a scene that has no
+                // pre-placed NetworkManager throws a NullReferenceException here.
+                networkManager.NetworkConfig = new NetworkConfig();
+
                 networkManager.NetworkConfig.NetworkTransport = transport;
             }
 

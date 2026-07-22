@@ -55,6 +55,14 @@ namespace DeadmansTales.Networking
             transform.position;
 
         /// <summary>
+        /// True when this interactable draws its own screen and the default
+        /// one-line prompt would only duplicate it. A shop stall shows a
+        /// panel listing its wares, the price, and the buyer's purse; the
+        /// generic "Press E" box underneath is redundant clutter.
+        /// </summary>
+        public virtual bool DrawsOwnScreen => false;
+
+        /// <summary>
         /// Server-only method for enabling or disabling this interaction.
         /// </summary>
         public void SetInteractionEnabledServer(bool enabled)

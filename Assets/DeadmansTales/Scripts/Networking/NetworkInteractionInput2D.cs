@@ -26,6 +26,21 @@ namespace DeadmansTales.Networking
         private NetworkInteractionController2D controller;
         private NetworkInteractable2D currentTarget;
 
+        /// <summary>
+        /// What the local player is currently standing close enough to use.
+        /// Exposed so richer screens (the shop panel) can render the same
+        /// target this component would act on, instead of repeating the
+        /// overlap query and risking a different answer.
+        /// </summary>
+        public NetworkInteractable2D CurrentTarget => currentTarget;
+
+        /// <summary>Sends the interaction the interact key would send.</summary>
+        public bool RequestInteractionWithCurrentTarget()
+        {
+            return currentTarget != null &&
+                controller.RequestInteraction(currentTarget);
+        }
+
         private void Awake()
         {
             controller = GetComponent<NetworkInteractionController2D>();
@@ -101,7 +116,12 @@ namespace DeadmansTales.Networking
 
         private void OnGUI()
         {
-            if (!IsSpawned || !IsOwner || currentTarget == null)
+            if (
+                !IsSpawned ||
+                !IsOwner ||
+                currentTarget == null ||
+                currentTarget.DrawsOwnScreen
+            )
             {
                 return;
             }

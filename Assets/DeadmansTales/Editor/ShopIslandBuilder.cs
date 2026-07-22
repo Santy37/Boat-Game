@@ -12,19 +12,27 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 
 /// <summary>
-/// Turns Island_Shop_2D into the crew's safe harbour: a market plaza of
-/// stalls run by NPC traders who sell blade tiers, ship upgrades, and hot
-/// meals for the coins players plunder on the hostile islands.
+/// Turns Island_Shop_2D into Salt Harbour: the crew's safe port, where the
+/// coins plundered on the hostile islands buy blade tiers, ship upgrades,
+/// and hot meals from NPC traders around a cobbled market square.
 ///
-/// The scene starts as a copy of the post-ocean island so the terrain,
-/// shoreline autotiling, camera framing, and spawn rig are already correct
-/// and consistent with the rest of the game. This builder then converts it:
-/// every hostile spawn marker is removed (a shop you have to fight your way
-/// through is not a shop), the wilderness dressing is replaced by a market
-/// plaza, and coins are seeded so the stalls are usable on a first visit.
+/// COORDINATES. Everything here is authored in TILE CELLS and converted to
+/// world space through the scene's own grid. That is not a stylistic
+/// preference: the tilemaps live under Pixel_Art_Visuals at roughly
+/// (2.17, 8.52), so a prop placed at "world (0, 4)" lands nine units south
+/// of the paving painted at "cell (0, 4)". Mixing the two spaces is what
+/// previously stranded the entire market on the shoreline below its own
+/// plaza. Author in cells; let <see cref="CellPoint"/> do the conversion.
+///
+/// TERRAIN. Every build re-copies the ground, prop, overhead and collision
+/// layers from the lobby island before touching anything, so the builder is
+/// idempotent and can never accumulate damage across runs. An earlier pass
+/// cleared a rectangle four cells wider than the plaza, which deleted 56 of
+/// the island's 71 props, all 42 tree canopies, and half the dock — that is
+/// what left the island a bare sandbox with a pier ending in mid-air.
 ///
 /// Idempotent: everything it creates lives under a single "ShopDistrict"
-/// root plus "orpg_"-prefixed tiles, both of which are cleared first.
+/// root plus tiles stamped onto layers that are restored from scratch.
 /// </summary>
 public static class ShopIslandBuilder
 {
@@ -32,6 +40,9 @@ public static class ShopIslandBuilder
 
     private const string ShopScenePath =
         "Assets/DeadmansTales/Scenes/Island_Shop_2D.unity";
+
+    private const string HostileIslandScenePath =
+        "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
 
     private const string GameplayPrefabFolder =
         "Assets/DeadmansTales/Prefabs/Gameplay";
@@ -65,13 +76,56 @@ public static class ShopIslandBuilder
     private const int MotwColumns = 12;
 
     /// <summary>
-    /// The sheet is shared with the player and basicenemy prefabs, so its
-    /// import settings are untouchable — changing pixels-per-unit here
-    /// would resize the player. The traders are scaled on their transform
-    /// instead: 72px cells at 32 ppu draw a ~1.9 unit character, and the
-    /// player is ~1.0, so this brings them to a natural ~1.15.
+    /// The traders are drawn from the very sheet the player renders from
+    /// (motw_10, measured at 2.12 world units tall), at the same
+    /// pixels-per-unit, so they need no correction: scale 1 makes an NPC
+    /// exactly as tall as a player, which is what a person standing next to
+    /// another person should be.
     /// </summary>
-    private const float NpcScale = 0.61f;
+    private const float NpcScale = 1f;
+
+    // ------------------------------------------------------------------
+    // Town plan, in cells
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// The market square, as a rounded rectangle rather than an ellipse:
+    /// the stall row needs a straight, full-width northern edge to stand
+    /// on, which an ellipse pinches away.
+    ///
+    /// A plain rectangle is what made the first attempt read as a grey slab
+    /// dropped on the beach, so the exponent below rounds the corners and
+    /// <see cref="IsRaggedEdge"/> then nibbles the rim.
+    /// </summary>
+    private const float PlazaCentreX = 0f;
+    private const float PlazaCentreY = 4f;
+
+    // Wide enough to carry the three stalls (which span x -5..5) and no
+    // wider. At 6 x 3.6 the paving covered a quarter of a 275-cell island,
+    // and once it was laid in a single stone that quarter read as one grey
+    // slab -- the flat-rectangle problem the ragged edge was meant to
+    // solve, back at a larger size. Sand between the square and the shore
+    // is what makes it a square rather than a floor.
+    private const float PlazaRadiusX = 5f;
+    private const float PlazaRadiusY = 3.2f;
+    private const float PlazaCorner = 3f;
+
+    /// <summary>
+    /// The row the pier is built along, inside the bay bitten out of the
+    /// island's south-east corner.
+    /// </summary>
+    private const int HarbourRowY = 0;
+
+    /// <summary>Where the harbour road turns north for the market square.</summary>
+    private const int RoadJunctionX = 4;
+
+    /// <summary>
+    /// How many cells of the pier are built over dry land, so it joins the
+    /// beach instead of starting at the waterline.
+    /// </summary>
+    private const int DockShoreOverlap = 2;
+
+    private const int ScatterSalt = 20260721;
 
     private sealed class VendorSpec
     {
@@ -83,7 +137,8 @@ public static class ShopIslandBuilder
             int basePrice,
             int priceStep,
             int limit,
-            Vector2 position
+            int cellX,
+            string stallProp
         )
         {
             ObjectName = objectName;
@@ -93,7 +148,8 @@ public static class ShopIslandBuilder
             BasePrice = basePrice;
             PriceStep = priceStep;
             Limit = limit;
-            Position = position;
+            CellX = cellX;
+            StallProp = stallProp;
         }
 
         public string ObjectName { get; }
@@ -103,33 +159,63 @@ public static class ShopIslandBuilder
         public int BasePrice { get; }
         public int PriceStep { get; }
         public int Limit { get; }
-        public Vector2 Position { get; }
+
+        /// <summary>Cell the stall is centred on; each stall is 3 cells wide.</summary>
+        public int CellX { get; }
+
+        public string StallProp { get; }
     }
 
-    // The market runs east-west along the top of the plaza. Each trader
-    // stands just in front of their own counter, so the stall behind them
-    // reads as their business and they are never hidden by their awning.
+    /// <summary>Cell row the stall counters stand on.</summary>
+    private const int StallRowY = 6;
+
+    /// <summary>Height of a stall's counter, in cells.</summary>
+    private const float CounterHeight = 1f;
+
+    /// <summary>
+    /// Where a trader stands: just behind their counter.
+    ///
+    /// A single stall sprite could never allow this. It can only be wholly
+    /// in front of a character or wholly behind one, and neither reads as
+    /// working a stall — in front hid the trader, behind hid them under
+    /// their own canopy. The stall is now two sprites and the trader is
+    /// sandwiched: counter in front of them, awning and posts behind.
+    ///
+    /// 0.3 of a cell back puts their feet inside the counter's footprint so
+    /// it covers their legs, while their head reaches 0.3 + 2.12 = 2.42 —
+    /// below the 2.56 where the lengthened posts hand over to the canopy.
+    /// </summary>
+    private const float VendorRowY = StallRowY + 0.3f;
+
     private static readonly VendorSpec[] Vendors =
     {
+        // Rusty was a suit of polished plate armour, which reads as a knight
+        // standing at a stall rather than as the person who made the blade
+        // you are buying. This one is in a work shirt and leather vest.
         new VendorSpec(
             "Vendor_Blacksmith",
             "Rusty the Smith",
             ShopStock.WeaponTier,
-            7,
+            49,
             25,
             15,
             0,
-            new Vector2(-12f, 6f)
+            -4,
+            "stall_red"
         ),
+        // Vex was motw_10 — the sprite the PLAYER renders. Two of the same
+        // character, one shopping from the other. A quartermaster is a
+        // ship's officer, so this one wears an officer's colours.
         new VendorSpec(
             "Vendor_Quartermaster",
             "Quartermaster Vex",
             ShopStock.Upgrade,
-            10,
+            4,
             30,
             20,
             0,
-            new Vector2(-8f, 6f)
+            0,
+            "stall_blue"
         ),
         new VendorSpec(
             "Vendor_Cook",
@@ -139,101 +225,154 @@ public static class ShopIslandBuilder
             15,
             5,
             0,
-            new Vector2(-4f, 6f)
+            4,
+            "stall_green"
         ),
     };
 
-    /// <summary>Stall sprite drawn behind each trader, in the same order.</summary>
-    private static readonly string[] VendorStallProps =
-    {
-        "stall_red",
-        "stall_blue",
-        "stall_green",
-    };
+    // Idle townsfolk were cut deliberately. They read as interactable — a
+    // player walks up, presses E, and nothing happens — so four of them
+    // standing around a small square cost more in confusion and clutter
+    // than they bought in atmosphere. Everyone left on this island now
+    // does something.
 
-    // Idle townsfolk: no stall, purely to make the port feel inhabited.
-    private static readonly (string Name, int Motw, Vector2 Position)[]
-        Townsfolk =
+    /// <summary>
+    /// Scenery that sells the market: a working forge in the smith's yard,
+    /// a drying rack by the cook, and goods stacked as if just unloaded.
+    /// Positions are the cell each prop stands in; props are centred on
+    /// that cell with their base on its lower edge.
+    /// </summary>
+    /// <summary>
+    /// Market scenery. SolidWidth is how many cells of the base row block
+    /// movement; 0 leaves the prop walkable.
+    /// </summary>
+    private static readonly
+        (string Prop, float CellX, float CellY, int SolidWidth)[] Dressing =
         {
-            ("Townsfolk_Dockhand", 1, new Vector2(-14.5f, 2f)),
-            ("Townsfolk_Deckhand", 49, new Vector2(-1.5f, 3f)),
-            ("Townsfolk_Traveller", 52, new Vector2(-7f, 0.5f)),
-            ("Townsfolk_Browser", 4, new Vector2(-10.6f, 4.6f)),
-            // Row 1 of a character block is its side-facing walk, so this
-            // villager reads as browsing the stalls rather than staring
-            // out of the screen like the rest.
-            ("Townsfolk_Porter", 13, new Vector2(-3.2f, 5.2f)),
+            // Trade tools, in the yards either end of the stall row.
+            ("forge_stone", -7.5f, 6f, 2),
+            ("meatrack", 6.5f, 5f, 3),
+
+            // Goods stacked in the two gaps between the three stalls,
+            // which fall on cells -2 and 2.
+            ("crate", -2.2f, 6.2f, 1),
+            ("barrel", -1.8f, 5.4f, 1),
+            ("pot", 2.2f, 6.2f, 1),
+            ("barrel", -6.4f, 5.2f, 1),
+
+            // The square used to have a facing row of counters across its
+            // south side, meant to read as a street. Nobody stood behind
+            // them and nothing could be bought at them, so they read as
+            // two more shops that were broken. An empty square is better
+            // than furniture that promises an interaction it does not have.
+
+            // One signpost where the road leaves for the pier. Two read as
+            // a pair of odd poles rather than as wayfinding.
+            ("market_sign", 5.5f, 3.2f, 1),
         };
 
     /// <summary>
-    /// Scenery that sells the market: a working forge behind the smith, a
-    /// meat rack behind the cook, and crates and barrels stacked as if
-    /// goods were just unloaded. Names refer to MarketArtBuilder props.
+    /// Tile props stamped onto the prop layer. The well is the square's
+    /// centrepiece; torches mark its corners after dark.
     /// </summary>
-    private static readonly (string Prop, Vector2 Position, int Order)[]
-        Dressing =
-        {
-            // Trade tools behind the relevant stalls.
-            ("forge_stone", new Vector2(-13.6f, 8.4f), 8),
-            ("meatrack", new Vector2(-3.6f, 8.6f), 8),
-            ("stall_counter", new Vector2(-16.4f, 6f), 9),
-
-            // Unloaded goods around the plaza edges.
-            ("crate", new Vector2(-15.4f, 4.2f), 12),
-            ("barrel", new Vector2(-14.6f, 4.2f), 12),
-            ("crate", new Vector2(-14.9f, 5.1f), 11),
-            ("barrel", new Vector2(-10.2f, 8.3f), 8),
-            ("pot", new Vector2(-9.4f, 8.3f), 8),
-            ("vase", new Vector2(-6.4f, 8.4f), 8),
-            ("crate", new Vector2(-2.2f, 6.4f), 10),
-            ("barrel", new Vector2(-1.5f, 6.4f), 10),
-            ("pot", new Vector2(-1.9f, 7.2f), 9),
-            ("vase", new Vector2(-16.2f, 2.4f), 13),
-            ("barrel", new Vector2(0.4f, 3.4f), 13),
-            ("crate", new Vector2(0.4f, 4.2f), 12),
-            ("pot", new Vector2(-13f, 1.4f), 14),
-
-            // A second, unattended row of counters facing the first so the
-            // square reads as a market street rather than one lonely line
-            // of stalls with a big empty floor in front of it.
-            ("stall_counter", new Vector2(-13.5f, 2.6f), 16),
-            ("stall_counter", new Vector2(-9.5f, 2.6f), 16),
-            ("stall_counter", new Vector2(-5.5f, 2.6f), 16),
-            ("crate", new Vector2(-12.2f, 2.7f), 16),
-            ("barrel", new Vector2(-8.2f, 2.7f), 16),
-            ("vase", new Vector2(-4.2f, 2.7f), 16),
-            ("meatrack_tall", new Vector2(-16f, 8.6f), 8),
-
-            // Goods stacked mid-square so the walking floor is not one
-            // uninterrupted sheet of cobble.
-            ("crate", new Vector2(-12.6f, 4.5f), 13),
-            ("crate", new Vector2(-12.6f, 5.2f), 12),
-            ("barrel", new Vector2(-11.9f, 4.5f), 13),
-            ("vase", new Vector2(-6.2f, 4.4f), 13),
-            ("pot", new Vector2(-5.6f, 4.4f), 13),
-            ("barrel", new Vector2(-8.9f, 1.6f), 17),
-            ("crate", new Vector2(-15.2f, 1.5f), 17),
-            ("pot", new Vector2(-2.6f, 1.5f), 17),
-
-            // Signposts at the two plaza entrances.
-            ("market_sign", new Vector2(-9.5f, 0.6f), 18),
-            ("market_sign", new Vector2(-5.5f, 0.6f), 18),
-        };
-
-    // Coins the player can collect on a first visit so the stalls are not
-    // dead content before they have plundered anywhere. Kept off the stall
-    // line so they never sit under an awning.
-    private static readonly Vector2[] CoinPositions =
+    /// <summary>
+    /// Props stamped onto the prop tilemap, grouped into the yards they
+    /// belong to.
+    ///
+    /// These used to be listed as a flat scatter, and the scatter stacked
+    /// eight objects into the two cells east of the square — a woodpile, a
+    /// jug, a barrel pair, a planter, a torch, a signpost, the drying rack
+    /// and a crate, all within a couple of cells of each other. Read as a
+    /// junk heap rather than as a trader's yard. Each group below now sits
+    /// beside the thing it serves, with open paving between them.
+    ///
+    /// Kept off the stall row and the counter line: the prop tilemap draws
+    /// at order 2, below every market sprite, so anything under a stall is
+    /// simply painted over. Also kept off row 3, where the players land.
+    /// </summary>
+    private static readonly (string Tile, int CellX, int CellY)[] TownTiles =
     {
-        new Vector2(-15.5f, 3f),
-        new Vector2(-12.5f, 3.5f),
-        new Vector2(-10.5f, 2.5f),
-        new Vector2(-8.5f, 4f),
-        new Vector2(-6.5f, 2.5f),
-        new Vector2(-4.5f, 3.5f),
-        new Vector2(-2.5f, 1.5f),
-        new Vector2(-11f, 0.5f),
+        // 2x2 well, west of the spawn point so nobody lands inside it.
+        ("bigwell_bl", -5, 2),
+        ("bigwell_br", -4, 2),
+        ("bigwell_tl", -5, 3),
+        ("bigwell_tr", -4, 3),
+
+        // A lamp at each end of the square's open side. The pair that stood
+        // at (-4, 7) and (4, 7) were directly behind the stall counters,
+        // where the stalls hid them completely.
+        ("torch", -6, 4),
+        ("torch", 6, 4),
+
+        // The smith's yard: fuel stacked in front of his forge.
+        ("logpile", -9, 5),
+        ("barrel_open", -8, 5),
+
+        // The cook's yard: water and stores beside her drying rack.
+        ("barrels_double", 7, 3),
+        ("jug", 7, 4),
+
+        // Two planters, so the square is not stone from wall to wall.
+        ("pot_flower", -6, 2),
+        ("pot_flower", 6, 2),
     };
+
+    /// <summary>
+    /// A fisherman's camp for the western beach: a tent, a fire, a logpile
+    /// and a barrel.
+    ///
+    /// The west half of the island was open sand you only crossed to get
+    /// somewhere else — dead space, in mapping terms. A second inhabited
+    /// spot gives that half a reason to exist and an anchor for the eye,
+    /// and a dirt trail from it to the market turns crossing the island
+    /// into following a road rather than wandering.
+    /// </summary>
+    private static readonly (string Tile, int DX, int DY)[] FisherCamp =
+    {
+        ("tentw_bl", 0, 0),
+        ("tentw_br", 1, 0),
+        ("tentw_ml", 0, 1),
+        ("tentw_mr", 1, 1),
+        ("tentw_tl", 0, 2),
+        ("tentw_tr", 1, 2),
+        ("campfire", 3, 0),
+        ("logpile", 4, 1),
+        ("barrel_open", 3, 2),
+    };
+
+    /// <summary>Where to try putting the camp, best spot first.</summary>
+    private static readonly Vector2Int[] CampAnchors =
+    {
+        new Vector2Int(-11, 2),
+        new Vector2Int(-11, 4),
+        new Vector2Int(-10, 1),
+        new Vector2Int(-12, 3),
+    };
+
+    /// <summary>Cells the well occupies, which players must not walk through.</summary>
+    private static readonly Vector2Int[] SolidTownCells =
+    {
+        new Vector2Int(-5, 2),
+        new Vector2Int(-4, 2),
+        new Vector2Int(-5, 3),
+        new Vector2Int(-4, 3),
+    };
+
+    /// <summary>
+    /// How many coins are scattered around the square, so the stalls are
+    /// not dead content before players have plundered anywhere. Kept small:
+    /// these are a starter float, and a square littered with floating gold
+    /// looks like debris rather than treasure. The real income is meant to
+    /// come from the hostile island.
+    /// </summary>
+    private const int CoinCount = 5;
+
+    /// <summary>
+    /// Cells the four players drop into. Coins auto-collect on touch, so
+    /// anything left here would be vacuumed up before anyone had moved.
+    /// </summary>
+    private static readonly RectInt SpawnClearance =
+        new RectInt(-3, 2, 6, 3);
 
     [MenuItem(MenuPath)]
     public static void BuildAll()
@@ -247,19 +386,94 @@ public static class ShopIslandBuilder
             OpenSceneMode.Single
         );
 
+        // Salt Harbour is generated, not copied. The coastline vocabulary is
+        // read back out of the team's two hand-authored islands so a new
+        // silhouette is drawn with the pieces the artist already used.
+        IslandTerrainBuilder.TerrainVocabulary vocabulary =
+            IslandTerrainBuilder.Learn();
+        HashSet<Vector2Int> land = IslandTerrainBuilder.BuildShape(vocabulary);
+        IslandTerrainBuilder.Paint(scene, land, vocabulary);
+
         StripHostileContent(scene);
         ClearPreviousDistrict(scene);
-        CreateCobbleTiles();
+        CreateTownTiles();
+
+        Tilemap ground = FindTilemap(scene, "Tilemap_Ground");
+        Tilemap props = FindTilemap(scene, "Tilemap_Props");
+        Tilemap overhead = FindTilemap(scene, "Tilemap_Overhead");
+        Tilemap obstacle = FindTilemap(scene, "Tilemap_ObstacleCollision");
+
+        HashSet<Vector2Int> footprint = BuildFootprint(ground);
+
+        // The pier goes wherever the bay's western shore actually ended up
+        // after erosion, not at a hardcoded cell.
+        Vector2Int dockAnchor = FindHarbourAnchor(land);
+        Vector2Int dockEnd = IslandTerrainBuilder.PlaceDock(
+            scene,
+            land,
+            vocabulary,
+            dockAnchor
+        );
+        MoorRowboat(scene, ground, dockEnd);
+        PaveHarbourRoad(ground, land, footprint, dockAnchor);
+
+        // After the road, not before: the road joins the square along its
+        // south-east rim, and the cell where the two meet is only walled in
+        // once both exist.
+        FillPavingPits(ground, footprint);
+
+        PavePlaza(ground, footprint);
+
+        // Deliberate landmarks are placed before filler. Palm groves check
+        // that their footprint is clear before planting, so putting them
+        // last means they flow around the camp instead of dropping a canopy
+        // across its tent — which is exactly what happened when the groves
+        // went in first.
+        PlantTownTiles(
+            ground,
+            props,
+            obstacle,
+            vocabulary.ObstacleCollision
+        );
+
+        BuildOutpost(
+            props,
+            overhead,
+            obstacle,
+            vocabulary.ObstacleCollision,
+            land,
+            footprint
+        );
+
+        int groves = IslandTerrainBuilder.PlantGroves(
+            scene,
+            land,
+            vocabulary,
+            GroveAnchors(land, footprint),
+            GroveLimit
+        );
+        Debug.Log($"[Shop Island] Planted {groves} palm groves.");
+
+        ScatterUndergrowth(ground, props, overhead, footprint);
 
         Transform districtRoot = new GameObject(DistrictRootName).transform;
 
-        PaintPlaza(scene);
-        BuildDressing(districtRoot);
-        BuildStalls(districtRoot);
-        BuildTownsfolk(districtRoot);
-        PlaceCoins(districtRoot, coinPrefab);
-        EnsureCoinHud(scene);
+        BuildDressing(
+            districtRoot,
+            ground,
+            obstacle,
+            vocabulary.ObstacleCollision
+        );
+        BuildStalls(
+            districtRoot,
+            ground,
+            obstacle,
+            vocabulary.ObstacleCollision
+        );
+        PlaceCoins(districtRoot, ground, footprint, coinPrefab);
+        EnsureShopHud(scene);
         PointExitAtBoat(scene);
+        RebuildCollisionGeometry(scene);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -276,9 +490,8 @@ public static class ShopIslandBuilder
         //   -executeMethod NetworkSceneIdentityRepair.RepairFromCommandLine
 
         Debug.Log(
-            $"[Shop Island] Built {Vendors.Length} stalls, " +
-            $"{Townsfolk.Length} townsfolk, and {CoinPositions.Length} " +
-            "coin pickups; hostile spawns removed."
+            $"[Shop Island] Built {Vendors.Length} staffed stalls; " +
+            "hostile spawns removed."
         );
     }
 
@@ -287,8 +500,835 @@ public static class ShopIslandBuilder
         BuildAll();
     }
 
-    private const string HostileIslandScenePath =
-        "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
+    // ------------------------------------------------------------------
+    // Cell space -> world space
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Converts a position expressed in tile cells into world space, using
+    /// the scene's own grid rather than assuming the tilemaps sit at the
+    /// origin. They do not: they hang off Pixel_Art_Visuals, several units
+    /// from it.
+    ///
+    /// The returned point is the BOTTOM of the cell, horizontally centred,
+    /// matching the bottom-centre pivot every prop and character sprite in
+    /// this game uses — so "place it at cell (4, 6)" means "it stands on
+    /// the ground in cell (4, 6)".
+    /// </summary>
+    private static Vector3 CellPoint(Tilemap map, float cellX, float cellY)
+    {
+        Vector3 origin = map.CellToWorld(Vector3Int.zero);
+        return new Vector3(origin.x + cellX + 0.5f, origin.y + cellY, 0f);
+    }
+
+    /// <summary>
+    /// Depth sorting for a 2.5D top-down view: whatever stands further
+    /// south is nearer the camera and must overlap what is behind it.
+    ///
+    /// The band 3..19 is deliberate — it sits between the prop tilemap
+    /// (order 2, ground clutter) and the overhead tilemap (order 20, tree
+    /// canopies that pass over the player's head).
+    /// </summary>
+    private static int DepthOrder(float worldY)
+    {
+        return Mathf.Clamp(Mathf.RoundToInt(21f - worldY), 3, 19);
+    }
+
+    // ------------------------------------------------------------------
+    // Terrain
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Finds where to build the pier: the eastmost land on the harbour row,
+    /// which is the western shore of the bay. Read from the finished shape
+    /// rather than hardcoded, because erosion decides the exact coastline.
+    /// </summary>
+    private static Vector2Int FindHarbourAnchor(HashSet<Vector2Int> land)
+    {
+        int shoreX = int.MinValue;
+
+        foreach (Vector2Int cell in land)
+        {
+            if (cell.y == HarbourRowY && cell.x > shoreX)
+            {
+                shoreX = cell.x;
+            }
+        }
+
+        if (shoreX == int.MinValue)
+        {
+            throw new InvalidOperationException(
+                "[Shop Island] No land on the harbour row; the island shape " +
+                "does not reach the bay."
+            );
+        }
+
+        // The pier is pulled back onto the beach rather than started at the
+        // first water cell. Beginning it exactly where the sand stops leaves
+        // a visible seam — planks that meet the shoreline edge-on and look
+        // like they are floating alongside the island instead of being
+        // built onto it. Real piers are anchored on land.
+        return new Vector2Int(
+            shoreX + 1 - DockShoreOverlap,
+            HarbourRowY - 1
+        );
+    }
+
+    /// <summary>
+    /// Moves the inherited rowboat to the seaward end of the new pier. It
+    /// is the island's only exit, so leaving it at the lobby's coordinates
+    /// would strand it in open water far from the dock.
+    /// </summary>
+    private static void MoorRowboat(
+        Scene scene,
+        Tilemap ground,
+        Vector2Int dockEnd
+    )
+    {
+        LobbyRowboatInteraction rowboat = scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<LobbyRowboatInteraction>(true))
+            .FirstOrDefault();
+
+        if (rowboat == null)
+        {
+            Debug.LogWarning(
+                "[Shop Island] No rowboat to moor; players could not leave."
+            );
+            return;
+        }
+
+        // The interaction sits on a child of the rowboat root, so the root
+        // is what has to move.
+        Transform root = rowboat.transform;
+
+        while (root.parent != null)
+        {
+            root = root.parent;
+        }
+
+        root.position = CellPoint(ground, dockEnd.x + 0.3f, dockEnd.y);
+
+        Debug.Log(
+            $"[Shop Island] Moored the rowboat at the pier end, cell " +
+            $"{dockEnd}."
+        );
+    }
+
+    /// <summary>
+    /// Cobbles a road from the market square down to the pier, so the
+    /// harbour reads as connected to the town rather than as a pier that
+    /// happens to be nearby. Only ever paints on land.
+    /// </summary>
+    private static void PaveHarbourRoad(
+        Tilemap ground,
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint,
+        Vector2Int dockAnchor
+    )
+    {
+        Tile cobble = LoadShopTile("cobble_a");
+        int roadY = dockAnchor.y + 1;
+
+        // Along the shore to the pier. Inclusive of the pier's own landward
+        // cell, or the cobble stops short and the road reads as a stub that
+        // gives up before reaching the water.
+        for (int x = RoadJunctionX; x <= dockAnchor.x; x++)
+        {
+            AddRoadCell(ground, land, footprint, cobble, x, roadY);
+            AddRoadCell(ground, land, footprint, cobble, x, roadY + 1);
+        }
+
+        // Up from the shore into the square.
+        for (int y = roadY; y <= PlazaCentreY; y++)
+        {
+            AddRoadCell(ground, land, footprint, cobble, RoadJunctionX, y);
+            AddRoadCell(ground, land, footprint, cobble, RoadJunctionX + 1, y);
+        }
+    }
+
+    private static void AddRoadCell(
+        Tilemap ground,
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint,
+        Tile cobble,
+        int x,
+        int y
+    )
+    {
+        Vector2Int cell = new Vector2Int(x, y);
+
+        if (!land.Contains(cell) || footprint.Contains(cell))
+        {
+            return;
+        }
+
+        ground.SetTile((Vector3Int)cell, cobble);
+        footprint.Add(cell);
+    }
+
+    /// <summary>
+    /// Where to try planting palm groves: spread around the island, well
+    /// clear of the town. Anchors that do not fit are skipped by the
+    /// planter, so this is a wish list rather than a guarantee.
+    /// </summary>
+    private static IEnumerable<Vector2Int> GroveAnchors(
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint
+    )
+    {
+        List<Vector2Int> candidates = new List<Vector2Int>();
+
+        // Every cell outside the town is a candidate. A palm needs a 3x4
+        // clear footprint on dry land, so most are rejected by the planter;
+        // a coarse lattice offered so few that the island came out bare.
+        for (int x = -16; x <= 12; x++)
+        {
+            for (int y = -5; y <= 12; y++)
+            {
+                Vector2Int anchor = new Vector2Int(x, y);
+
+                if (!land.Contains(anchor))
+                {
+                    continue;
+                }
+
+                bool nearTown = footprint.Any(cell =>
+                    Mathf.Abs(cell.x - anchor.x) <= 2 &&
+                    Mathf.Abs(cell.y - anchor.y) <= 2);
+
+                if (nearTown)
+                {
+                    continue;
+                }
+
+                candidates.Add(anchor);
+            }
+        }
+
+        // Offering them in reading order packs the groves into whichever
+        // corner comes first, because the planter takes the first that fit,
+        // so the list is shuffled deterministically: the same island shape
+        // gives the same planting every run.
+        //
+        // Thinning this list to anchors a grove's width apart was tried and
+        // is wrong — it reserves ground for candidates that then fail to
+        // fit, and cost six of the seven groves. Spacing is the planter's
+        // job, because only the planter knows which anchors were taken.
+        return candidates
+            .OrderBy(cell => Mathf.Abs(Hash(cell.x, cell.y)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// The cells the town occupies: the market square plus the road to the
+    /// pier. Cells without ground are dropped so nothing is ever built out
+    /// over the sea.
+    /// </summary>
+    private static HashSet<Vector2Int> BuildFootprint(Tilemap ground)
+    {
+        HashSet<Vector2Int> footprint = new HashSet<Vector2Int>();
+
+        int minX = Mathf.FloorToInt(PlazaCentreX - PlazaRadiusX);
+        int maxX = Mathf.CeilToInt(PlazaCentreX + PlazaRadiusX);
+        int minY = Mathf.FloorToInt(PlazaCentreY - PlazaRadiusY);
+        int maxY = Mathf.CeilToInt(PlazaCentreY + PlazaRadiusY);
+
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int y = minY; y <= maxY; y++)
+            {
+                if (!IsInsidePlaza(x, y) || IsRaggedEdge(x, y))
+                {
+                    continue;
+                }
+
+                Vector2Int cell = new Vector2Int(x, y);
+
+                if (ground.HasTile((Vector3Int)cell))
+                {
+                    footprint.Add(cell);
+                }
+            }
+        }
+
+        // The well is the square's centrepiece, so the ragged rim must not
+        // nibble the paving out from under it. It used to stand with two
+        // feet on cobble and two on sand, straddling the boundary as though
+        // it had been dropped there.
+        foreach (Vector2Int cell in SolidTownCells)
+        {
+            if (ground.HasTile((Vector3Int)cell))
+            {
+                footprint.Add(cell);
+            }
+        }
+
+        return footprint;
+    }
+
+    /// <summary>
+    /// Paves over single cells the ragged edge left unpaved inside the
+    /// square.
+    ///
+    /// <see cref="IsRaggedEdge"/> only ever nibbles cells on the ideal
+    /// outline, which sounds safe — but the outline of a rounded rectangle
+    /// is a staircase, so a cell can sit on it and still end up with paving
+    /// on three sides. Those came out as isolated pits of sand in the middle
+    /// of the cobble, one of them right under the red stall's counter. They
+    /// read as damage rather than as wear. A cell walled in by paving is
+    /// part of the square whatever the outline says.
+    /// </summary>
+    private static void FillPavingPits(
+        Tilemap ground,
+        HashSet<Vector2Int> footprint
+    )
+    {
+        Vector2Int[] sides =
+        {
+            new Vector2Int(1, 0),
+            new Vector2Int(-1, 0),
+            new Vector2Int(0, 1),
+            new Vector2Int(0, -1),
+        };
+
+        List<Vector2Int> pits = new List<Vector2Int>();
+
+        foreach (Vector2Int cell in footprint)
+        {
+            foreach (Vector2Int side in sides)
+            {
+                Vector2Int gap = cell + side;
+
+                if (footprint.Contains(gap) ||
+                    !ground.HasTile((Vector3Int)gap))
+                {
+                    continue;
+                }
+
+                int walled = sides.Count(step =>
+                    footprint.Contains(gap + step));
+
+                if (walled >= 3)
+                {
+                    pits.Add(gap);
+                }
+            }
+        }
+
+        footprint.UnionWith(pits);
+    }
+
+    /// <summary>
+    /// Rounded-rectangle test. The exponent controls corner shape: 2 gives
+    /// an ellipse (which pinches the stall row), higher values approach a
+    /// rectangle (which reads as a stamped slab). Three splits the
+    /// difference — full-width edges with soft corners.
+    /// </summary>
+    private static bool IsInsidePlaza(int x, int y)
+    {
+        float dx = Mathf.Abs((x - PlazaCentreX) / PlazaRadiusX);
+        float dy = Mathf.Abs((y - PlazaCentreY) / PlazaRadiusY);
+
+        return Mathf.Pow(dx, PlazaCorner) + Mathf.Pow(dy, PlazaCorner) <= 1f;
+    }
+
+    /// <summary>
+    /// Nibbles the outermost ring of the plaza so the paving meets the
+    /// sand in a worn, irregular line instead of a machined curve.
+    /// </summary>
+    private static bool IsRaggedEdge(int x, int y)
+    {
+        bool onEdge =
+            !IsInsidePlaza(x + 1, y) ||
+            !IsInsidePlaza(x - 1, y) ||
+            !IsInsidePlaza(x, y + 1) ||
+            !IsInsidePlaza(x, y - 1);
+
+        if (!onEdge)
+        {
+            return false;
+        }
+
+        return Mathf.Abs(Hash(x, y)) % 10 < 3;
+    }
+
+    private static int Hash(int x, int y)
+    {
+        unchecked
+        {
+            int hash = x * 73856093 ^ y * 19349663 ^ ScatterSalt;
+            hash ^= hash >> 13;
+            return hash * 1274126177;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Clearing, without cutting anything in half
+    // ------------------------------------------------------------------
+
+    // ------------------------------------------------------------------
+    // Paving and planting
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Lays the market square. The paving goes onto the ground layer itself
+    /// so it REPLACES the sand rather than sitting on a decal above it.
+    ///
+    /// One stone only, and that now includes the edge.
+    ///
+    /// Mixing the sheet's warm cobble with its blue-grey brick was the first
+    /// attempt at breaking up a flat expanse; the two are drawn in different
+    /// styles and palettes, so scattered through each other they read as
+    /// holes punched in the floor. The second attempt was a rim of worn
+    /// sandstone to ease the cobble into the beach — but the rim is computed
+    /// from the RAGGED footprint, so every cell the ragged edge nibbled
+    /// turned its neighbours into rim too. Half the square ended up worn:
+    /// a flat yellow band across the whole south side and stray patches
+    /// inside the paving. An irregular outline in one material reads as a
+    /// worn square; two materials read as a mistake.
+    /// </summary>
+    private static void PavePlaza(
+        Tilemap ground,
+        HashSet<Vector2Int> footprint
+    )
+    {
+        Tile cobble = LoadShopTile("cobble_a");
+
+        foreach (Vector2Int cell in footprint)
+        {
+            ground.SetTile((Vector3Int)cell, cobble);
+        }
+
+        Debug.Log($"[Shop Island] Paved {footprint.Count} plaza cells.");
+    }
+
+    /// <summary>
+    /// Pitches the fisherman's camp at the first anchor where every cell is
+    /// dry land and nothing already stands. Returns the anchor used, or null
+    /// if the coast this build produced has no room for it.
+    /// </summary>
+    private static Vector2Int? BuildOutpost(
+        Tilemap props,
+        Tilemap overhead,
+        Tilemap obstacle,
+        TileBase solidTile,
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint
+    )
+    {
+        foreach (Vector2Int anchor in CampAnchors)
+        {
+            bool fits = FisherCamp.All(part =>
+            {
+                Vector2Int cell =
+                    new Vector2Int(anchor.x + part.DX, anchor.y + part.DY);
+
+                // The overhead layer matters as much as the prop layer: it
+                // carries tree canopies, which draw over everything.
+                return land.Contains(cell) &&
+                    !footprint.Contains(cell) &&
+                    !props.HasTile((Vector3Int)cell) &&
+                    !overhead.HasTile((Vector3Int)cell);
+            });
+
+            if (!fits)
+            {
+                continue;
+            }
+
+            foreach ((string tile, int dx, int dy) in FisherCamp)
+            {
+                Vector3Int cell =
+                    new Vector3Int(anchor.x + dx, anchor.y + dy, 0);
+
+                props.SetTile(cell, LoadShopTile(tile));
+
+                // Every piece of the camp is something you walk around: a
+                // tent, a fire, a woodpile, a barrel.
+                if (solidTile != null)
+                {
+                    obstacle.SetTile(cell, solidTile);
+                }
+            }
+
+            Debug.Log($"[Shop Island] Pitched the fisher camp at {anchor}.");
+            return anchor;
+        }
+
+        Debug.LogWarning(
+            "[Shop Island] No room for the fisher camp on this coastline."
+        );
+        return null;
+    }
+
+    // There used to be a dirt trail beaten from the fisher camp to the
+    // market square. It never worked and could not have: the camp sits at
+    // x -11 and the square's paving already starts at x -6, so the only
+    // ground the trail could cover was the three columns between them —
+    // and it laid two cells per column. That is not a path, it is a patch,
+    // and in solid mid-brown against pale beach sand it read as mud spilled
+    // beside the tent. Two places five paces apart do not need a road.
+
+    private static void PlantTownTiles(
+        Tilemap ground,
+        Tilemap props,
+        Tilemap obstacle,
+        TileBase solidTile
+    )
+    {
+        int placed = 0;
+
+        foreach ((string name, int x, int y) in TownTiles)
+        {
+            Vector3Int cell = new Vector3Int(x, y, 0);
+
+            // A wish list, not a command. The coastline is generated, so a
+            // yard prop authored a couple of cells outside the square is
+            // only PROBABLY on land; stamping it blindly would float it on
+            // the sea, and stamping it over an existing prop would also
+            // push the fisher camp off its anchor, since the camp needs its
+            // whole footprint clear.
+            if (!ground.HasTile(cell) || props.HasTile(cell))
+            {
+                continue;
+            }
+
+            props.SetTile(cell, LoadShopTile(name));
+            placed++;
+        }
+
+        Debug.Log(
+            $"[Shop Island] Placed {placed} of {TownTiles.Length} town props."
+        );
+
+        if (solidTile == null)
+        {
+            return;
+        }
+
+        foreach (Vector2Int cell in SolidTownCells)
+        {
+            if (props.HasTile((Vector3Int)cell))
+            {
+                obstacle.SetTile((Vector3Int)cell, solidTile);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sprinkles greenery over the beach outside the town. Only cells
+    /// surrounded by land are eligible, so nothing sprouts on the shoreline
+    /// where it would hang over the water.
+    ///
+    /// Density is deliberately low. At 16% the beach filled with lone
+    /// bushes, stumps and flower tufts spaced one cell apart, which read as
+    /// static rather than as planting — the island looked busier but not
+    /// fuller. Sparse clumps let the palm groves and the market be the
+    /// things the eye lands on.
+    /// </summary>
+    private const int UndergrowthPercent = 11;
+
+    /// <summary>
+    /// How many palm groves to plant. Enough to frame the island without
+    /// walling the market off from the shore.
+    /// </summary>
+    private const int GroveLimit = 7;
+
+    private static void ScatterUndergrowth(
+        Tilemap ground,
+        Tilemap props,
+        Tilemap overhead,
+        HashSet<Vector2Int> footprint
+    )
+    {
+        // Stumps read as felled trees and drew the eye as though they
+        // mattered; the scatter is greenery only.
+        string[] undergrowth = { "bush_a", "bush_b", "flowers" };
+        int planted = 0;
+
+        foreach (Vector3Int cell in ground.cellBounds.allPositionsWithin)
+        {
+            Vector2Int flat = new Vector2Int(cell.x, cell.y);
+
+            if (!ground.HasTile(cell) ||
+                footprint.Contains(flat) ||
+                props.HasTile(cell) ||
+                overhead.HasTile(cell))
+            {
+                continue;
+            }
+
+            bool inland =
+                ground.HasTile(new Vector3Int(cell.x + 1, cell.y, 0)) &&
+                ground.HasTile(new Vector3Int(cell.x - 1, cell.y, 0)) &&
+                ground.HasTile(new Vector3Int(cell.x, cell.y + 1, 0)) &&
+                ground.HasTile(new Vector3Int(cell.x, cell.y - 1, 0));
+
+            if (!inland)
+            {
+                continue;
+            }
+
+            int roll = Mathf.Abs(Hash(cell.x * 7, cell.y * 13));
+
+            if (roll % 100 >= UndergrowthPercent)
+            {
+                continue;
+            }
+
+            string pick = undergrowth[(roll / 100) % undergrowth.Length];
+            props.SetTile(cell, LoadShopTile(pick));
+            planted++;
+        }
+
+        Debug.Log($"[Shop Island] Scattered {planted} pieces of undergrowth.");
+    }
+
+    /// <summary>
+    /// Stamps blocking cells under a prop, so players walk up to the market
+    /// furniture instead of straight through it.
+    ///
+    /// Only the base row is marked. These are drawn in a 2.5D projection: a
+    /// stall's awning hangs over ground you should still be able to walk
+    /// past, and blocking the whole sprite would wall off the square.
+    /// </summary>
+    private static void MarkSolid(
+        Tilemap obstacle,
+        TileBase tile,
+        float centreCellX,
+        float baseCellY,
+        int widthCells
+    )
+    {
+        if (tile == null || widthCells <= 0)
+        {
+            return;
+        }
+
+        int centre = Mathf.RoundToInt(centreCellX);
+        int row = Mathf.RoundToInt(baseCellY);
+        int start = centre - (widthCells - 1) / 2;
+
+        for (int offset = 0; offset < widthCells; offset++)
+        {
+            obstacle.SetTile(
+                new Vector3Int(start + offset, row, 0),
+                tile
+            );
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds the collision outlines for the two blocking tilemaps.
+    ///
+    /// A CompositeCollider2D SERIALIZES its geometry into the scene, and this
+    /// scene was born as a copy of the lobby island — so it shipped with the
+    /// lobby's outlines baked in while carrying Salt Harbour's tiles. The
+    /// saved shapes described land that is not here: a block at cells
+    /// (-3, 8..9) with no tile under it, nothing at all around the well.
+    /// Whatever the editor reconstructs on load, a scene whose stored
+    /// collision does not match its own tiles is a scene nobody can reason
+    /// about, and it is the only explanation left for solid props you can
+    /// walk through. Generating it here makes what is saved what is meant.
+    /// </summary>
+    private static void RebuildCollisionGeometry(Scene scene)
+    {
+        string[] blockingMaps =
+        {
+            "Tilemap_ObstacleCollision",
+            "Tilemap_WaterCollision",
+        };
+
+        foreach (string name in blockingMaps)
+        {
+            Tilemap map = FindTilemap(scene, name);
+
+            TilemapCollider2D tileCollider =
+                map.GetComponent<TilemapCollider2D>();
+
+            if (tileCollider == null)
+            {
+                Debug.LogWarning(
+                    $"[Shop Island] {name} has no TilemapCollider2D; " +
+                    "nothing on it will block movement."
+                );
+                continue;
+            }
+
+            CompositeCollider2D composite =
+                map.GetComponent<CompositeCollider2D>();
+
+            if (composite == null)
+            {
+                continue;
+            }
+
+            // A TilemapCollider2D batches tile edits and rebuilds its shapes
+            // on the next physics step, which a batch-mode build never takes.
+            // Asking the composite to regenerate before that happens merges
+            // whatever it already had -- which is how the stale outlines
+            // survived being "regenerated" the first time. Flush the pending
+            // tile changes first, then merge.
+            tileCollider.ProcessTilemapChanges();
+            Physics2D.SyncTransforms();
+            composite.GenerateGeometry();
+
+            Debug.Log(
+                $"[Shop Island] {name}: {map.GetUsedTilesCount()} blocking " +
+                $"tiles merged into {composite.pathCount} outline(s)."
+            );
+        }
+    }
+
+    private static Tile LoadShopTile(string name)
+    {
+        Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(
+            $"{TileFolder}/orpg_{name}.asset"
+        );
+
+        if (tile == null)
+        {
+            throw new InvalidOperationException(
+                $"Shop tile orpg_{name} is missing."
+            );
+        }
+
+        return tile;
+    }
+
+    /// <summary>
+    /// Creates the paving tiles the plaza needs, cut from the openRPG
+    /// exterior sheet that the island polish pass already slices.
+    /// </summary>
+    private static void CreateTownTiles()
+    {
+        // Only fully-enclosed fill cells. Their neighbours in this sheet
+        // are autotile EDGE pieces with wall bars baked in, which scatter
+        // stray dark bars across a plaza when used as fill.
+        (string Name, int Column, int Row)[] paving =
+        {
+            ("cobble_a", 10, 10),
+        };
+
+        foreach ((string name, int column, int row) in paving)
+        {
+            string path = $"{TileFolder}/orpg_{name}.asset";
+            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(path);
+
+            if (tile == null)
+            {
+                tile = ScriptableObject.CreateInstance<Tile>();
+                AssetDatabase.CreateAsset(tile, path);
+            }
+
+            int index = row * 30 + column;
+
+            Sprite sprite = AssetDatabase
+                .LoadAllAssetRepresentationsAtPath(PropsSheetPath)
+                .OfType<Sprite>()
+                .FirstOrDefault(candidate =>
+                    candidate.name == $"openrpg_exterior_{index}");
+
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    "The openRPG exterior sheet is not sliced; run the " +
+                    "island polish builder first."
+                );
+            }
+
+            tile.sprite = sprite;
+            tile.colliderType = Tile.ColliderType.None;
+            EditorUtility.SetDirty(tile);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Converting the island into a safe harbour
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Removes every seeded spawn marker and any pre-placed enemy. The shop
+    /// island is the one place in the run where players can stand still, so
+    /// nothing here may spawn something that attacks them.
+    /// </summary>
+    private static void StripHostileContent(Scene scene)
+    {
+        int removedMarkers = 0;
+
+        foreach (SeededSpawnMarker2D marker in scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<SeededSpawnMarker2D>(true))
+            .ToArray())
+        {
+            UnityEngine.Object.DestroyImmediate(marker.gameObject);
+            removedMarkers++;
+        }
+
+        int removedGenerators = 0;
+
+        foreach (SeededIslandContentGenerator generator in scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<
+                    SeededIslandContentGenerator>(true))
+            .ToArray())
+        {
+            UnityEngine.Object.DestroyImmediate(generator);
+            removedGenerators++;
+        }
+
+        foreach (Enemy enemy in scene
+            .GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<Enemy>(true))
+            .ToArray())
+        {
+            UnityEngine.Object.DestroyImmediate(enemy.gameObject);
+        }
+
+        // The island this scene is built from is the multiplayer lobby,
+        // which spawns a runtime wave of enemies. A market is the one
+        // place in the run where players can stand still and shop.
+        int removedSpawners = 0;
+
+        foreach (NetworkSceneEnemySpawner2D spawner in scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<NetworkSceneEnemySpawner2D>(true))
+            .ToArray())
+        {
+            UnityEngine.Object.DestroyImmediate(spawner);
+            removedSpawners++;
+        }
+
+        if (removedSpawners > 0)
+        {
+            Debug.Log(
+                $"[Shop Island] Removed {removedSpawners} runtime enemy " +
+                "spawner(s) inherited from the lobby island."
+            );
+        }
+
+        Debug.Log(
+            $"[Shop Island] Removed {removedMarkers} spawn markers and " +
+            $"{removedGenerators} content generators."
+        );
+    }
+
+    private static void ClearPreviousDistrict(Scene scene)
+    {
+        GameObject existing = scene
+            .GetRootGameObjects()
+            .FirstOrDefault(root => root.name == DistrictRootName);
+
+        if (existing != null)
+        {
+            UnityEngine.Object.DestroyImmediate(existing);
+        }
+    }
 
     /// <summary>
     /// Gives the shop an economy. The coins scattered around the market are
@@ -363,263 +1403,40 @@ public static class ShopIslandBuilder
     }
 
     // ------------------------------------------------------------------
-    // Converting the hostile island into a safe harbour
+    // Market objects
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Removes every seeded spawn marker and any pre-placed enemy. The shop
-    /// island is the one place in the run where players can stand still, so
-    /// nothing here may spawn something that attacks them.
-    /// </summary>
-    private static void StripHostileContent(Scene scene)
-    {
-        int removedMarkers = 0;
-
-        foreach (SeededSpawnMarker2D marker in scene
-            .GetRootGameObjects()
-            .SelectMany(root =>
-                root.GetComponentsInChildren<SeededSpawnMarker2D>(true))
-            .ToArray())
-        {
-            UnityEngine.Object.DestroyImmediate(marker.gameObject);
-            removedMarkers++;
-        }
-
-        int removedGenerators = 0;
-
-        foreach (SeededIslandContentGenerator generator in scene
-            .GetRootGameObjects()
-            .SelectMany(root =>
-                root.GetComponentsInChildren<
-                    SeededIslandContentGenerator>(true))
-            .ToArray())
-        {
-            UnityEngine.Object.DestroyImmediate(generator);
-            removedGenerators++;
-        }
-
-        foreach (Enemy enemy in scene
-            .GetRootGameObjects()
-            .SelectMany(root => root.GetComponentsInChildren<Enemy>(true))
-            .ToArray())
-        {
-            UnityEngine.Object.DestroyImmediate(enemy.gameObject);
-        }
-
-        Debug.Log(
-            $"[Shop Island] Removed {removedMarkers} spawn markers and " +
-            $"{removedGenerators} content generators."
-        );
-    }
-
-    private static void ClearPreviousDistrict(Scene scene)
-    {
-        GameObject existing = scene
-            .GetRootGameObjects()
-            .FirstOrDefault(root => root.name == DistrictRootName);
-
-        if (existing != null)
-        {
-            UnityEngine.Object.DestroyImmediate(existing);
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Plaza dressing
-    // ------------------------------------------------------------------
-
-    // Plaza footprint in cells.
-    private const int PlazaMinX = -17;
-    private const int PlazaMaxX = 1;
-    private const int PlazaMinY = 0;
-    private const int PlazaMaxY = 9;
-
-    /// <summary>
-    /// Lays a cobbled market square over the beach and clears the
-    /// wilderness dressing the scene inherited.
-    ///
-    /// The paving is what makes this read as a port town rather than three
-    /// stalls abandoned on a beach: it gives the market a floor, an edge,
-    /// and somewhere the eye understands as "indoors". Edges are ragged by
-    /// a cheap deterministic hash so the square does not look stamped.
-    /// </summary>
-    private static void PaintPlaza(Scene scene)
-    {
-        Tilemap props = FindTilemap(scene, "Tilemap_Props");
-        Tilemap overhead = FindTilemap(scene, "Tilemap_Overhead");
-        Tilemap detail = FindTilemap(scene, "Tilemap_GroundDetail");
-        Tilemap obstacle = FindTilemap(scene, "Tilemap_ObstacleCollision");
-
-        // Wipe the inherited camp/graveyard dressing so the market is not
-        // built on top of a fenced wilderness camp.
-        for (int x = PlazaMinX - 2; x <= PlazaMaxX + 3; x++)
-        {
-            for (int y = PlazaMinY - 3; y <= PlazaMaxY + 2; y++)
-            {
-                Vector3Int cell = new Vector3Int(x, y, 0);
-                props.SetTile(cell, null);
-                overhead.SetTile(cell, null);
-                detail.SetTile(cell, null);
-                obstacle.SetTile(cell, null);
-            }
-        }
-
-        Tile cobble = LoadShopTile("cobble_a");
-        Tile border = LoadShopTile("cobble_edge");
-
-        int paved = 0;
-
-        for (int x = PlazaMinX; x <= PlazaMaxX; x++)
-        {
-            for (int y = PlazaMinY; y <= PlazaMaxY; y++)
-            {
-                if (IsRaggedEdge(x, y))
-                {
-                    continue;
-                }
-
-                // A ring of worn sandstone eases the cobble into the beach
-                // instead of ending it against the sand like a cut-out.
-                bool onRing =
-                    x <= PlazaMinX + 1 ||
-                    x >= PlazaMaxX - 1 ||
-                    y <= PlazaMinY ||
-                    y >= PlazaMaxY;
-
-                detail.SetTile(
-                    new Vector3Int(x, y, 0),
-                    onRing ? border : cobble
-                );
-                paved++;
-            }
-        }
-
-        Debug.Log($"[Shop Island] Paved {paved} plaza cells.");
-    }
-
-    /// <summary>
-    /// Nibbles the outermost ring of the plaza so the paving meets the
-    /// sand in a worn, irregular line instead of a perfect rectangle.
-    /// </summary>
-    private static bool IsRaggedEdge(int x, int y)
-    {
-        bool onEdge =
-            x == PlazaMinX ||
-            x == PlazaMaxX ||
-            y == PlazaMinY ||
-            y == PlazaMaxY;
-
-        if (!onEdge)
-        {
-            return false;
-        }
-
-        return (Mathf.Abs(Hash(x, y)) % 10) < 4;
-    }
-
-    private static int Hash(int x, int y)
-    {
-        unchecked
-        {
-            int hash = x * 73856093 ^ y * 19349663 ^ ScatterSalt;
-            hash ^= hash >> 13;
-            return hash * 1274126177;
-        }
-    }
-
-    private const int ScatterSalt = 20260721;
-
-    private static Tile LoadShopTile(string name)
-    {
-        Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(
-            $"{TileFolder}/orpg_{name}.asset"
-        );
-
-        if (tile == null)
-        {
-            throw new InvalidOperationException(
-                $"Shop tile orpg_{name} is missing."
-            );
-        }
-
-        return tile;
-    }
-
-    /// <summary>
-    /// Creates the cobblestone tile assets the plaza is paved with, cut
-    /// from the openRPG exterior sheet that the island polish pass already
-    /// slices.
-    /// </summary>
-    private static void CreateCobbleTiles()
-    {
-        // Only fully-enclosed fill cells. The neighbouring cells in this
-        // sheet are autotile EDGE pieces with wall bars baked into them,
-        // which scatter stray dark bars across a plaza if used as fill.
-        (string Name, int Column, int Row)[] cobbles =
-        {
-            ("cobble_a", 10, 10),
-            ("cobble_edge", 4, 14),
-        };
-
-        foreach ((string name, int column, int row) in cobbles)
-        {
-            string path = $"{TileFolder}/orpg_{name}.asset";
-            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(path);
-
-            if (tile == null)
-            {
-                tile = ScriptableObject.CreateInstance<Tile>();
-                AssetDatabase.CreateAsset(tile, path);
-            }
-
-            int index = row * 30 + column;
-
-            Sprite sprite = AssetDatabase
-                .LoadAllAssetRepresentationsAtPath(PropsSheetPath)
-                .OfType<Sprite>()
-                .FirstOrDefault(candidate =>
-                    candidate.name == $"openrpg_exterior_{index}");
-
-            if (sprite == null)
-            {
-                throw new InvalidOperationException(
-                    "The openRPG exterior sheet is not sliced; run the " +
-                    "island polish builder first."
-                );
-            }
-
-            tile.sprite = sprite;
-            tile.colliderType = Tile.ColliderType.None;
-            EditorUtility.SetDirty(tile);
-        }
-    }
-
-    /// <summary>
-    /// Places the market's scenery as sprites rather than tiles: a stall is
-    /// a 3x5 cell object that must sit at half-cell offsets and overlap its
-    /// neighbours' sort order, which a 1-unit tile grid cannot express.
-    /// </summary>
-    private static void BuildDressing(Transform districtRoot)
+    private static void BuildDressing(
+        Transform districtRoot,
+        Tilemap ground,
+        Tilemap obstacle,
+        TileBase solidTile
+    )
     {
         GameObject dressingRoot = new GameObject("Dressing");
         dressingRoot.transform.SetParent(districtRoot, false);
 
-        foreach ((string prop, Vector2 position, int order) in Dressing)
+        foreach ((string prop, float cellX, float cellY, int solidWidth)
+            in Dressing)
         {
             CreatePropObject(
                 dressingRoot.transform,
+                ground,
                 prop,
-                position,
-                order
+                cellX,
+                cellY
             );
+
+            MarkSolid(obstacle, solidTile, cellX, cellY, solidWidth);
         }
     }
 
     private static GameObject CreatePropObject(
         Transform parent,
+        Tilemap ground,
         string propName,
-        Vector2 position,
-        int sortingOrder
+        float cellX,
+        float cellY
     )
     {
         Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(
@@ -636,48 +1453,81 @@ public static class ShopIslandBuilder
 
         GameObject prop = new GameObject(propName);
         prop.transform.SetParent(parent, false);
+
+        Vector3 position = CellPoint(ground, cellX, cellY);
         prop.transform.position = position;
 
         SpriteRenderer renderer = prop.AddComponent<SpriteRenderer>();
         renderer.sprite = sprite;
-        renderer.sortingOrder = sortingOrder;
+        renderer.sortingOrder = DepthOrder(position.y);
 
         return prop;
     }
 
-    // ------------------------------------------------------------------
-    // Traders and townsfolk
-    // ------------------------------------------------------------------
-
-    private static void BuildStalls(Transform districtRoot)
+    private static void BuildStalls(
+        Transform districtRoot,
+        Tilemap ground,
+        Tilemap obstacle,
+        TileBase solidTile
+    )
     {
-        for (int index = 0; index < Vendors.Length; index++)
-        {
-            VendorSpec spec = Vendors[index];
-
-            // The stall stands behind the trader. Sorting orders count
-            // DOWN as objects sit further north so nearer things overlap
-            // farther ones, which is what gives the row its depth.
-            CreatePropObject(
-                districtRoot,
-                VendorStallProps[index % VendorStallProps.Length],
-                spec.Position + new Vector2(0f, 0.55f),
-                9
-            );
-        }
-
         foreach (VendorSpec spec in Vendors)
         {
+            // The awning and posts stand a counter's height further back,
+            // BEHIND the trader.
+            GameObject back = CreatePropObject(
+                districtRoot,
+                ground,
+                spec.StallProp + "_back",
+                spec.CellX,
+                StallRowY + CounterHeight
+            );
+
+            int stallOrder = back
+                .GetComponent<SpriteRenderer>()
+                .sortingOrder;
+
+            // The counter draws IN FRONT of the trader and hides their legs,
+            // which is what actually sells "standing behind the stall".
+            GameObject front = CreatePropObject(
+                districtRoot,
+                ground,
+                MarketArtBuilder.StallFrontProp,
+                spec.CellX,
+                StallRowY
+            );
+
+            front.name = spec.StallProp + "_counter";
+
+            front.GetComponent<SpriteRenderer>().sortingOrder =
+                Mathf.Min(stallOrder + 2, 19);
+
+            // A counter is solid: you walk up to it, not through it.
+            MarkSolid(obstacle, solidTile, spec.CellX, StallRowY, 3);
+
             GameObject vendorObject = new GameObject(spec.ObjectName);
             vendorObject.transform.SetParent(districtRoot, false);
-            vendorObject.transform.position = spec.Position;
+
+            Vector3 position =
+                CellPoint(ground, spec.CellX, VendorRowY);
+            vendorObject.transform.position = position;
 
             vendorObject.AddComponent<NetworkObject>();
 
             BoxCollider2D trigger =
                 vendorObject.AddComponent<BoxCollider2D>();
             trigger.isTrigger = true;
-            trigger.size = new Vector2(1.8f, 2f);
+            // Only the strip of pavement directly in front of the counter.
+            //
+            // This used to be 3 x 3.4 centred on the trader, which reached
+            // most of the way across the square: the shop panel opened while
+            // you were still walking towards the stall, and with three
+            // stalls four cells apart their zones very nearly touched. The
+            // box now sits south of the trader and covers roughly one
+            // player's depth of standing room, which is the only place a
+            // shopper can actually be — the counter blocks the row behind.
+            trigger.offset = new Vector2(0f, -0.85f);
+            trigger.size = new Vector2(2.2f, 1.2f);
 
             NetworkShopVendor vendor =
                 vendorObject.AddComponent<NetworkShopVendor>();
@@ -698,25 +1548,30 @@ public static class ShopIslandBuilder
 
             // Stalls restock, so the interaction must not be one-shot.
             SetSerializedBool(vendor, "allowRepeatedInteraction", true);
-            SetSerializedFloat(vendor, "additionalServerRange", 0.75f);
 
-            AddNpcVisual(vendorObject.transform, spec.MotwIndex);
+            // No slack on top of the player's own two-unit reach. The extra
+            // 1.5 units here was the other half of the too-eager prompt:
+            // the range test measures to the TRADER, who stands a counter's
+            // depth back, so every unit of slack showed the panel a unit
+            // earlier than it looks like it should.
+            SetSerializedFloat(vendor, "additionalServerRange", 0f);
+
+            // One order above their own stall. Depth-sorting alone would
+            // put the trader behind it — they stand further north — and the
+            // canopy is solid, so they would vanish.
+            AddNpcVisual(
+                vendorObject.transform,
+                spec.MotwIndex,
+                stallOrder + 1
+            );
         }
     }
 
-    private static void BuildTownsfolk(Transform districtRoot)
-    {
-        foreach ((string name, int motw, Vector2 position) in Townsfolk)
-        {
-            GameObject person = new GameObject(name);
-            person.transform.SetParent(districtRoot, false);
-            person.transform.position = position;
-
-            AddNpcVisual(person.transform, motw);
-        }
-    }
-
-    private static void AddNpcVisual(Transform parent, int motwIndex)
+    private static void AddNpcVisual(
+        Transform parent,
+        int motwIndex,
+        int sortingOrder
+    )
     {
         GameObject visual = new GameObject("Visual");
         visual.transform.SetParent(parent, false);
@@ -725,11 +1580,7 @@ public static class ShopIslandBuilder
 
         SpriteRenderer renderer = visual.AddComponent<SpriteRenderer>();
         renderer.sprite = LoadMotwSprite(motwIndex);
-
-        // Above the stalls (order 9) so a trader is never swallowed by
-        // their own awning, and above the dressing so nothing occludes the
-        // person you are meant to walk up to and talk to.
-        renderer.sortingOrder = 20;
+        renderer.sortingOrder = sortingOrder;
     }
 
     private static Sprite LoadMotwSprite(int index)
@@ -795,7 +1646,7 @@ public static class ShopIslandBuilder
     /// service would leave the game's only currency reading as scenery.
     /// This draws a 16px gold coin once — rim, body, and a highlight —
     /// and imports it at 32 pixels-per-unit so it sits at half a world
-    /// unit, small enough to read as loose change beside a ~1 unit player.
+    /// unit: loose change beside a 2.1 unit player.
     /// </summary>
     private static Sprite LoadCoinSprite()
     {
@@ -904,15 +1755,70 @@ public static class ShopIslandBuilder
         importer.SaveAndReimport();
     }
 
+    /// <summary>
+    /// Chooses where the loose change lies. Picking cells from the paved
+    /// footprint rather than hand-listing them means coins cannot drift
+    /// under a stall or into the sea when the square is reshaped, and the
+    /// spacing rule stops them clumping into one lucky handful.
+    /// </summary>
+    private static List<Vector2Int> ChooseCoinCells(
+        HashSet<Vector2Int> footprint
+    )
+    {
+        HashSet<Vector2Int> blocked = new HashSet<Vector2Int>();
+
+        foreach ((string _, int x, int y) in TownTiles)
+        {
+            blocked.Add(new Vector2Int(x, y));
+        }
+
+        foreach (Vector2Int cell in SolidTownCells)
+        {
+            blocked.Add(cell);
+        }
+
+        List<Vector2Int> chosen = new List<Vector2Int>();
+
+        // Below the stall row, so no coin ends up behind an awning.
+        IEnumerable<Vector2Int> candidates = footprint
+            .Where(cell => cell.y < StallRowY - 1)
+            .Where(cell => !blocked.Contains(cell))
+            .Where(cell => !SpawnClearance.Contains(cell))
+            .OrderBy(cell => Mathf.Abs(Hash(cell.x, cell.y)));
+
+        foreach (Vector2Int cell in candidates)
+        {
+            if (chosen.Count >= CoinCount)
+            {
+                break;
+            }
+
+            bool crowded = chosen.Any(taken =>
+                Mathf.Abs(taken.x - cell.x) < 2 &&
+                Mathf.Abs(taken.y - cell.y) < 2);
+
+            if (!crowded)
+            {
+                chosen.Add(cell);
+            }
+        }
+
+        return chosen;
+    }
+
     private static void PlaceCoins(
         Transform districtRoot,
+        Tilemap ground,
+        HashSet<Vector2Int> footprint,
         GameObject coinPrefab
     )
     {
         GameObject coinRoot = new GameObject("Coins");
         coinRoot.transform.SetParent(districtRoot, false);
 
-        for (int index = 0; index < CoinPositions.Length; index++)
+        List<Vector2Int> cells = ChooseCoinCells(footprint);
+
+        for (int index = 0; index < cells.Count; index++)
         {
             GameObject coin = (GameObject)PrefabUtility.InstantiatePrefab(
                 coinPrefab,
@@ -920,28 +1826,51 @@ public static class ShopIslandBuilder
             );
 
             coin.name = $"Coin_{index:D2}";
-            coin.transform.position = CoinPositions[index];
+
+            // Coins float in the middle of their cell rather than resting
+            // on its lower edge like a prop.
+            coin.transform.position = CellPoint(
+                ground,
+                cells[index].x,
+                cells[index].y + 0.5f
+            );
         }
+
+        Debug.Log($"[Shop Island] Scattered {cells.Count} coins.");
     }
 
     // ------------------------------------------------------------------
     // Scene wiring
     // ------------------------------------------------------------------
 
-    private static void EnsureCoinHud(Scene scene)
+    /// <summary>
+    /// Adds the purse readout and the stall counter window. Both are plain
+    /// OnGUI components with no wiring, which is what lets this builder
+    /// author the whole shop without a canvas prefab.
+    /// </summary>
+    private static void EnsureShopHud(Scene scene)
     {
-        CoinPurseHUD existing = scene
+        bool hasPurse = scene
             .GetRootGameObjects()
-            .SelectMany(root => root.GetComponentsInChildren<CoinPurseHUD>(true))
-            .FirstOrDefault();
+            .SelectMany(root =>
+                root.GetComponentsInChildren<CoinPurseHUD>(true))
+            .Any();
 
-        if (existing != null)
+        if (!hasPurse)
         {
-            return;
+            new GameObject("CoinPurseHUD").AddComponent<CoinPurseHUD>();
         }
 
-        GameObject hud = new GameObject("CoinPurseHUD");
-        hud.AddComponent<CoinPurseHUD>();
+        bool hasShopScreen = scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<ShopScreenHUD>(true))
+            .Any();
+
+        if (!hasShopScreen)
+        {
+            new GameObject("ShopScreenHUD").AddComponent<ShopScreenHUD>();
+        }
     }
 
     /// <summary>
@@ -960,10 +1889,31 @@ public static class ShopIslandBuilder
 
         if (portal == null)
         {
-            Debug.LogWarning(
-                "[Shop Island] No stage portal found; players would be " +
-                "unable to leave."
-            );
+            // This island inherits the lobby's rowboat, which already
+            // sails to the boat scene through LobbyRowboatInteraction, so
+            // there is nothing to repoint. Confirm it exists rather than
+            // silently leaving players stranded in the market.
+            bool hasRowboatExit = scene
+                .GetRootGameObjects()
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<LobbyRowboatInteraction>(true))
+                .Any();
+
+            if (!hasRowboatExit)
+            {
+                Debug.LogWarning(
+                    "[Shop Island] No stage portal and no rowboat exit; " +
+                    "players would be unable to leave."
+                );
+            }
+            else
+            {
+                Debug.Log(
+                    "[Shop Island] Exit is the inherited rowboat " +
+                    "(press E to sail back to the ship)."
+                );
+            }
+
             return;
         }
 
@@ -1075,7 +2025,7 @@ public static class ShopIslandBuilder
         if (map == null)
         {
             throw new InvalidOperationException(
-                $"{name} was not found in the shop island scene."
+                $"{name} was not found in {scene.name}."
             );
         }
 

@@ -35,6 +35,10 @@ public class ScrollingWater : MonoBehaviour
     [SerializeField] private bool snapToPixels = true;
     [SerializeField] private float pixelsPerUnit = 32f;
 
+    // Lets other systems (e.g. the ship's helm) read or drive the scroll
+    // direction at runtime. Adding this does not change default behavior.
+    public Vector2 ScrollSpeed { get => scrollSpeed; set => scrollSpeed = value; }
+
     private Vector3 startPosition;
     private Vector2 scrollOffset;
 

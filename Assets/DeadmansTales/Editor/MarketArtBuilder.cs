@@ -34,7 +34,20 @@ public static class MarketArtBuilder
     private const string BreakablesSourcePath =
         MarketFolder + "/breakables_src.png";
 
-    public const int MarketPixelsPerUnit = 32;
+    /// <summary>
+    /// The player renders motw_10 at 32 px/unit, and that character is 68
+    /// drawn pixels tall — so the crew stand about 2.1 world units, NOT
+    /// the ~1 unit the prefab's placeholder sword icon suggests. These
+    /// market sheets are drawn for 32px characters, so they must be
+    /// enlarged by roughly 68/32 to sit at the same visual scale.
+    ///
+    /// 16 px/unit does that and matches the rest of the world: the beach
+    /// terrain is 32px cells at 32 px/unit and the openRPG tiles are 16px
+    /// cells at 16 px/unit, so on every sheet in the game one source cell
+    /// is exactly one world unit. A stall is then 3x4 units beside a 2.1
+    /// unit player — counter at chest height, awning above head height.
+    /// </summary>
+    public const int MarketPixelsPerUnit = 16;
 
     private const int Cell = 16;
 
@@ -95,31 +108,10 @@ public static class MarketArtBuilder
 
     private static readonly PropRecipe[] Recipes =
     {
-        // Stalls: a 3x3 awning stacked directly on a 3x2 counter, giving a
-        // 3x5 cell prop. The three colourways let neighbouring stalls read
-        // as separate businesses rather than one long tent.
-        new PropRecipe(
-            "stall_red",
-            StallsSourcePath,
-            Part(0, 0, 3, 3),
-            Part(3, 5, 3, 2, 0, 3)
-        ),
-        new PropRecipe(
-            "stall_blue",
-            StallsSourcePath,
-            Part(3, 0, 3, 3),
-            Part(6, 7, 3, 2, 0, 3)
-        ),
-        new PropRecipe(
-            "stall_green",
-            StallsSourcePath,
-            Part(6, 0, 3, 3),
-            Part(3, 7, 3, 2, 0, 3)
-        ),
         new PropRecipe(
             "stall_counter",
             StallsSourcePath,
-            Part(0, 5, 3, 2)
+            Part(3, 7, 3, 2)
         ),
         new PropRecipe(
             "market_sign",
@@ -138,15 +130,16 @@ public static class MarketArtBuilder
             Part(3, 0, 3, 4)
         ),
 
+        // The drying rack, cut from the sheet's SECOND row of racks. The
+        // first row is a rail of hanging meat with nothing holding it up —
+        // drawn to be hung off a wall — so placed on open sand it read
+        // exactly as what it was: meat floating in mid-air. This band has
+        // the posts, and they run to the bottom of the art, so the trimmed
+        // sprite's base is the foot of the rack.
         new PropRecipe(
             "meatrack",
             MeatrackSourcePath,
-            Part(0, 0, 5, 2)
-        ),
-        new PropRecipe(
-            "meatrack_tall",
-            MeatrackSourcePath,
-            Part(0, 2, 5, 2)
+            Part(0, 2, 3, 2)
         ),
 
         new PropRecipe(
@@ -171,6 +164,226 @@ public static class MarketArtBuilder
         ),
     };
 
+    // ------------------------------------------------------------------
+    // Stalls, cut into a back and a front so a trader can stand inside one
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// The three stall colourways and the sheet column each AWNING starts
+    /// at. Only the canopy is taken from these columns; see
+    /// <see cref="StallBodyColumn"/>.
+    /// </summary>
+    private static readonly (string Name, int Column)[] StallColours =
+    {
+        ("stall_red", 0),
+        ("stall_blue", 3),
+        ("stall_green", 6),
+    };
+
+    /// <summary>
+    /// The column every stall's posts and counter are cut from.
+    /// </summary>
+    /// <remarks>
+    /// The sheet is not three matching stalls. Only the red and blue blocks
+    /// are complete; the green block is an awning plus two spare cloth
+    /// strips, with no posts and no counter under it. Slicing all three by
+    /// the same bands therefore gave the green stall a solid green curtain
+    /// where its posts belong and a scrap of BLUE bunting for a counter —
+    /// which is what made Ol' Sally's stand look broken while the other two
+    /// looked fine.
+    ///
+    /// Each stall now takes only its canopy from its own colour and its body
+    /// from the red block. That is also how a market actually reads: one
+    /// timber counter design under differently coloured awnings.
+    /// </remarks>
+    private const int StallBodyColumn = 0;
+
+    /// <summary>
+    /// The counter shared by all three stalls. One sprite rather than three
+    /// identical copies, because there is only one counter on the sheet.
+    /// </summary>
+    public const string StallFrontProp = "stall_front";
+
+    // Bands within the complete 3x4 stall block, in pixels from the block's
+    // top. The block is 64px tall but the art occupies rows 4..55.
+    private const int StallInkTop = 4;
+    private const int AwningBottom = 31;   // rows 4..30 are canopy
+    private const int PostsBottom = 40;    // rows 31..39 are the two posts
+    private const int StallInkBottom = 56; // rows 40..55 are the counter
+
+    /// <summary>
+    /// How tall to make the posts, in pixels.
+    /// </summary>
+    /// <remarks>
+    /// The artist drew 9px of post, which is why a trader could never stand
+    /// in one of these: the canopy began 25px above the ground and the crew
+    /// are 34px tall, so their head was always behind their own awning.
+    /// Stretching the posts raises the canopy clear of a standing figure —
+    /// 16px of counter plus 25px of post puts the awning at 41px, above the
+    /// ~37px a trader's head reaches. The posts are plain vertical bars, so
+    /// repeating one row of them is invisible.
+    /// </remarks>
+    private const int PostHeight = 25;
+
+    /// <summary>
+    /// Splits each stall into two sprites so a trader can be sandwiched
+    /// between them: the counter draws IN FRONT of them and hides their
+    /// legs, the awning and posts draw BEHIND. This is the standard
+    /// foreground/background split for top-down scenes — a single stall
+    /// sprite can only ever be wholly in front of or wholly behind a
+    /// character, and neither reads as standing at a stall.
+    /// </summary>
+    private static void BuildSplitStalls()
+    {
+        Texture2D sheet = LoadSourceTexture(StallsSourcePath);
+
+        try
+        {
+            foreach ((string name, int column) in StallColours)
+            {
+                BuildStallBack(sheet, name, column);
+            }
+
+            BuildStallFront(sheet);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(sheet);
+        }
+
+        foreach ((string name, int _) in StallColours)
+        {
+            ImportProp(name + "_back");
+        }
+
+        ImportProp(StallFrontProp);
+    }
+
+    /// <summary>Awning plus lengthened posts. Stands behind the trader.</summary>
+    private static void BuildStallBack(
+        Texture2D sheet,
+        string name,
+        int awningColumn
+    )
+    {
+        int width = 3 * Cell;
+        int awningHeight = AwningBottom - StallInkTop;
+        int height = awningHeight + PostHeight;
+
+        Color32[] output = new Color32[width * height];
+        Color32[] pixels = sheet.GetPixels32();
+
+        int blockTop = 3 * Cell;
+
+        // Canopy, sitting on top, in this stall's own colour.
+        for (int row = 0; row < awningHeight; row++)
+        {
+            CopyRow(
+                pixels,
+                sheet,
+                output,
+                width,
+                height,
+                awningColumn * Cell,
+                blockTop + StallInkTop + row,
+                row
+            );
+        }
+
+        // Posts, repeated from a single mid-band row down to the counter,
+        // always from the block that actually has posts drawn under it.
+        int postSourceRow = blockTop + (AwningBottom + PostsBottom) / 2;
+
+        for (int row = 0; row < PostHeight; row++)
+        {
+            CopyRow(
+                pixels,
+                sheet,
+                output,
+                width,
+                height,
+                StallBodyColumn * Cell,
+                postSourceRow,
+                awningHeight + row
+            );
+        }
+
+        WriteTexture(name + "_back", width, height, output);
+    }
+
+    /// <summary>The counter alone. Draws in front of the trader.</summary>
+    private static void BuildStallFront(Texture2D sheet)
+    {
+        int width = 3 * Cell;
+        int height = StallInkBottom - PostsBottom;
+
+        Color32[] output = new Color32[width * height];
+        Color32[] pixels = sheet.GetPixels32();
+
+        int blockTop = 3 * Cell;
+
+        for (int row = 0; row < height; row++)
+        {
+            CopyRow(
+                pixels,
+                sheet,
+                output,
+                width,
+                height,
+                StallBodyColumn * Cell,
+                blockTop + PostsBottom + row,
+                row
+            );
+        }
+
+        WriteTexture(StallFrontProp, width, height, output);
+    }
+
+    /// <summary>
+    /// Copies one full-width row of the sheet into the output. Both are
+    /// addressed by row-from-the-top; Unity stores textures bottom-up, so
+    /// each is flipped on the way through.
+    /// </summary>
+    private static void CopyRow(
+        Color32[] sheetPixels,
+        Texture2D sheet,
+        Color32[] output,
+        int width,
+        int height,
+        int sourceLeft,
+        int sourceRowFromTop,
+        int destinationRowFromTop
+    )
+    {
+        int sourceY = sheet.height - 1 - sourceRowFromTop;
+        int destinationY = height - 1 - destinationRowFromTop;
+
+        if (sourceY < 0 || sourceY >= sheet.height ||
+            destinationY < 0 || destinationY >= height)
+        {
+            return;
+        }
+
+        for (int x = 0; x < width; x++)
+        {
+            int sourceX = sourceLeft + x;
+
+            if (sourceX < 0 || sourceX >= sheet.width)
+            {
+                continue;
+            }
+
+            Color32 pixel = sheetPixels[sourceY * sheet.width + sourceX];
+
+            if (pixel.a <= 4)
+            {
+                continue;
+            }
+
+            output[destinationY * width + x] = pixel;
+        }
+    }
+
     [MenuItem(MenuPath)]
     public static void BuildAll()
     {
@@ -179,11 +392,14 @@ public static class MarketArtBuilder
             BuildProp(recipe);
         }
 
+        BuildSplitStalls();
+
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
         Debug.Log(
-            $"[Market Art] Composited {Recipes.Length} market props."
+            $"[Market Art] Composited {Recipes.Length} market props, " +
+            $"{StallColours.Length} stall canopies and one shared counter."
         );
     }
 
@@ -230,6 +446,8 @@ public static class MarketArtBuilder
                 CopyPart(sheet, part, width, height, output);
             }
 
+            TrimToInk(ref output, ref width, ref height);
+
             WriteTexture(recipe.Name, width, height, output);
         }
         finally
@@ -238,6 +456,76 @@ public static class MarketArtBuilder
         }
 
         ImportProp(recipe.Name);
+    }
+
+    /// <summary>
+    /// Crops the finished prop down to the pixels actually drawn.
+    ///
+    /// These sheets pad their art inside the cell grid — a stall block is
+    /// 48x64 but the stall itself only occupies rows 4..55, and a pot uses
+    /// 15 rows of a 32 row cell. Every prop is imported with a bottom-centre
+    /// pivot, so that padding is not cosmetic: it lifts the prop off the
+    /// ground by exactly as many pixels as the sheet left empty, which is
+    /// half a world unit for a stall and a full unit for a pot. Trimming to
+    /// the ink makes the pivot the thing's actual base.
+    /// </summary>
+    private static void TrimToInk(
+        ref Color32[] pixels,
+        ref int width,
+        ref int height
+    )
+    {
+        int minX = width;
+        int maxX = -1;
+        int minY = height;
+        int maxY = -1;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                if (pixels[y * width + x].a <= 4)
+                {
+                    continue;
+                }
+
+                minX = Mathf.Min(minX, x);
+                maxX = Mathf.Max(maxX, x);
+                minY = Mathf.Min(minY, y);
+                maxY = Mathf.Max(maxY, y);
+            }
+        }
+
+        if (maxX < 0)
+        {
+            throw new InvalidOperationException(
+                "A market prop composited to nothing but transparency; " +
+                "its source cells are probably wrong."
+            );
+        }
+
+        int trimmedWidth = maxX - minX + 1;
+        int trimmedHeight = maxY - minY + 1;
+
+        if (trimmedWidth == width && trimmedHeight == height)
+        {
+            return;
+        }
+
+        Color32[] trimmed = new Color32[trimmedWidth * trimmedHeight];
+
+        for (int y = 0; y < trimmedHeight; y++)
+        {
+            for (int x = 0; x < trimmedWidth; x++)
+            {
+                trimmed[y * trimmedWidth + x] =
+                    pixels[(minY + y) * width + (minX + x)];
+            }
+        }
+
+        pixels = trimmed;
+        width = trimmedWidth;
+        height = trimmedHeight;
     }
 
     /// <summary>
