@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.Tilemaps;
 
 /// <summary>
 /// Makes the run playable from the main menu all the way back around to the
@@ -190,41 +191,65 @@ public static class VoyageLoopBuilder
     // in the scripts is what is wrong, and it is fixed there rather than by
     // bolting a third collider onto his objects here.
 
-    /// <summary>How far from a cannon its gunner stands, in world units.</summary>
-    private const float GunnerStandDistance = 0.85f;
+    /// <summary>
+    /// How far the gunner stands from the CENTRE of the cannon art, in world
+    /// units. The art is two cells tall, so 1.6 puts them 0.6 clear of it —
+    /// close enough to read as manning the gun, far enough that their 0.35
+    /// collider never touches its solid box.
+    /// </summary>
+    private const float GunnerStandDistance = 1.6f;
+
+    /// <summary>The tilemap the cannons are actually painted on.</summary>
+    private const string ShipPropLayer = "Ship_prop";
 
     /// <summary>
-    /// Makes the cannons seatable: trims each gun's solid collider back to
-    /// the gun, and stands the gunner where a gunner belongs.
+    /// Lines every cannon's colliders and stand point up with the cannon a
+    /// player can actually SEE.
     ///
-    /// Manning a cannon was throwing the player across the deck, and the
-    /// numbers say why. Each cannon's SOLID box is 1 x 2 centred on the gun,
-    /// so it spans local y -1 to +1 — a two-metre block of deck for a piece
-    /// of artillery about a metre long. The stand points sit at -1.34 and
-    /// -1.35 on the two forward guns and +1.10 and +1.12 on the two aft
-    /// ones, and the player's own collider is a circle of radius 0.35. So
-    /// seating a gunner at an aft cannon dropped them 0.25 units INSIDE the
-    /// gun's solid box; Unity did the only thing it can with two overlapping
-    /// solid bodies and shoved them out. The forward pair sat right on the
-    /// boundary and only sometimes escaped it.
+    /// The cannons have no SpriteRenderer. What you see on deck is painted
+    /// into the Ship_prop tilemap, and the ShipCannon objects are separate
+    /// empties positioned by hand — so the art and the interaction were never
+    /// tied together, and on two of the four they drifted apart:
     ///
-    /// That same 1 x 2 box also swallows the interaction trigger beneath it
-    /// (solid -1..+1 against trigger -1.5..-0.5), which is the overlap you
-    /// can see when the gizmos are on.
+    ///     cannon        art cells      art centre   object   error
+    ///     Cannon        y 15..17         16.00      15.99      ok
+    ///     Cannon (1)    y 15..17         16.00      16.11     0.11
+    ///     Cannon (2)    y  9..11         10.00       9.58     0.42
+    ///     Cannon (3)    y  9..11         10.00       9.34     0.66
     ///
-    /// Two changes, both derived from the gun's own muzzle so they hold for
-    /// any cannon pointing any direction:
+    /// The aft pair sits below its own gun. Their trigger landed ON the
+    /// painted cannon and their solid box on the empty rail beneath it, so
+    /// the prompt appeared while you stood in the barrel and the seat put
+    /// you inside it. Sizing the boxes off the OBJECT — which is what an
+    /// earlier pass did, trimming them by half — cannot fix that, because
+    /// the object is the thing in the wrong place.
     ///
-    ///   - the solid box keeps its width but loses the half BEHIND the gun,
-    ///     the half that was never the cannon in the first place — only the
-    ///     muzzle side stays solid;
-    ///   - the stand point is pulled in to a consistent 0.85 units, which
-    ///     puts the gunner snug against the breech instead of a body-length
-    ///     away, and leaves 0.35 of clearance on both sides inside the
-    ///     1 x 1 trigger.
+    /// So everything here is measured from the art instead. For each cannon
+    /// the painted cells are read out of the tilemap, and:
+    ///
+    ///   - the solid box becomes exactly the art's footprint, so the gun you
+    ///     see is the gun you bump into;
+    ///   - the gunner stands <see cref="GunnerStandDistance"/> from the art's
+    ///     centre on the side away from the muzzle;
+    ///   - the trigger is centred on that standing spot rather than on the
+    ///     gun, so the prompt appears where a gunner would be.
     /// </summary>
     private static void SeatTheGunners(Scene scene)
     {
+        Tilemap art = scene
+            .GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<Tilemap>(true))
+            .FirstOrDefault(map => map.name == ShipPropLayer);
+
+        if (art == null)
+        {
+            Debug.LogWarning(
+                $"[Voyage Loop] No '{ShipPropLayer}' tilemap; the cannons " +
+                "cannot be aligned to their art."
+            );
+            return;
+        }
+
         ShipCannon[] cannons = scene
             .GetRootGameObjects()
             .SelectMany(root => root.GetComponentsInChildren<ShipCannon>(true))
@@ -232,6 +257,15 @@ public static class VoyageLoopBuilder
 
         foreach (ShipCannon cannon in cannons)
         {
+            if (!TryFindArtBounds(art, cannon.transform.position, out Bounds gun))
+            {
+                Debug.LogWarning(
+                    $"[Voyage Loop] Found no painted cannon under " +
+                    $"'{cannon.name}'; leaving it alone."
+                );
+                continue;
+            }
+
             SerializedObject serialized = new SerializedObject(cannon);
 
             Transform muzzle = serialized
@@ -239,55 +273,110 @@ public static class VoyageLoopBuilder
             Transform stand = serialized
                 .FindProperty("standPoint")?.objectReferenceValue as Transform;
 
-            // Which way the gun points. The muzzle is the ground truth; the
-            // 'facing' field is only a fallback for a cannon without one.
+            // Which end of the art the gun fires from. Measured against the
+            // art's centre, not the object's — the object is what drifted.
             float muzzleSide = muzzle != null
-                ? muzzle.localPosition.y
+                ? muzzle.position.y - gun.center.y
                 : serialized.FindProperty("facing").vector2Value.y;
 
             float gunSide = muzzleSide >= 0f ? 1f : -1f;
 
+            Vector2 artLocal = cannon.transform
+                .InverseTransformPoint(gun.center);
+            Vector2 seatLocal = artLocal +
+                new Vector2(0f, -gunSide * GunnerStandDistance);
+
             foreach (BoxCollider2D box in cannon.GetComponents<BoxCollider2D>())
             {
-                if (box.isTrigger || box.size.y <= 1f)
+                if (box.isTrigger)
                 {
-                    continue;
+                    box.offset = seatLocal;
+                    box.size = new Vector2(1.2f, 1.2f);
                 }
-
-                float height = box.size.y * 0.5f;
-
-                box.size = new Vector2(box.size.x, height);
-                box.offset = new Vector2(
-                    box.offset.x,
-                    box.offset.y + gunSide * height * 0.5f
-                );
-
-                Debug.Log(
-                    $"[Voyage Loop] '{cannon.name}' body collider trimmed to " +
-                    $"{box.size} at {box.offset}; the gunner's half of the " +
-                    "deck is walkable again."
-                );
+                else
+                {
+                    box.offset = artLocal;
+                    box.size = gun.size;
+                }
             }
 
-            if (stand == null)
+            if (stand != null)
             {
-                continue;
+                stand.localPosition = new Vector3(
+                    seatLocal.x,
+                    seatLocal.y,
+                    stand.localPosition.z
+                );
             }
-
-            Vector3 local = stand.localPosition;
-            stand.localPosition = new Vector3(
-                local.x,
-                -gunSide * GunnerStandDistance,
-                local.z
-            );
 
             Debug.Log(
-                $"[Voyage Loop] '{cannon.name}' gunner moved from " +
-                $"y {local.y:0.00} to {stand.localPosition.y:0.00}."
+                $"[Voyage Loop] '{cannon.name}': art centred at " +
+                $"{gun.center.x:0.00},{gun.center.y:0.00} (object is at " +
+                $"{cannon.transform.position.y:0.00}); gun box {gun.size.x:0.0}" +
+                $"x{gun.size.y:0.0}, gunner at " +
+                $"{cannon.transform.TransformPoint(seatLocal).y:0.00}."
             );
         }
 
-        Debug.Log($"[Voyage Loop] {cannons.Length} cannons made seatable.");
+        Debug.Log($"[Voyage Loop] {cannons.Length} cannons aligned to their art.");
+    }
+
+    /// <summary>
+    /// Finds the painted cannon under a cannon object: the run of filled
+    /// cells in its own column, walked outwards from the cell the object
+    /// stands in. Returns the run's world bounds.
+    /// </summary>
+    private static bool TryFindArtBounds(
+        Tilemap art,
+        Vector3 near,
+        out Bounds bounds
+    )
+    {
+        bounds = default;
+
+        Vector3Int origin = art.WorldToCell(near);
+
+        // The object can sit just off its art, so start from whichever of
+        // the cell it is in or the one above has paint in it.
+        if (!art.HasTile(origin))
+        {
+            if (art.HasTile(origin + Vector3Int.up))
+            {
+                origin += Vector3Int.up;
+            }
+            else if (art.HasTile(origin + Vector3Int.down))
+            {
+                origin += Vector3Int.down;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        int bottom = origin.y;
+        while (art.HasTile(new Vector3Int(origin.x, bottom - 1, origin.z)))
+        {
+            bottom--;
+        }
+
+        int top = origin.y;
+        while (art.HasTile(new Vector3Int(origin.x, top + 1, origin.z)))
+        {
+            top++;
+        }
+
+        Vector3 min = art.CellToWorld(new Vector3Int(origin.x, bottom, origin.z));
+        Vector3 max = art.CellToWorld(
+            new Vector3Int(origin.x + 1, top + 1, origin.z)
+        );
+
+        bounds = new Bounds(
+            new Vector3((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f, 0f),
+            new Vector3(max.x - min.x, max.y - min.y, 0f)
+        );
+
+        return true;
     }
 
     /// <summary>
