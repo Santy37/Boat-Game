@@ -155,6 +155,7 @@ public static class IslandTerrainBuilder
 
         vocabulary.GroundBySignature = WinnersOf(groundVotes);
         vocabulary.WaterBySignature = WinnersOf(waterVotes);
+        PruneOceanFills(vocabulary);
 
         Debug.Log(
             $"[Island Terrain] Learned {vocabulary.GroundBySignature.Count} " +
@@ -166,6 +167,72 @@ public static class IslandTerrainBuilder
         );
 
         return vocabulary;
+    }
+
+    /// <summary>
+    /// Share of the donors' open water a tile must cover to count as an
+    /// ocean texture rather than a leftover.
+    /// </summary>
+    private const float OceanFillMinimumShare = 0.02f;
+
+    /// <summary>
+    /// Throws away ocean fills that barely appear in the donor islands.
+    ///
+    /// Every water cell with no land around it contributes its tile to this
+    /// list, and the painter then picks from it at random — so a tile the
+    /// artist used four times in two thousand cells still gets scattered
+    /// across the new sea. Some of those strays are SHORE tiles, sand at the
+    /// bottom and water above, left over from coast that was moved or
+    /// painted over. Dropped into open water they read as bits of beach
+    /// floating a dozen cells offshore, which is exactly what they are.
+    ///
+    /// The list keeps duplicates on purpose: repetition is what weights the
+    /// random pick towards the tile the artist actually used most.
+    /// </summary>
+    private static void PruneOceanFills(TerrainVocabulary vocabulary)
+    {
+        if (vocabulary.OpenOcean.Count == 0)
+        {
+            return;
+        }
+
+        Dictionary<TileBase, int> counts = new Dictionary<TileBase, int>();
+
+        foreach (TileBase tile in vocabulary.OpenOcean)
+        {
+            counts.TryGetValue(tile, out int seen);
+            counts[tile] = seen + 1;
+        }
+
+        int minimum = Mathf.Max(
+            2,
+            Mathf.CeilToInt(vocabulary.OpenOcean.Count * OceanFillMinimumShare)
+        );
+
+        List<TileBase> kept = vocabulary.OpenOcean
+            .Where(tile => counts[tile] >= minimum)
+            .ToList();
+
+        // Never prune the sea out of existence, however odd the donor.
+        if (kept.Count == 0)
+        {
+            kept.Add(counts
+                .OrderByDescending(pair => pair.Value)
+                .First()
+                .Key);
+        }
+
+        int dropped = counts.Count(pair => pair.Value < minimum);
+        vocabulary.OpenOcean = kept;
+
+        if (dropped > 0)
+        {
+            Debug.Log(
+                $"[Island Terrain] Dropped {dropped} one-off ocean tile(s) " +
+                $"used fewer than {minimum} times; they are coast fragments, " +
+                "not water."
+            );
+        }
     }
 
     private static Dictionary<int, TileBase> WinnersOf(
@@ -780,15 +847,37 @@ public static class IslandTerrainBuilder
         Tilemap props = FindTilemap(scene, "Tilemap_Props");
         Tilemap overhead = FindTilemap(scene, "Tilemap_Overhead");
         Tilemap obstacle = FindTilemap(scene, "Tilemap_ObstacleCollision");
-        int planted = 0;
+        List<Vector2Int> planted = new List<Vector2Int>();
 
         foreach (Vector2Int anchor in anchors)
         {
-            if (planted >= maximum)
+            if (planted.Count >= maximum)
             {
                 break;
             }
 
+            // Groves may not touch, or a run of them along a shore reads as
+            // a hedge rather than as trees. This has to be judged against
+            // what was actually PLANTED: spacing the candidate list instead
+            // reserves ground for anchors that then fail the fit test below,
+            // and costs most of the planting.
+            bool crowded = planted.Any(taken =>
+                Mathf.Abs(taken.x - anchor.x) < 3 &&
+                Mathf.Abs(taken.y - anchor.y) < 4);
+
+            if (crowded)
+            {
+                continue;
+            }
+
+            // A trunk must stand on dry land. A canopy may overhang the
+            // shoreline by a cell, the way a real palm leans out over a
+            // beach, but no further: only the TRUNK cells used to be
+            // checked at all, which left crowns floating two rows out over
+            // open water with nothing underneath them. Demanding land under
+            // the canopy too is the other extreme — it costs half the
+            // groves, because a palm needs 3x4 clear cells and most of the
+            // island's width is coast.
             bool fits = vocabulary.PalmGrove.All(part =>
             {
                 Vector2Int cell = anchor + part.Offset;
@@ -799,7 +888,13 @@ public static class IslandTerrainBuilder
                     return false;
                 }
 
-                return part.Prop == null || land.Contains(cell);
+                if (part.Prop != null)
+                {
+                    return land.Contains(cell);
+                }
+
+                return land.Contains(cell) ||
+                    Neighbours.Any(offset => land.Contains(cell + offset));
             });
 
             if (!fits)
@@ -834,10 +929,10 @@ public static class IslandTerrainBuilder
                 }
             }
 
-            planted++;
+            planted.Add(anchor);
         }
 
-        return planted;
+        return planted.Count;
     }
 
     // ------------------------------------------------------------------

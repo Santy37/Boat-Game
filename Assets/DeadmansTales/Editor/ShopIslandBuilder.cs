@@ -99,8 +99,15 @@ public static class ShopIslandBuilder
     /// </summary>
     private const float PlazaCentreX = 0f;
     private const float PlazaCentreY = 4f;
-    private const float PlazaRadiusX = 6f;
-    private const float PlazaRadiusY = 3.6f;
+
+    // Wide enough to carry the three stalls (which span x -5..5) and no
+    // wider. At 6 x 3.6 the paving covered a quarter of a 275-cell island,
+    // and once it was laid in a single stone that quarter read as one grey
+    // slab -- the flat-rectangle problem the ragged edge was meant to
+    // solve, back at a larger size. Sand between the square and the shore
+    // is what makes it a square rather than a floor.
+    private const float PlazaRadiusX = 5f;
+    private const float PlazaRadiusY = 3.2f;
     private const float PlazaCorner = 3f;
 
     /// <summary>
@@ -252,7 +259,6 @@ public static class ShopIslandBuilder
             ("barrel", -1.8f, 5.4f, 1),
             ("pot", 2.2f, 6.2f, 1),
             ("barrel", -6.4f, 5.2f, 1),
-            ("crate", 6.4f, 6.4f, 1),
 
             // The square used to have a facing row of counters across its
             // south side, meant to read as a street. Nobody stood behind
@@ -269,6 +275,21 @@ public static class ShopIslandBuilder
     /// Tile props stamped onto the prop layer. The well is the square's
     /// centrepiece; torches mark its corners after dark.
     /// </summary>
+    /// <summary>
+    /// Props stamped onto the prop tilemap, grouped into the yards they
+    /// belong to.
+    ///
+    /// These used to be listed as a flat scatter, and the scatter stacked
+    /// eight objects into the two cells east of the square — a woodpile, a
+    /// jug, a barrel pair, a planter, a torch, a signpost, the drying rack
+    /// and a crate, all within a couple of cells of each other. Read as a
+    /// junk heap rather than as a trader's yard. Each group below now sits
+    /// beside the thing it serves, with open paving between them.
+    ///
+    /// Kept off the stall row and the counter line: the prop tilemap draws
+    /// at order 2, below every market sprite, so anything under a stall is
+    /// simply painted over. Also kept off row 3, where the players land.
+    /// </summary>
     private static readonly (string Tile, int CellX, int CellY)[] TownTiles =
     {
         // 2x2 well, west of the spawn point so nobody lands inside it.
@@ -277,24 +298,23 @@ public static class ShopIslandBuilder
         ("bigwell_tl", -5, 3),
         ("bigwell_tr", -4, 3),
 
+        // A lamp at each end of the square's open side. The pair that stood
+        // at (-4, 7) and (4, 7) were directly behind the stall counters,
+        // where the stalls hid them completely.
         ("torch", -6, 4),
         ("torch", 6, 4),
-        ("torch", -4, 7),
-        ("torch", 4, 7),
 
-        ("campfire", 4, 2),
-        ("logpile", 5, 2),
+        // The smith's yard: fuel stacked in front of his forge.
+        ("logpile", -9, 5),
+        ("barrel_open", -8, 5),
 
-        // Kept off the stall row and the counter line: the prop tilemap
-        // draws at order 2, below every market sprite, so anything placed
-        // under a stall would simply be painted over. Also kept off row 3,
-        // where the four players land.
-        ("pot_flower", -5, 5),
-        ("pot_flower", 5, 5),
-        ("jug", 5, 3),
-        ("sack", -6, 2),
-        ("barrel_open", -5, 1),
-        ("barrels_double", 5, 4),
+        // The cook's yard: water and stores beside her drying rack.
+        ("barrels_double", 7, 3),
+        ("jug", 7, 4),
+
+        // Two planters, so the square is not stone from wall to wall.
+        ("pot_flower", -6, 2),
+        ("pot_flower", 6, 2),
     };
 
     /// <summary>
@@ -397,6 +417,11 @@ public static class ShopIslandBuilder
         MoorRowboat(scene, ground, dockEnd);
         PaveHarbourRoad(ground, land, footprint, dockAnchor);
 
+        // After the road, not before: the road joins the square along its
+        // south-east rim, and the cell where the two meet is only walled in
+        // once both exist.
+        FillPavingPits(ground, footprint);
+
         PavePlaza(ground, footprint);
 
         // Deliberate landmarks are placed before filler. Palm groves check
@@ -404,9 +429,14 @@ public static class ShopIslandBuilder
         // last means they flow around the camp instead of dropping a canopy
         // across its tent — which is exactly what happened when the groves
         // went in first.
-        PlantTownTiles(props, obstacle, vocabulary.ObstacleCollision);
+        PlantTownTiles(
+            ground,
+            props,
+            obstacle,
+            vocabulary.ObstacleCollision
+        );
 
-        Vector2Int? camp = BuildOutpost(
+        BuildOutpost(
             props,
             overhead,
             obstacle,
@@ -414,11 +444,6 @@ public static class ShopIslandBuilder
             land,
             footprint
         );
-
-        if (camp.HasValue)
-        {
-            PaveCampTrail(ground, props, land, footprint, camp.Value);
-        }
 
         int groves = IslandTerrainBuilder.PlantGroves(
             scene,
@@ -606,8 +631,10 @@ public static class ShopIslandBuilder
         Tile cobble = LoadShopTile("cobble_a");
         int roadY = dockAnchor.y + 1;
 
-        // Along the shore to the pier.
-        for (int x = RoadJunctionX; x < dockAnchor.x; x++)
+        // Along the shore to the pier. Inclusive of the pier's own landward
+        // cell, or the cobble stops short and the road reads as a stub that
+        // gives up before reaching the water.
+        for (int x = RoadJunctionX; x <= dockAnchor.x; x++)
         {
             AddRoadCell(ground, land, footprint, cobble, x, roadY);
             AddRoadCell(ground, land, footprint, cobble, x, roadY + 1);
@@ -651,33 +678,47 @@ public static class ShopIslandBuilder
         HashSet<Vector2Int> footprint
     )
     {
-        List<Vector2Int> anchors = new List<Vector2Int>();
+        List<Vector2Int> candidates = new List<Vector2Int>();
 
-        // A lattice over the island keeps the groves spread out instead of
-        // clumping wherever the first few happened to fit. It is finer than
-        // the number of groves wanted, because most anchors are rejected —
-        // for being at sea, in the town, or on top of the camp — and a
-        // coarse lattice left the island bare.
-        for (int x = -16; x <= 12; x += 2)
+        // Every cell outside the town is a candidate. A palm needs a 3x4
+        // clear footprint on dry land, so most are rejected by the planter;
+        // a coarse lattice offered so few that the island came out bare.
+        for (int x = -16; x <= 12; x++)
         {
-            for (int y = -5; y <= 12; y += 2)
+            for (int y = -5; y <= 12; y++)
             {
                 Vector2Int anchor = new Vector2Int(x, y);
 
+                if (!land.Contains(anchor))
+                {
+                    continue;
+                }
+
                 bool nearTown = footprint.Any(cell =>
-                    Mathf.Abs(cell.x - anchor.x) <= 3 &&
-                    Mathf.Abs(cell.y - anchor.y) <= 3);
+                    Mathf.Abs(cell.x - anchor.x) <= 2 &&
+                    Mathf.Abs(cell.y - anchor.y) <= 2);
 
                 if (nearTown)
                 {
                     continue;
                 }
 
-                anchors.Add(anchor);
+                candidates.Add(anchor);
             }
         }
 
-        return anchors;
+        // Offering them in reading order packs the groves into whichever
+        // corner comes first, because the planter takes the first that fit,
+        // so the list is shuffled deterministically: the same island shape
+        // gives the same planting every run.
+        //
+        // Thinning this list to anchors a grove's width apart was tried and
+        // is wrong — it reserves ground for candidates that then fail to
+        // fit, and cost six of the seven groves. Spacing is the planter's
+        // job, because only the planter knows which anchors were taken.
+        return candidates
+            .OrderBy(cell => Mathf.Abs(Hash(cell.x, cell.y)))
+            .ToList();
     }
 
     /// <summary>
@@ -712,7 +753,71 @@ public static class ShopIslandBuilder
             }
         }
 
+        // The well is the square's centrepiece, so the ragged rim must not
+        // nibble the paving out from under it. It used to stand with two
+        // feet on cobble and two on sand, straddling the boundary as though
+        // it had been dropped there.
+        foreach (Vector2Int cell in SolidTownCells)
+        {
+            if (ground.HasTile((Vector3Int)cell))
+            {
+                footprint.Add(cell);
+            }
+        }
+
         return footprint;
+    }
+
+    /// <summary>
+    /// Paves over single cells the ragged edge left unpaved inside the
+    /// square.
+    ///
+    /// <see cref="IsRaggedEdge"/> only ever nibbles cells on the ideal
+    /// outline, which sounds safe — but the outline of a rounded rectangle
+    /// is a staircase, so a cell can sit on it and still end up with paving
+    /// on three sides. Those came out as isolated pits of sand in the middle
+    /// of the cobble, one of them right under the red stall's counter. They
+    /// read as damage rather than as wear. A cell walled in by paving is
+    /// part of the square whatever the outline says.
+    /// </summary>
+    private static void FillPavingPits(
+        Tilemap ground,
+        HashSet<Vector2Int> footprint
+    )
+    {
+        Vector2Int[] sides =
+        {
+            new Vector2Int(1, 0),
+            new Vector2Int(-1, 0),
+            new Vector2Int(0, 1),
+            new Vector2Int(0, -1),
+        };
+
+        List<Vector2Int> pits = new List<Vector2Int>();
+
+        foreach (Vector2Int cell in footprint)
+        {
+            foreach (Vector2Int side in sides)
+            {
+                Vector2Int gap = cell + side;
+
+                if (footprint.Contains(gap) ||
+                    !ground.HasTile((Vector3Int)gap))
+                {
+                    continue;
+                }
+
+                int walled = sides.Count(step =>
+                    footprint.Contains(gap + step));
+
+                if (walled >= 3)
+                {
+                    pits.Add(gap);
+                }
+            }
+        }
+
+        footprint.UnionWith(pits);
     }
 
     /// <summary>
@@ -771,12 +876,18 @@ public static class ShopIslandBuilder
     /// Lays the market square. The paving goes onto the ground layer itself
     /// so it REPLACES the sand rather than sitting on a decal above it.
     ///
-    /// One stone only. Mixing the sheet's warm cobble with its blue-grey
-    /// brick looked like a way to break up a flat expanse, but the two are
-    /// drawn in different styles and different palettes: scattered through
-    /// each other they read as holes punched in the floor rather than as
-    /// texture. Variety belongs in the props standing on the square, not in
-    /// its surface.
+    /// One stone only, and that now includes the edge.
+    ///
+    /// Mixing the sheet's warm cobble with its blue-grey brick was the first
+    /// attempt at breaking up a flat expanse; the two are drawn in different
+    /// styles and palettes, so scattered through each other they read as
+    /// holes punched in the floor. The second attempt was a rim of worn
+    /// sandstone to ease the cobble into the beach — but the rim is computed
+    /// from the RAGGED footprint, so every cell the ragged edge nibbled
+    /// turned its neighbours into rim too. Half the square ended up worn:
+    /// a flat yellow band across the whole south side and stray patches
+    /// inside the paving. An irregular outline in one material reads as a
+    /// worn square; two materials read as a mistake.
     /// </summary>
     private static void PavePlaza(
         Tilemap ground,
@@ -784,19 +895,10 @@ public static class ShopIslandBuilder
     )
     {
         Tile cobble = LoadShopTile("cobble_a");
-        Tile worn = LoadShopTile("cobble_edge");
 
         foreach (Vector2Int cell in footprint)
         {
-            // A rim of worn sandstone eases the cobble into the beach
-            // instead of ending it against the sand like a cut-out.
-            bool onRim =
-                !footprint.Contains(new Vector2Int(cell.x + 1, cell.y)) ||
-                !footprint.Contains(new Vector2Int(cell.x - 1, cell.y)) ||
-                !footprint.Contains(new Vector2Int(cell.x, cell.y + 1)) ||
-                !footprint.Contains(new Vector2Int(cell.x, cell.y - 1));
-
-            ground.SetTile((Vector3Int)cell, onRim ? worn : cobble);
+            ground.SetTile((Vector3Int)cell, cobble);
         }
 
         Debug.Log($"[Shop Island] Paved {footprint.Count} plaza cells.");
@@ -861,56 +963,45 @@ public static class ShopIslandBuilder
         return null;
     }
 
-    /// <summary>
-    /// Beats a dirt trail from the camp to the market square, so the walk
-    /// across the island follows a road instead of open sand.
-    /// </summary>
-    private static void PaveCampTrail(
-        Tilemap ground,
-        Tilemap props,
-        HashSet<Vector2Int> land,
-        HashSet<Vector2Int> footprint,
-        Vector2Int camp
-    )
-    {
-        Tile trail = LoadShopTile("trail_dirt");
-        int trailY = camp.y + 1;
-        int laid = 0;
-
-        for (int x = camp.x + 2; x < PlazaCentreX; x++)
-        {
-            // Meandering by a cell keeps it from reading as a ruled line.
-            int y = trailY + (Mathf.Abs(Hash(x, 0)) % 3 - 1);
-
-            foreach (int step in new[] { 0, 1 })
-            {
-                Vector2Int cell = new Vector2Int(x, y + step);
-
-                if (!land.Contains(cell) ||
-                    footprint.Contains(cell) ||
-                    props.HasTile((Vector3Int)cell))
-                {
-                    continue;
-                }
-
-                ground.SetTile((Vector3Int)cell, trail);
-                laid++;
-            }
-        }
-
-        Debug.Log($"[Shop Island] Beat a {laid}-cell trail to the market.");
-    }
+    // There used to be a dirt trail beaten from the fisher camp to the
+    // market square. It never worked and could not have: the camp sits at
+    // x -11 and the square's paving already starts at x -6, so the only
+    // ground the trail could cover was the three columns between them —
+    // and it laid two cells per column. That is not a path, it is a patch,
+    // and in solid mid-brown against pale beach sand it read as mud spilled
+    // beside the tent. Two places five paces apart do not need a road.
 
     private static void PlantTownTiles(
+        Tilemap ground,
         Tilemap props,
         Tilemap obstacle,
         TileBase solidTile
     )
     {
+        int placed = 0;
+
         foreach ((string name, int x, int y) in TownTiles)
         {
-            props.SetTile(new Vector3Int(x, y, 0), LoadShopTile(name));
+            Vector3Int cell = new Vector3Int(x, y, 0);
+
+            // A wish list, not a command. The coastline is generated, so a
+            // yard prop authored a couple of cells outside the square is
+            // only PROBABLY on land; stamping it blindly would float it on
+            // the sea, and stamping it over an existing prop would also
+            // push the fisher camp off its anchor, since the camp needs its
+            // whole footprint clear.
+            if (!ground.HasTile(cell) || props.HasTile(cell))
+            {
+                continue;
+            }
+
+            props.SetTile(cell, LoadShopTile(name));
+            placed++;
         }
+
+        Debug.Log(
+            $"[Shop Island] Placed {placed} of {TownTiles.Length} town props."
+        );
 
         if (solidTile == null)
         {
@@ -919,7 +1010,10 @@ public static class ShopIslandBuilder
 
         foreach (Vector2Int cell in SolidTownCells)
         {
-            obstacle.SetTile((Vector3Int)cell, solidTile);
+            if (props.HasTile((Vector3Int)cell))
+            {
+                obstacle.SetTile((Vector3Int)cell, solidTile);
+            }
         }
     }
 
@@ -1116,7 +1210,6 @@ public static class ShopIslandBuilder
         (string Name, int Column, int Row)[] paving =
         {
             ("cobble_a", 10, 10),
-            ("cobble_edge", 4, 14),
         };
 
         foreach ((string name, int column, int row) in paving)
