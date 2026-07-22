@@ -41,14 +41,6 @@ public static class ShopIslandBuilder
     private const string ShopScenePath =
         "Assets/DeadmansTales/Scenes/Island_Shop_2D.unity";
 
-    /// <summary>
-    /// The terrain donor. The shop island is a re-dressing of the lobby's
-    /// landmass, so the lobby scene is the authoritative source for the
-    /// coastline, the dock, and the palm groves.
-    /// </summary>
-    private const string LobbyScenePath =
-        "Assets/DeadmansTales/Scenes/Lobby_Island_2D.unity";
-
     private const string HostileIslandScenePath =
         "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
 
@@ -74,13 +66,6 @@ public static class ShopIslandBuilder
         "DeadmansNetworkBootstrapSettings.asset";
 
     private const string DistrictRootName = "ShopDistrict";
-
-    /// <summary>
-    /// The dock and its rowboat are the island's only exit. Clusters
-    /// reaching this far east are never cleared, whatever else overlaps
-    /// them — a market is not worth trapping the crew in.
-    /// </summary>
-    private const int DockGuardX = 7;
 
     /// <summary>
     /// motw.png is a 12x8 grid of 52x72 cells in RPG-Maker layout: each
@@ -118,11 +103,14 @@ public static class ShopIslandBuilder
     private const float PlazaRadiusY = 3.6f;
     private const float PlazaCorner = 3f;
 
-    /// <summary>Cobbled street linking the square to the pier.</summary>
-    private const int StreetMinX = 5;
-    private const int StreetMaxX = 8;
-    private const int StreetMinY = 1;
-    private const int StreetMaxY = 2;
+    /// <summary>
+    /// The row the pier is built along, inside the bay bitten out of the
+    /// island's south-east corner.
+    /// </summary>
+    private const int HarbourRowY = 0;
+
+    /// <summary>Where the harbour road turns north for the market square.</summary>
+    private const int RoadJunctionX = 4;
 
     private const int ScatterSalt = 20260721;
 
@@ -317,19 +305,6 @@ public static class ShopIslandBuilder
     private static readonly RectInt SpawnClearance =
         new RectInt(-3, 2, 6, 3);
 
-    /// <summary>
-    /// Anchors for extra palm groves, stamped from a grove the island
-    /// already has so the replanting matches the existing art exactly
-    /// instead of importing temperate trees onto a tropical beach.
-    /// </summary>
-    private static readonly Vector2Int[] PalmStampAnchors =
-    {
-        new Vector2Int(-9, 2),
-        new Vector2Int(6, 5),
-        new Vector2Int(-7, -4),
-        new Vector2Int(0, -5),
-    };
-
     [MenuItem(MenuPath)]
     public static void BuildAll()
     {
@@ -342,7 +317,14 @@ public static class ShopIslandBuilder
             OpenSceneMode.Single
         );
 
-        RestoreTerrainFromLobby(scene);
+        // Salt Harbour is generated, not copied. The coastline vocabulary is
+        // read back out of the team's two hand-authored islands so a new
+        // silhouette is drawn with the pieces the artist already used.
+        IslandTerrainBuilder.TerrainVocabulary vocabulary =
+            IslandTerrainBuilder.Learn();
+        HashSet<Vector2Int> land = IslandTerrainBuilder.BuildShape(vocabulary);
+        IslandTerrainBuilder.Paint(scene, land, vocabulary);
+
         StripHostileContent(scene);
         ClearPreviousDistrict(scene);
         CreateTownTiles();
@@ -353,13 +335,30 @@ public static class ShopIslandBuilder
         Tilemap obstacle = FindTilemap(scene, "Tilemap_ObstacleCollision");
 
         HashSet<Vector2Int> footprint = BuildFootprint(ground);
-        TileBase solidTile = FindSolidTile(obstacle);
 
-        ClearTownFootprint(props, overhead, obstacle, footprint);
+        // The pier goes wherever the bay's western shore actually ended up
+        // after erosion, not at a hardcoded cell.
+        Vector2Int dockAnchor = FindHarbourAnchor(land);
+        Vector2Int dockEnd = IslandTerrainBuilder.PlaceDock(
+            scene,
+            land,
+            vocabulary,
+            dockAnchor
+        );
+        MoorRowboat(scene, ground, dockEnd);
+        PaveHarbourRoad(ground, land, footprint, dockAnchor);
+
         PavePlaza(ground, footprint);
 
-        PlantPalmGroves(props, overhead, ground);
-        PlantTownTiles(props, obstacle, solidTile);
+        int groves = IslandTerrainBuilder.PlantGroves(
+            scene,
+            land,
+            vocabulary,
+            GroveAnchors(land, footprint)
+        );
+        Debug.Log($"[Shop Island] Planted {groves} palm groves.");
+
+        PlantTownTiles(props, obstacle, vocabulary.ObstacleCollision);
         ScatterUndergrowth(ground, props, overhead, footprint);
 
         Transform districtRoot = new GameObject(DistrictRootName).transform;
@@ -434,58 +433,161 @@ public static class ShopIslandBuilder
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Re-copies the terrain layers from the lobby island, so each build
-    /// starts from known-good ground instead of whatever the last build
-    /// left behind. Without this the builder is destructive rather than
-    /// idempotent: cobble painted over sand, or a grove cleared to make
-    /// room, could never be undone by running it again.
-    ///
-    /// The water layers are deliberately excluded. The shoreline autotiling
-    /// is ambiguous enough that reshaping it is a coin-flip on the most
-    /// visible thing in the scene, so the coastline is left exactly as the
-    /// lobby authored it and the island is differentiated by what is built
-    /// on top of it.
+    /// Finds where to build the pier: the eastmost land on the harbour row,
+    /// which is the western shore of the bay. Read from the finished shape
+    /// rather than hardcoded, because erosion decides the exact coastline.
     /// </summary>
-    private static void RestoreTerrainFromLobby(Scene shop)
+    private static Vector2Int FindHarbourAnchor(HashSet<Vector2Int> land)
     {
-        string[] layers =
-        {
-            "Tilemap_Ground",
-            "Tilemap_Props",
-            "Tilemap_Overhead",
-            "Tilemap_ObstacleCollision",
-        };
+        int shoreX = int.MinValue;
 
-        Scene lobby = EditorSceneManager.OpenScene(
-            LobbyScenePath,
-            OpenSceneMode.Additive
-        );
-
-        try
+        foreach (Vector2Int cell in land)
         {
-            foreach (string layer in layers)
+            if (cell.y == HarbourRowY && cell.x > shoreX)
             {
-                Tilemap source = FindTilemap(lobby, layer);
-                Tilemap destination = FindTilemap(shop, layer);
-
-                destination.ClearAllTiles();
-
-                BoundsInt bounds = source.cellBounds;
-                destination.SetTilesBlock(
-                    bounds,
-                    source.GetTilesBlock(bounds)
-                );
+                shoreX = cell.x;
             }
         }
-        finally
+
+        if (shoreX == int.MinValue)
         {
-            // Close without saving: the lobby island is read-only here.
-            EditorSceneManager.CloseScene(lobby, true);
+            throw new InvalidOperationException(
+                "[Shop Island] No land on the harbour row; the island shape " +
+                "does not reach the bay."
+            );
         }
 
+        // The pier starts on the first water cell past the shore, and its
+        // captured pattern is three rows tall centred on the harbour row.
+        return new Vector2Int(shoreX + 1, HarbourRowY - 1);
+    }
+
+    /// <summary>
+    /// Moves the inherited rowboat to the seaward end of the new pier. It
+    /// is the island's only exit, so leaving it at the lobby's coordinates
+    /// would strand it in open water far from the dock.
+    /// </summary>
+    private static void MoorRowboat(
+        Scene scene,
+        Tilemap ground,
+        Vector2Int dockEnd
+    )
+    {
+        LobbyRowboatInteraction rowboat = scene
+            .GetRootGameObjects()
+            .SelectMany(root =>
+                root.GetComponentsInChildren<LobbyRowboatInteraction>(true))
+            .FirstOrDefault();
+
+        if (rowboat == null)
+        {
+            Debug.LogWarning(
+                "[Shop Island] No rowboat to moor; players could not leave."
+            );
+            return;
+        }
+
+        // The interaction sits on a child of the rowboat root, so the root
+        // is what has to move.
+        Transform root = rowboat.transform;
+
+        while (root.parent != null)
+        {
+            root = root.parent;
+        }
+
+        root.position = CellPoint(ground, dockEnd.x + 0.3f, dockEnd.y);
+
         Debug.Log(
-            "[Shop Island] Restored terrain layers from the lobby island."
+            $"[Shop Island] Moored the rowboat at the pier end, cell " +
+            $"{dockEnd}."
         );
+    }
+
+    /// <summary>
+    /// Cobbles a road from the market square down to the pier, so the
+    /// harbour reads as connected to the town rather than as a pier that
+    /// happens to be nearby. Only ever paints on land.
+    /// </summary>
+    private static void PaveHarbourRoad(
+        Tilemap ground,
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint,
+        Vector2Int dockAnchor
+    )
+    {
+        Tile cobble = LoadShopTile("cobble_a");
+        int roadY = dockAnchor.y + 1;
+
+        // Along the shore to the pier.
+        for (int x = RoadJunctionX; x < dockAnchor.x; x++)
+        {
+            AddRoadCell(ground, land, footprint, cobble, x, roadY);
+            AddRoadCell(ground, land, footprint, cobble, x, roadY + 1);
+        }
+
+        // Up from the shore into the square.
+        for (int y = roadY; y <= PlazaCentreY; y++)
+        {
+            AddRoadCell(ground, land, footprint, cobble, RoadJunctionX, y);
+            AddRoadCell(ground, land, footprint, cobble, RoadJunctionX + 1, y);
+        }
+    }
+
+    private static void AddRoadCell(
+        Tilemap ground,
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint,
+        Tile cobble,
+        int x,
+        int y
+    )
+    {
+        Vector2Int cell = new Vector2Int(x, y);
+
+        if (!land.Contains(cell) || footprint.Contains(cell))
+        {
+            return;
+        }
+
+        ground.SetTile((Vector3Int)cell, cobble);
+        footprint.Add(cell);
+    }
+
+    /// <summary>
+    /// Where to try planting palm groves: spread around the island, well
+    /// clear of the town. Anchors that do not fit are skipped by the
+    /// planter, so this is a wish list rather than a guarantee.
+    /// </summary>
+    private static IEnumerable<Vector2Int> GroveAnchors(
+        HashSet<Vector2Int> land,
+        HashSet<Vector2Int> footprint
+    )
+    {
+        List<Vector2Int> anchors = new List<Vector2Int>();
+
+        // A coarse lattice over the island keeps the groves spread out
+        // instead of clumping wherever the first few happened to fit.
+        for (int x = -16; x <= 12; x += 3)
+        {
+            for (int y = -5; y <= 12; y += 3)
+            {
+                Vector2Int anchor = new Vector2Int(x, y);
+
+                bool nearTown = footprint.Any(cell =>
+                    Mathf.Abs(cell.x - anchor.x) <= 3 &&
+                    Mathf.Abs(cell.y - anchor.y) <= 3);
+
+                if (nearTown)
+                {
+                    continue;
+                }
+
+                anchors.Add(anchor);
+            }
+        }
+
+        return anchors;
     }
 
     /// <summary>
@@ -511,19 +613,6 @@ public static class ShopIslandBuilder
                     continue;
                 }
 
-                Vector2Int cell = new Vector2Int(x, y);
-
-                if (ground.HasTile((Vector3Int)cell))
-                {
-                    footprint.Add(cell);
-                }
-            }
-        }
-
-        for (int x = StreetMinX; x <= StreetMaxX; x++)
-        {
-            for (int y = StreetMinY; y <= StreetMaxY; y++)
-            {
                 Vector2Int cell = new Vector2Int(x, y);
 
                 if (ground.HasTile((Vector3Int)cell))
@@ -584,131 +673,6 @@ public static class ShopIslandBuilder
     // Clearing, without cutting anything in half
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Removes the wilderness standing where the town goes — and removes it
-    /// a whole object at a time.
-    ///
-    /// A palm is several cells: a trunk on the prop layer and a canopy two
-    /// or three cells higher on the overhead layer. Clearing a rectangle
-    /// therefore slices trees, leaving headless trunks inside the border
-    /// and canopies floating over nothing outside it, which is exactly what
-    /// made the first market look pasted onto the island. So the two layers
-    /// are flood-filled together into connected clusters, and a cluster is
-    /// either kept entirely or removed entirely.
-    /// </summary>
-    private static void ClearTownFootprint(
-        Tilemap props,
-        Tilemap overhead,
-        Tilemap obstacle,
-        HashSet<Vector2Int> footprint
-    )
-    {
-        int removed = 0;
-
-        foreach (HashSet<Vector2Int> cluster in FindClusters(props, overhead))
-        {
-            // The pier is the only way off the island. Never clear it, no
-            // matter what the town plan overlaps.
-            if (cluster.Any(cell => cell.x >= DockGuardX))
-            {
-                continue;
-            }
-
-            if (!cluster.Any(footprint.Contains))
-            {
-                continue;
-            }
-
-            foreach (Vector2Int cell in cluster)
-            {
-                Vector3Int position = (Vector3Int)cell;
-                props.SetTile(position, null);
-                overhead.SetTile(position, null);
-                obstacle.SetTile(position, null);
-            }
-
-            removed++;
-        }
-
-        Debug.Log(
-            $"[Shop Island] Cleared {removed} whole prop clusters for the " +
-            "town; everything else was left standing."
-        );
-    }
-
-    /// <summary>
-    /// Flood-fills the prop and overhead layers together into connected
-    /// clusters, using 8-connectivity so a canopy still counts as attached
-    /// to a trunk that sits diagonally beneath it.
-    /// </summary>
-    private static List<HashSet<Vector2Int>> FindClusters(
-        Tilemap props,
-        Tilemap overhead
-    )
-    {
-        HashSet<Vector2Int> occupied = new HashSet<Vector2Int>();
-
-        foreach (Tilemap map in new[] { props, overhead })
-        {
-            foreach (Vector3Int cell in map.cellBounds.allPositionsWithin)
-            {
-                if (map.HasTile(cell))
-                {
-                    occupied.Add(new Vector2Int(cell.x, cell.y));
-                }
-            }
-        }
-
-        List<HashSet<Vector2Int>> clusters =
-            new List<HashSet<Vector2Int>>();
-        HashSet<Vector2Int> visited = new HashSet<Vector2Int>();
-
-        foreach (Vector2Int start in occupied)
-        {
-            if (!visited.Add(start))
-            {
-                continue;
-            }
-
-            HashSet<Vector2Int> cluster =
-                new HashSet<Vector2Int> { start };
-            Queue<Vector2Int> pending = new Queue<Vector2Int>();
-            pending.Enqueue(start);
-
-            while (pending.Count > 0)
-            {
-                Vector2Int current = pending.Dequeue();
-
-                for (int dx = -1; dx <= 1; dx++)
-                {
-                    for (int dy = -1; dy <= 1; dy++)
-                    {
-                        if (dx == 0 && dy == 0)
-                        {
-                            continue;
-                        }
-
-                        Vector2Int neighbour =
-                            new Vector2Int(current.x + dx, current.y + dy);
-
-                        if (!occupied.Contains(neighbour) ||
-                            !visited.Add(neighbour))
-                        {
-                            continue;
-                        }
-
-                        cluster.Add(neighbour);
-                        pending.Enqueue(neighbour);
-                    }
-                }
-            }
-
-            clusters.Add(cluster);
-        }
-
-        return clusters;
-    }
-
     // ------------------------------------------------------------------
     // Paving and planting
     // ------------------------------------------------------------------
@@ -748,108 +712,6 @@ public static class ShopIslandBuilder
         Debug.Log($"[Shop Island] Paved {footprint.Count} plaza cells.");
     }
 
-    /// <summary>
-    /// Copies one of the island's own palm groves to a few new anchors.
-    ///
-    /// Clearing the town site necessarily takes out the groves that stood
-    /// there, and importing the openRPG temperate trees to replace them
-    /// would put oaks on a tropical beach. Stamping a grove the artist
-    /// already drew keeps the replanting indistinguishable from the
-    /// original planting.
-    /// </summary>
-    private static void PlantPalmGroves(
-        Tilemap props,
-        Tilemap overhead,
-        Tilemap ground
-    )
-    {
-        // The northern grove: trunk cells on the prop layer, canopy on the
-        // overhead layer, spanning cells (-4..-2, 8..11).
-        BoundsInt source = new BoundsInt(-4, 8, 0, 3, 4, 1);
-
-        List<(Vector2Int Offset, TileBase Prop, TileBase Overhead)> pattern =
-            new List<(Vector2Int, TileBase, TileBase)>();
-
-        foreach (Vector3Int cell in source.allPositionsWithin)
-        {
-            TileBase propTile = props.GetTile(cell);
-            TileBase overheadTile = overhead.GetTile(cell);
-
-            if (propTile == null && overheadTile == null)
-            {
-                continue;
-            }
-
-            pattern.Add((
-                new Vector2Int(cell.x - source.xMin, cell.y - source.yMin),
-                propTile,
-                overheadTile
-            ));
-        }
-
-        if (pattern.Count == 0)
-        {
-            Debug.LogWarning(
-                "[Shop Island] The donor palm grove is missing; skipping " +
-                "replanting."
-            );
-            return;
-        }
-
-        int planted = 0;
-
-        foreach (Vector2Int anchor in PalmStampAnchors)
-        {
-            // Only plant where every trunk cell is dry land and the whole
-            // footprint is empty, so a grove never straddles the surf or
-            // grows through something already standing.
-            bool clear = pattern.All(part =>
-            {
-                Vector3Int target = new Vector3Int(
-                    anchor.x + part.Offset.x,
-                    anchor.y + part.Offset.y,
-                    0
-                );
-
-                if (props.HasTile(target) || overhead.HasTile(target))
-                {
-                    return false;
-                }
-
-                return part.Prop == null || ground.HasTile(target);
-            });
-
-            if (!clear)
-            {
-                continue;
-            }
-
-            foreach ((Vector2Int offset, TileBase prop, TileBase canopy)
-                in pattern)
-            {
-                Vector3Int target = new Vector3Int(
-                    anchor.x + offset.x,
-                    anchor.y + offset.y,
-                    0
-                );
-
-                if (prop != null)
-                {
-                    props.SetTile(target, prop);
-                }
-
-                if (canopy != null)
-                {
-                    overhead.SetTile(target, canopy);
-                }
-            }
-
-            planted++;
-        }
-
-        Debug.Log($"[Shop Island] Replanted {planted} palm groves.");
-    }
-
     private static void PlantTownTiles(
         Tilemap props,
         Tilemap obstacle,
@@ -883,7 +745,7 @@ public static class ShopIslandBuilder
     /// fuller. Sparse clumps let the palm groves and the market be the
     /// things the eye lands on.
     /// </summary>
-    private const int UndergrowthPercent = 7;
+    private const int UndergrowthPercent = 11;
 
     private static void ScatterUndergrowth(
         Tilemap ground,
@@ -933,25 +795,6 @@ public static class ShopIslandBuilder
         }
 
         Debug.Log($"[Shop Island] Scattered {planted} pieces of undergrowth.");
-    }
-
-    /// <summary>
-    /// Borrows whatever invisible tile the island already uses for its
-    /// collision layer, rather than inventing one that might render.
-    /// </summary>
-    private static TileBase FindSolidTile(Tilemap obstacle)
-    {
-        foreach (Vector3Int cell in obstacle.cellBounds.allPositionsWithin)
-        {
-            TileBase tile = obstacle.GetTile(cell);
-
-            if (tile != null)
-            {
-                return tile;
-            }
-        }
-
-        return null;
     }
 
     private static Tile LoadShopTile(string name)
