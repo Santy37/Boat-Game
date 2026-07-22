@@ -19,7 +19,7 @@ public static class PlayerAnimationEventFixup
     private const string MenuPath = "Deadman's Tales/Fix Player Animation Events";
 
     private const string PlayerPrefabPath =
-        "Assets/DeadmansTales/Prefabs/Player_2D_Network.prefab";
+        "Assets/DeadmansTales/Prefabs/Players/Player_2D_Network.prefab";
 
     [MenuItem(MenuPath)]
     public static void BuildAll()

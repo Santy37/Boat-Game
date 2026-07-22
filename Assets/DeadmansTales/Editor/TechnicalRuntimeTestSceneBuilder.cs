@@ -91,8 +91,8 @@ internal static class TechnicalRuntimeTestSceneBuilder
             scenes = new[]
             {
                 TestScenePath,
-                "Assets/DeadmansTales/Scenes/Lobby_Island_2D.unity",
-                "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity",
+                "Assets/DeadmansTales/Scenes/Island/Lobby_Island_2D.unity",
+                "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity",
                 "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity",
             },
             locationPathName = Path.Combine(

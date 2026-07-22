@@ -25,16 +25,16 @@ internal static class IslandStageBuilder
         "Deadman's Tales/Build Networked Post-Ocean Island";
 
     private const string SourceIslandScenePath =
-        "Assets/DeadmansTales/Scenes/Lobby_Island_2D.unity";
+        "Assets/DeadmansTales/Scenes/Island/Lobby_Island_2D.unity";
 
     private const string BoatScenePath =
-        "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity";
+        "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
 
     private const string IslandScenePath =
         "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
 
     private const string PlayerPrefabPath =
-        "Assets/DeadmansTales/Prefabs/Player_2D_Network.prefab";
+        "Assets/DeadmansTales/Prefabs/Players/Player_2D_Network.prefab";
 
     private const string EnemyPrefabPath =
         "Assets/DeadmansTales/Prefabs/basicenemy.prefab";

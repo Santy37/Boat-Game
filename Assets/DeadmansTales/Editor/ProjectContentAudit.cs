@@ -15,7 +15,7 @@ public static class ProjectContentAudit
 {
     private static readonly string[] ScenePaths =
     {
-        "Assets/DeadmansTales/Scenes/Boat_Gameplay_2D.unity",
+        "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity",
         "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity",
     };
 
@@ -25,7 +25,7 @@ public static class ProjectContentAudit
         "Assets/DeadmansTales/Prefabs/Gameplay/Enemy_CrabSkitter.prefab",
         "Assets/DeadmansTales/Prefabs/Gameplay/Enemy_BoneBrute.prefab",
         "Assets/DeadmansTales/Prefabs/Gameplay/Enemy_SkeletonWarrior.prefab",
-        "Assets/DeadmansTales/Prefabs/Player_2D_Network.prefab",
+        "Assets/DeadmansTales/Prefabs/Players/Player_2D_Network.prefab",
         "Assets/DeadmansTales/Prefabs/Gameplay/NetworkFoodPickup_Apple.prefab",
     };
 
