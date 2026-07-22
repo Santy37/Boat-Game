@@ -37,8 +37,25 @@ public class ShipCannon : MonoBehaviour
 
     private void Awake()
     {
-        Collider2D area = GetComponent<Collider2D>();
-        if (area == null || !area.isTrigger)
+        // Every collider on the object, not just the first one Unity hands
+        // back. A cannon carries two: a solid box for the barrel you bump
+        // into, and a trigger offset towards the gunner's standing spot.
+        // GetComponent returned the solid one, so this logged an error about
+        // a missing trigger that was sitting right beside it -- and five of
+        // those on scene load will pause play mode outright if the console
+        // has Error Pause on, which reads as the game refusing to start.
+        bool hasTriggerArea = false;
+
+        foreach (Collider2D area in GetComponents<Collider2D>())
+        {
+            if (area != null && area.isTrigger)
+            {
+                hasTriggerArea = true;
+                break;
+            }
+        }
+
+        if (!hasTriggerArea)
         {
             Debug.LogError(
                 $"[ShipCannon] '{name}' needs a Collider2D with Is Trigger " +

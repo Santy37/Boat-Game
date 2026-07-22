@@ -181,6 +181,13 @@ public static class VoyageLoopBuilder
         );
     }
 
+    // The helm and the four cannons are NOT missing their interaction
+    // triggers, despite what their own Awake logs claim. Each carries two
+    // BoxCollider2Ds -- a solid one for the body you bump into and a trigger
+    // offset towards the standing spot -- and the scene is right. The check
+    // in the scripts is what is wrong, and it is fixed there rather than by
+    // bolting a third collider onto his objects here.
+
     /// <summary>
     /// Puts the island exit back on the ship. Without it the boat is a dead
     /// end: you can sail, aim and fire, and never get off.

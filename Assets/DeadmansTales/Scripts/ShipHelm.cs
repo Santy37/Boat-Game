@@ -42,8 +42,23 @@ public class ShipHelm : MonoBehaviour
 
     private void Awake()
     {
-        Collider2D area = GetComponent<Collider2D>();
-        if (area == null || !area.isTrigger)
+        // Every collider on the object, not just the first one Unity hands
+        // back: the helm carries a solid box for the wheel and a trigger for
+        // the spot the steersman stands on. GetComponent returned the solid
+        // one, so this logged an error about a missing trigger that was
+        // sitting right beside it.
+        bool hasTriggerArea = false;
+
+        foreach (Collider2D area in GetComponents<Collider2D>())
+        {
+            if (area != null && area.isTrigger)
+            {
+                hasTriggerArea = true;
+                break;
+            }
+        }
+
+        if (!hasTriggerArea)
         {
             Debug.LogError(
                 $"[ShipHelm] '{name}' needs a Collider2D with Is Trigger " +
