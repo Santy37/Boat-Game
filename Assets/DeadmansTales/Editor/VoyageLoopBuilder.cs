@@ -103,6 +103,7 @@ public static class VoyageLoopBuilder
         );
 
         NameSpawnMarkers(scene);
+        SeatTheGunners(scene);
         ConnectHelmToShip(scene);
         EnsureIslandPortal(scene);
         EnsureEventSystem(scene);
@@ -188,6 +189,106 @@ public static class VoyageLoopBuilder
     // offset towards the standing spot -- and the scene is right. The check
     // in the scripts is what is wrong, and it is fixed there rather than by
     // bolting a third collider onto his objects here.
+
+    /// <summary>How far from a cannon its gunner stands, in world units.</summary>
+    private const float GunnerStandDistance = 0.85f;
+
+    /// <summary>
+    /// Makes the cannons seatable: trims each gun's solid collider back to
+    /// the gun, and stands the gunner where a gunner belongs.
+    ///
+    /// Manning a cannon was throwing the player across the deck, and the
+    /// numbers say why. Each cannon's SOLID box is 1 x 2 centred on the gun,
+    /// so it spans local y -1 to +1 — a two-metre block of deck for a piece
+    /// of artillery about a metre long. The stand points sit at -1.34 and
+    /// -1.35 on the two forward guns and +1.10 and +1.12 on the two aft
+    /// ones, and the player's own collider is a circle of radius 0.35. So
+    /// seating a gunner at an aft cannon dropped them 0.25 units INSIDE the
+    /// gun's solid box; Unity did the only thing it can with two overlapping
+    /// solid bodies and shoved them out. The forward pair sat right on the
+    /// boundary and only sometimes escaped it.
+    ///
+    /// That same 1 x 2 box also swallows the interaction trigger beneath it
+    /// (solid -1..+1 against trigger -1.5..-0.5), which is the overlap you
+    /// can see when the gizmos are on.
+    ///
+    /// Two changes, both derived from the gun's own muzzle so they hold for
+    /// any cannon pointing any direction:
+    ///
+    ///   - the solid box keeps its width but loses the half BEHIND the gun,
+    ///     the half that was never the cannon in the first place — only the
+    ///     muzzle side stays solid;
+    ///   - the stand point is pulled in to a consistent 0.85 units, which
+    ///     puts the gunner snug against the breech instead of a body-length
+    ///     away, and leaves 0.35 of clearance on both sides inside the
+    ///     1 x 1 trigger.
+    /// </summary>
+    private static void SeatTheGunners(Scene scene)
+    {
+        ShipCannon[] cannons = scene
+            .GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<ShipCannon>(true))
+            .ToArray();
+
+        foreach (ShipCannon cannon in cannons)
+        {
+            SerializedObject serialized = new SerializedObject(cannon);
+
+            Transform muzzle = serialized
+                .FindProperty("muzzle")?.objectReferenceValue as Transform;
+            Transform stand = serialized
+                .FindProperty("standPoint")?.objectReferenceValue as Transform;
+
+            // Which way the gun points. The muzzle is the ground truth; the
+            // 'facing' field is only a fallback for a cannon without one.
+            float muzzleSide = muzzle != null
+                ? muzzle.localPosition.y
+                : serialized.FindProperty("facing").vector2Value.y;
+
+            float gunSide = muzzleSide >= 0f ? 1f : -1f;
+
+            foreach (BoxCollider2D box in cannon.GetComponents<BoxCollider2D>())
+            {
+                if (box.isTrigger || box.size.y <= 1f)
+                {
+                    continue;
+                }
+
+                float height = box.size.y * 0.5f;
+
+                box.size = new Vector2(box.size.x, height);
+                box.offset = new Vector2(
+                    box.offset.x,
+                    box.offset.y + gunSide * height * 0.5f
+                );
+
+                Debug.Log(
+                    $"[Voyage Loop] '{cannon.name}' body collider trimmed to " +
+                    $"{box.size} at {box.offset}; the gunner's half of the " +
+                    "deck is walkable again."
+                );
+            }
+
+            if (stand == null)
+            {
+                continue;
+            }
+
+            Vector3 local = stand.localPosition;
+            stand.localPosition = new Vector3(
+                local.x,
+                -gunSide * GunnerStandDistance,
+                local.z
+            );
+
+            Debug.Log(
+                $"[Voyage Loop] '{cannon.name}' gunner moved from " +
+                $"y {local.y:0.00} to {stand.localPosition.y:0.00}."
+            );
+        }
+
+        Debug.Log($"[Voyage Loop] {cannons.Length} cannons made seatable.");
+    }
 
     /// <summary>
     /// Hands the helm the ship it is supposed to steer.
