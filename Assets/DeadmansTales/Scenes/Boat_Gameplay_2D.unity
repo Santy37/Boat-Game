@@ -868,7 +868,7 @@ MonoBehaviour:
   manKey: 101
   standPoint: {fileID: 2125084019}
   facing: {x: -1, y: 0}
-  ship: {fileID: 0}
+  ship: {fileID: 235887347}
   moveSpeed: 3
   moveBounds: {x: 5, y: 3}
   steeringCameraZoom: 25
