@@ -112,6 +112,12 @@ public static class ShopIslandBuilder
     /// <summary>Where the harbour road turns north for the market square.</summary>
     private const int RoadJunctionX = 4;
 
+    /// <summary>
+    /// How many cells of the pier are built over dry land, so it joins the
+    /// beach instead of starting at the waterline.
+    /// </summary>
+    private const int DockShoreOverlap = 2;
+
     private const int ScatterSalt = 20260721;
 
     private sealed class VendorSpec
@@ -176,22 +182,28 @@ public static class ShopIslandBuilder
 
     private static readonly VendorSpec[] Vendors =
     {
+        // Rusty was a suit of polished plate armour, which reads as a knight
+        // standing at a stall rather than as the person who made the blade
+        // you are buying. This one is in a work shirt and leather vest.
         new VendorSpec(
             "Vendor_Blacksmith",
             "Rusty the Smith",
             ShopStock.WeaponTier,
-            7,
+            49,
             25,
             15,
             0,
             -4,
             "stall_red"
         ),
+        // Vex was motw_10 — the sprite the PLAYER renders. Two of the same
+        // character, one shopping from the other. A quartermaster is a
+        // ship's officer, so this one wears an officer's colours.
         new VendorSpec(
             "Vendor_Quartermaster",
             "Quartermaster Vex",
             ShopStock.Upgrade,
-            10,
+            4,
             30,
             20,
             0,
@@ -232,7 +244,7 @@ public static class ShopIslandBuilder
         {
             // Trade tools, in the yards either end of the stall row.
             ("forge_stone", -7.5f, 6f, 2),
-            ("meatrack", 6.5f, 5f, 4),
+            ("meatrack", 6.5f, 5f, 3),
 
             // Goods stacked in the two gaps between the three stalls,
             // which fall on cells -2 and 2.
@@ -242,9 +254,11 @@ public static class ShopIslandBuilder
             ("barrel", -6.4f, 5.2f, 1),
             ("crate", 6.4f, 6.4f, 1),
 
-            // A facing row of counters turns the square into a street.
-            ("stall_counter", -2.5f, 1.2f, 3),
-            ("stall_counter", 2.5f, 1.2f, 3),
+            // The square used to have a facing row of counters across its
+            // south side, meant to read as a street. Nobody stood behind
+            // them and nothing could be bought at them, so they read as
+            // two more shops that were broken. An empty square is better
+            // than furniture that promises an interaction it does not have.
 
             // One signpost where the road leaves for the pier. Two read as
             // a pair of odd poles rather than as wayfinding.
@@ -434,6 +448,7 @@ public static class ShopIslandBuilder
         PlaceCoins(districtRoot, ground, footprint, coinPrefab);
         EnsureShopHud(scene);
         PointExitAtBoat(scene);
+        RebuildCollisionGeometry(scene);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -523,9 +538,15 @@ public static class ShopIslandBuilder
             );
         }
 
-        // The pier starts on the first water cell past the shore, and its
-        // captured pattern is three rows tall centred on the harbour row.
-        return new Vector2Int(shoreX + 1, HarbourRowY - 1);
+        // The pier is pulled back onto the beach rather than started at the
+        // first water cell. Beginning it exactly where the sand stops leaves
+        // a visible seam — planks that meet the shoreline edge-on and look
+        // like they are floating alongside the island instead of being
+        // built onto it. Real piers are anchored on land.
+        return new Vector2Int(
+            shoreX + 1 - DockShoreOverlap,
+            HarbourRowY - 1
+        );
     }
 
     /// <summary>
@@ -1005,6 +1026,68 @@ public static class ShopIslandBuilder
         }
     }
 
+    /// <summary>
+    /// Rebuilds the collision outlines for the two blocking tilemaps.
+    ///
+    /// A CompositeCollider2D SERIALIZES its geometry into the scene, and this
+    /// scene was born as a copy of the lobby island — so it shipped with the
+    /// lobby's outlines baked in while carrying Salt Harbour's tiles. The
+    /// saved shapes described land that is not here: a block at cells
+    /// (-3, 8..9) with no tile under it, nothing at all around the well.
+    /// Whatever the editor reconstructs on load, a scene whose stored
+    /// collision does not match its own tiles is a scene nobody can reason
+    /// about, and it is the only explanation left for solid props you can
+    /// walk through. Generating it here makes what is saved what is meant.
+    /// </summary>
+    private static void RebuildCollisionGeometry(Scene scene)
+    {
+        string[] blockingMaps =
+        {
+            "Tilemap_ObstacleCollision",
+            "Tilemap_WaterCollision",
+        };
+
+        foreach (string name in blockingMaps)
+        {
+            Tilemap map = FindTilemap(scene, name);
+
+            TilemapCollider2D tileCollider =
+                map.GetComponent<TilemapCollider2D>();
+
+            if (tileCollider == null)
+            {
+                Debug.LogWarning(
+                    $"[Shop Island] {name} has no TilemapCollider2D; " +
+                    "nothing on it will block movement."
+                );
+                continue;
+            }
+
+            CompositeCollider2D composite =
+                map.GetComponent<CompositeCollider2D>();
+
+            if (composite == null)
+            {
+                continue;
+            }
+
+            // A TilemapCollider2D batches tile edits and rebuilds its shapes
+            // on the next physics step, which a batch-mode build never takes.
+            // Asking the composite to regenerate before that happens merges
+            // whatever it already had -- which is how the stale outlines
+            // survived being "regenerated" the first time. Flush the pending
+            // tile changes first, then merge.
+            tileCollider.ProcessTilemapChanges();
+            Physics2D.SyncTransforms();
+            composite.GenerateGeometry();
+
+            Debug.Log(
+                $"[Shop Island] {name}: {map.GetUsedTilesCount()} blocking " +
+                $"tiles merged into {composite.pathCount} outline(s)."
+            );
+        }
+    }
+
     private static Tile LoadShopTile(string name)
     {
         Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(
@@ -1316,10 +1399,12 @@ public static class ShopIslandBuilder
             GameObject front = CreatePropObject(
                 districtRoot,
                 ground,
-                spec.StallProp + "_front",
+                MarketArtBuilder.StallFrontProp,
                 spec.CellX,
                 StallRowY
             );
+
+            front.name = spec.StallProp + "_counter";
 
             front.GetComponent<SpriteRenderer>().sortingOrder =
                 Mathf.Min(stallOrder + 2, 19);
@@ -1339,11 +1424,17 @@ public static class ShopIslandBuilder
             BoxCollider2D trigger =
                 vendorObject.AddComponent<BoxCollider2D>();
             trigger.isTrigger = true;
-            // Reaches down into the square: the trader stands back at their
-            // counter, so the trigger has to cover where a shopper actually
-            // stands, not just where the trader does.
-            trigger.offset = new Vector2(0f, 0.1f);
-            trigger.size = new Vector2(3f, 3.4f);
+            // Only the strip of pavement directly in front of the counter.
+            //
+            // This used to be 3 x 3.4 centred on the trader, which reached
+            // most of the way across the square: the shop panel opened while
+            // you were still walking towards the stall, and with three
+            // stalls four cells apart their zones very nearly touched. The
+            // box now sits south of the trader and covers roughly one
+            // player's depth of standing room, which is the only place a
+            // shopper can actually be — the counter blocks the row behind.
+            trigger.offset = new Vector2(0f, -0.85f);
+            trigger.size = new Vector2(2.2f, 1.2f);
 
             NetworkShopVendor vendor =
                 vendorObject.AddComponent<NetworkShopVendor>();
@@ -1364,7 +1455,13 @@ public static class ShopIslandBuilder
 
             // Stalls restock, so the interaction must not be one-shot.
             SetSerializedBool(vendor, "allowRepeatedInteraction", true);
-            SetSerializedFloat(vendor, "additionalServerRange", 1.5f);
+
+            // No slack on top of the player's own two-unit reach. The extra
+            // 1.5 units here was the other half of the too-eager prompt:
+            // the range test measures to the TRADER, who stands a counter's
+            // depth back, so every unit of slack showed the panel a unit
+            // earlier than it looks like it should.
+            SetSerializedFloat(vendor, "additionalServerRange", 0f);
 
             // One order above their own stall. Depth-sorting alone would
             // put the trader behind it — they stand further north — and the

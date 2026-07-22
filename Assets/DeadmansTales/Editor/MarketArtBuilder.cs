@@ -130,15 +130,16 @@ public static class MarketArtBuilder
             Part(3, 0, 3, 4)
         ),
 
+        // The drying rack, cut from the sheet's SECOND row of racks. The
+        // first row is a rail of hanging meat with nothing holding it up —
+        // drawn to be hung off a wall — so placed on open sand it read
+        // exactly as what it was: meat floating in mid-air. This band has
+        // the posts, and they run to the bottom of the art, so the trimmed
+        // sprite's base is the foot of the rack.
         new PropRecipe(
             "meatrack",
             MeatrackSourcePath,
-            Part(0, 0, 5, 2)
-        ),
-        new PropRecipe(
-            "meatrack_tall",
-            MeatrackSourcePath,
-            Part(0, 2, 5, 2)
+            Part(0, 2, 3, 2)
         ),
 
         new PropRecipe(
@@ -168,7 +169,9 @@ public static class MarketArtBuilder
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// The three stall colourways and the sheet column each starts at.
+    /// The three stall colourways and the sheet column each AWNING starts
+    /// at. Only the canopy is taken from these columns; see
+    /// <see cref="StallBodyColumn"/>.
     /// </summary>
     private static readonly (string Name, int Column)[] StallColours =
     {
@@ -176,6 +179,30 @@ public static class MarketArtBuilder
         ("stall_blue", 3),
         ("stall_green", 6),
     };
+
+    /// <summary>
+    /// The column every stall's posts and counter are cut from.
+    /// </summary>
+    /// <remarks>
+    /// The sheet is not three matching stalls. Only the red and blue blocks
+    /// are complete; the green block is an awning plus two spare cloth
+    /// strips, with no posts and no counter under it. Slicing all three by
+    /// the same bands therefore gave the green stall a solid green curtain
+    /// where its posts belong and a scrap of BLUE bunting for a counter —
+    /// which is what made Ol' Sally's stand look broken while the other two
+    /// looked fine.
+    ///
+    /// Each stall now takes only its canopy from its own colour and its body
+    /// from the red block. That is also how a market actually reads: one
+    /// timber counter design under differently coloured awnings.
+    /// </remarks>
+    private const int StallBodyColumn = 0;
+
+    /// <summary>
+    /// The counter shared by all three stalls. One sprite rather than three
+    /// identical copies, because there is only one counter on the sheet.
+    /// </summary>
+    public const string StallFrontProp = "stall_front";
 
     // Bands within the complete 3x4 stall block, in pixels from the block's
     // top. The block is 64px tall but the art occupies rows 4..55.
@@ -215,8 +242,9 @@ public static class MarketArtBuilder
             foreach ((string name, int column) in StallColours)
             {
                 BuildStallBack(sheet, name, column);
-                BuildStallFront(sheet, name, column);
             }
+
+            BuildStallFront(sheet);
         }
         finally
         {
@@ -226,15 +254,16 @@ public static class MarketArtBuilder
         foreach ((string name, int _) in StallColours)
         {
             ImportProp(name + "_back");
-            ImportProp(name + "_front");
         }
+
+        ImportProp(StallFrontProp);
     }
 
     /// <summary>Awning plus lengthened posts. Stands behind the trader.</summary>
     private static void BuildStallBack(
         Texture2D sheet,
         string name,
-        int column
+        int awningColumn
     )
     {
         int width = 3 * Cell;
@@ -245,9 +274,8 @@ public static class MarketArtBuilder
         Color32[] pixels = sheet.GetPixels32();
 
         int blockTop = 3 * Cell;
-        int left = column * Cell;
 
-        // Canopy, sitting on top.
+        // Canopy, sitting on top, in this stall's own colour.
         for (int row = 0; row < awningHeight; row++)
         {
             CopyRow(
@@ -256,13 +284,14 @@ public static class MarketArtBuilder
                 output,
                 width,
                 height,
-                left,
+                awningColumn * Cell,
                 blockTop + StallInkTop + row,
                 row
             );
         }
 
-        // Posts, repeated from a single mid-band row down to the counter.
+        // Posts, repeated from a single mid-band row down to the counter,
+        // always from the block that actually has posts drawn under it.
         int postSourceRow = blockTop + (AwningBottom + PostsBottom) / 2;
 
         for (int row = 0; row < PostHeight; row++)
@@ -273,7 +302,7 @@ public static class MarketArtBuilder
                 output,
                 width,
                 height,
-                left,
+                StallBodyColumn * Cell,
                 postSourceRow,
                 awningHeight + row
             );
@@ -283,11 +312,7 @@ public static class MarketArtBuilder
     }
 
     /// <summary>The counter alone. Draws in front of the trader.</summary>
-    private static void BuildStallFront(
-        Texture2D sheet,
-        string name,
-        int column
-    )
+    private static void BuildStallFront(Texture2D sheet)
     {
         int width = 3 * Cell;
         int height = StallInkBottom - PostsBottom;
@@ -296,7 +321,6 @@ public static class MarketArtBuilder
         Color32[] pixels = sheet.GetPixels32();
 
         int blockTop = 3 * Cell;
-        int left = column * Cell;
 
         for (int row = 0; row < height; row++)
         {
@@ -306,13 +330,13 @@ public static class MarketArtBuilder
                 output,
                 width,
                 height,
-                left,
+                StallBodyColumn * Cell,
                 blockTop + PostsBottom + row,
                 row
             );
         }
 
-        WriteTexture(name + "_front", width, height, output);
+        WriteTexture(StallFrontProp, width, height, output);
     }
 
     /// <summary>
@@ -374,8 +398,8 @@ public static class MarketArtBuilder
         AssetDatabase.Refresh();
 
         Debug.Log(
-            $"[Market Art] Composited {Recipes.Length} market props and " +
-            $"{StallColours.Length} split stalls."
+            $"[Market Art] Composited {Recipes.Length} market props, " +
+            $"{StallColours.Length} stall canopies and one shared counter."
         );
     }
 
