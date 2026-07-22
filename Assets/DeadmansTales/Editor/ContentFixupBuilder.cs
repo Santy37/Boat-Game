@@ -111,13 +111,14 @@ public static class ContentFixupBuilder
     // UpgradeBoneBruteToOrc; with that gone this is the orc's real
     // on-screen height.
     //
-    // Was 1.25x, and it played far bigger than that number suggests. These
-    // targets are measured on a frame's trimmed HEIGHT, but the orc is drawn
-    // holding an axe out to one side and a shield out to the other, so it
-    // eats roughly twice the player's width at any given height. Height
-    // parity is what makes it read as a heavy rather than a giant; the bulk
-    // does the rest.
-    private const float BruteTargetWorldHeight = PlayerWorldHeight * 1.0f;
+    // SIZE THESE BY WIDTH, NOT HEIGHT — see the note above the demon.
+    //
+    // The orc is the extreme case: axe out one side, shield out the other,
+    // so its drawn box is 3.14 x 2.14. Sized to height parity it still
+    // covered nearly THREE TIMES the player's width and read as a giant.
+    // 0.76 brings it to about 2.4x wide and 0.87x tall: shorter than a
+    // pirate and far broader, which is what a brute should look like.
+    private const float BruteTargetWorldHeight = PlayerWorldHeight * 0.76f;
 
     // A scuttling crab is knee-height; a chest reads as furniture.
     private const float CrabTargetWorldHeight = PlayerWorldHeight * 0.42f;
@@ -126,14 +127,21 @@ public static class ContentFixupBuilder
     // The demon reaver is the elite (rarer, taller), the blood fiend a
     // fast low-health swarmer that comes up to the player's shoulder.
     //
-    // The demon was 1.5x and measured 1.78x the player once its horns were
-    // counted, which is the tallest thing in the game standing next to the
-    // smallest — it stopped reading as an enemy and started reading as
-    // scenery you had wandered into. At 1.15x it is still visibly the
-    // biggest creature on the island without dwarfing the crew.
-    private const float DemonTargetWorldHeight = PlayerWorldHeight * 1.15f;
+    // WHY THESE ARE SO MUCH SMALLER THAN THEY LOOK. Every target here is a
+    // HEIGHT, and height turned out to be the wrong thing to measure. The
+    // roster was cut to 1.14x / 1.33x on height and still played oversized,
+    // while the skeleton at 1.16x played fine. Measuring WIDTH explained it:
+    //
+    //     player 1.06 wide      orc 2.96x      demon 2.35x
+    //     skeleton 1.96x        blood fiend 2.35x
+    //
+    // The TinyRPG sheets draw their creatures side-on with weapons and limbs
+    // flung wide, so they cover two to three times the player's width at any
+    // given height. The skeleton is the one the eye accepts, so its ~2x
+    // width is the ceiling the rest are now fitted to.
+    private const float DemonTargetWorldHeight = PlayerWorldHeight * 0.95f;
     private const float BloodMonsterTargetWorldHeight =
-        PlayerWorldHeight * 0.85f;
+        PlayerWorldHeight * 0.65f;
 
     // Matches Lobby_Island_2D and Boat_Gameplay_2D's camera so all three
     // gameplay scenes share the same tiles-per-screen density.

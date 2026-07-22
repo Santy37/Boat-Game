@@ -103,9 +103,18 @@ public class ShipHelm : MonoBehaviour
             steerOffset.y = Mathf.Clamp(steerOffset.y, -moveBounds.y, moveBounds.y);
         }
 
-        // Apply the ship position every frame so it holds its steered spot and
-        // overrides any other position writer (e.g. a zeroed BoatBob) on the ship.
-        if (ship != null)
+        // Hold the steered spot, but only once there is one to hold.
+        //
+        // This used to write every frame unconditionally, to override any
+        // other position writer on the ship. With the ship reference finally
+        // filled in, that meant BoatBob wrote the ship's transform in Update
+        // and this wrote it again in LateUpdate, every frame of the game,
+        // for no gain: BoatBob is configured with a zero bob and zero rock,
+        // so both were writing the same value. Two writes a frame to the
+        // transform every collider on the ship hangs off is not free — it
+        // re-syncs them all, which is enough to make a trigger the player is
+        // only just inside report an exit.
+        if (ship != null && (manned || steerOffset != Vector2.zero))
         {
             ship.localPosition = shipHome + (Vector3)steerOffset;
         }

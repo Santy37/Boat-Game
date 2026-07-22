@@ -195,9 +195,20 @@ public class ShipCannon : MonoBehaviour
         TopDownNetworkPlayer2D player =
             other.GetComponentInParent<TopDownNetworkPlayer2D>();
 
-        if (player != null && player == playerInRange)
+        // Don't drop the gunner while they're manning the cannon — the same
+        // guard ShipHelm already has, for the same reason.
+        //
+        // Manning teleports the player onto the stand point, and this
+        // trigger is a 1x1 box while the stand point sits 1.34 units out
+        // from the cannon: the seat lands barely inside the box, with the
+        // player's own 0.35 collider straddling its edge. Any re-sync of the
+        // ship's transform then fires an exit, and without this guard the
+        // exit immediately called Leave() and cleared playerInRange -- so
+        // pressing the man key seated you, unseated you, and left you
+        // standing somewhere you did not choose. It read as the cannon
+        // teleporting you off the ship.
+        if (player != null && player == playerInRange && !manned)
         {
-            if (manned) Leave();
             playerInRange = null;
         }
     }
