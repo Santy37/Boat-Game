@@ -145,7 +145,15 @@ public class MainMenuManager : MonoBehaviour
 
     private async void Start()
     {
-        ShowMainMenu();
+        if (PlayerPrefs.GetInt("OpenLevelSelectAfterDeath", 0) == 1)
+        {
+            PlayerPrefs.DeleteKey("OpenLevelSelectAfterDeath");
+            ShowLevelSelectMenu();
+        }
+        else
+        {
+            ShowMainMenu();
+        }
 
         if (lobbyService == null)
         {

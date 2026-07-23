@@ -641,7 +641,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 400
+  maxHealth: 200
   healthBar: {fileID: 4270617346897719514}
   healthBarVisibility: {fileID: 0}
   alwaysShowBar: 1
