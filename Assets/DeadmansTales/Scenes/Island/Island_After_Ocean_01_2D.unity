@@ -68074,42 +68074,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 1235738198896141362, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: -110
-      objectReference: {fileID: 0}
-    - target: {fileID: 2304743812910026018, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: -2
-      objectReference: {fileID: 0}
-    - target: {fileID: 2304743812910026018, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: -290
-      objectReference: {fileID: 0}
-    - target: {fileID: 3376560518179602087, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: -10.00001
-      objectReference: {fileID: 0}
-    - target: {fileID: 5746247946528113431, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5746247946528113431, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6186040563317249593, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6413763704323953441, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 0.0000743866
-      objectReference: {fileID: 0}
-    - target: {fileID: 6413763704323953441, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 90.00002
-      objectReference: {fileID: 0}
     - target: {fileID: 6671314386521608051, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
       propertyPath: m_Name
       value: PauseMenuUI
@@ -70895,17 +70859,9 @@ PrefabInstance:
       propertyPath: m_Name
       value: DeathScreenUI
       objectReference: {fileID: 0}
-    - target: {fileID: 7579363553444625823, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_Alpha
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 8383554249074485217, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
       propertyPath: holdTime
       value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 8383554249074485217, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: deathAlpha
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8383554249074485217, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
       propertyPath: fadeDuration
