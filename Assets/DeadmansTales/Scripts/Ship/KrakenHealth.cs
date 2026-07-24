@@ -17,6 +17,13 @@ public class KrakenHealth : MonoBehaviour
 
     public bool IsDead => health <= 0;
 
+    /// <summary>0..1 for a health bar or HUD.</summary>
+    public float HealthFraction =>
+        maxHealth > 0 ? (float)health / maxHealth : 0f;
+
+    /// <summary>Fired once when the kraken reaches zero, before it is removed.</summary>
+    public event System.Action Defeated;
+
     private void Awake()
     {
         health = maxHealth;
@@ -61,7 +68,8 @@ public class KrakenHealth : MonoBehaviour
     private void Die()
     {
         Debug.Log("[Kraken] Defeated.");
-        // Prototype: just vanish. A death animation / win trigger comes later.
+        Defeated?.Invoke();
+        // Prototype: just vanish. A death animation comes later.
         Destroy(gameObject);
     }
 }

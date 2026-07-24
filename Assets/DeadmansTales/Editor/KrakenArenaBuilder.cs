@@ -41,6 +41,18 @@ public static class KrakenArenaBuilder
     // reads as the whole ship lurching forward and back.
     private const float WaterPixelsPerUnit = 32f;
 
+    // The whirlpool crop is 300px; at 16 PPU it would be a ~19-unit monster
+    // wider than the ship. 64 PPU makes it a ~4.7-unit hazard.
+    private const float WhirlPixelsPerUnit = 64f;
+
+    // Fixed hazard spots around the arena, on open water clear of the deck.
+    private static readonly Vector3[] WhirlpoolSpots =
+    {
+        new Vector3(-8.5f, 20f, 0f),
+        new Vector3(8.5f, 17f, 0f),
+        new Vector3(-3f, 25f, 0f),
+    };
+
     private const string BoatScenePath =
         "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
     private const string ArenaScenePath =
@@ -71,7 +83,7 @@ public static class KrakenArenaBuilder
             ApplySpriteImport(path, TextureWrapMode.Clamp, ArenaPixelsPerUnit);
         }
 
-        ApplySpriteImport(WhirlPath, TextureWrapMode.Clamp, ArenaPixelsPerUnit);
+        ApplySpriteImport(WhirlPath, TextureWrapMode.Clamp, WhirlPixelsPerUnit);
         // Water tiles, so it must wrap -- and at 32 PPU to match the scroller.
         ApplySpriteImport(WaterPath, TextureWrapMode.Repeat, WaterPixelsPerUnit);
 
@@ -177,6 +189,36 @@ public static class KrakenArenaBuilder
         Debug.Log($"[Kraken Arena] Built {prefabPath} with a 3-frame idle loop.");
     }
 
+    [MenuItem("Deadman's Tales/Kraken Arena/2b. Build Whirlpool Prefab")]
+    public static void BuildWhirlpoolPrefab()
+    {
+        Directory.CreateDirectory(PrefabDir);
+
+        Sprite whirl = AssetDatabase.LoadAssetAtPath<Sprite>(WhirlPath);
+        if (whirl == null)
+        {
+            Debug.LogError(
+                "[Kraken Arena] Whirlpool sprite missing; run step 1 first.");
+            return;
+        }
+
+        GameObject root = new GameObject("Whirlpool");
+        SpriteRenderer sr = root.AddComponent<SpriteRenderer>();
+        sr.sprite = whirl;
+        // Above the water, below the ship and boss.
+        sr.sortingOrder = 1;
+
+        root.AddComponent<WhirlpoolSpin>();
+
+        string prefabPath = PrefabDir + "/Whirlpool.prefab";
+        PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+        Object.DestroyImmediate(root);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"[Kraken Arena] Built {prefabPath}.");
+    }
+
     [MenuItem("Deadman's Tales/Kraken Arena/3. Build Arena Scene")]
     public static void BuildArenaScene()
     {
@@ -217,6 +259,8 @@ public static class KrakenArenaBuilder
 
         SwapWaterToNight();
         FrameArenaCamera();
+        PlaceWhirlpools();
+        EnsureArenaHud();
 
         bool ok = EditorSceneManager.SaveScene(scene, ArenaScenePath);
         Debug.Log(ok
@@ -281,6 +325,47 @@ public static class KrakenArenaBuilder
         }
     }
 
+    // Scatter the spinning whirlpool hazards, once. Idempotent: keyed by name
+    // so re-running the builder does not stack duplicates.
+    private static void PlaceWhirlpools()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            PrefabDir + "/Whirlpool.prefab");
+        if (prefab == null)
+        {
+            return;
+        }
+
+        int existing = Object
+            .FindObjectsByType<WhirlpoolSpin>(FindObjectsSortMode.None)
+            .Length;
+        if (existing >= WhirlpoolSpots.Length)
+        {
+            return;
+        }
+
+        for (int i = existing; i < WhirlpoolSpots.Length; i++)
+        {
+            GameObject w = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            w.transform.position = WhirlpoolSpots[i];
+        }
+    }
+
+    // Add the boss HUD object if the scene has none.
+    private static void EnsureArenaHud()
+    {
+        bool present = Object
+            .FindObjectsByType<KrakenArenaHud>(FindObjectsSortMode.None)
+            .Length > 0;
+        if (present)
+        {
+            return;
+        }
+
+        GameObject hud = new GameObject("KrakenArenaHud");
+        hud.AddComponent<KrakenArenaHud>();
+    }
+
     private static void RegisterArenaScene()
     {
         var scenes = EditorBuildSettings.scenes.ToList();
@@ -294,11 +379,12 @@ public static class KrakenArenaBuilder
         Debug.Log("[Kraken Arena] Arena scene added to Build Settings.");
     }
 
-    // One-shot: run all three steps in order.
+    // One-shot: run every step in order.
     public static void BuildAllFromCommandLine()
     {
         ImportArenaArt();
         BuildKrakenPrefab();
+        BuildWhirlpoolPrefab();
         BuildArenaScene();
     }
 }
