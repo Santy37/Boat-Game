@@ -41,27 +41,27 @@ public static class KrakenArenaBuilder
     // reads as the whole ship lurching forward and back.
     private const float WaterPixelsPerUnit = 32f;
 
-    // The whirlpool crop is 300px; at 16 PPU it would be a ~19-unit monster
-    // wider than the ship. 64 PPU makes it a ~4.7-unit hazard.
-    private const float WhirlPixelsPerUnit = 64f;
+    // The whirlpool crop is 300px; 43 PPU makes it a ~7-unit maelstrom -- big
+    // enough to read as a hazard in the zoomed-out arena, not a spinning coin.
+    private const float WhirlPixelsPerUnit = 43f;
 
-    // Fixed hazard spots around the arena, on open water clear of the deck.
+    // Spread wide across the open water between the ship and the boss.
     private static readonly Vector3[] WhirlpoolSpots =
     {
-        new Vector3(-8.5f, 20f, 0f),
-        new Vector3(8.5f, 17f, 0f),
-        new Vector3(-3f, 25f, 0f),
+        new Vector3(-14f, 21f, 0f),
+        new Vector3(13f, 23f, 0f),
+        new Vector3(-6f, 31f, 0f),
     };
 
-    // The crystal spire tile is tiny (10x21). Scale it up so it reads as a
-    // hazard rising from the water rather than a pebble.
-    private const float SpireScale = 2.2f;
+    // The rock crag tile is ~30px; scale it up so it reads as a reef rising
+    // from the water rather than a pebble.
+    private const float SpireScale = 2.4f;
     private static readonly Vector3[] SpireSpots =
     {
-        new Vector3(-6f, 24f, 0f),
-        new Vector3(6f, 25f, 0f),
-        new Vector3(-11f, 16f, 0f),
-        new Vector3(11f, 21f, 0f),
+        new Vector3(-21f, 15f, 0f),
+        new Vector3(19f, 16f, 0f),
+        new Vector3(-17f, 29f, 0f),
+        new Vector3(17f, 28f, 0f),
     };
 
     private const string BoatScenePath =
@@ -69,13 +69,14 @@ public static class KrakenArenaBuilder
     private const string ArenaScenePath =
         "Assets/DeadmansTales/Scenes/Boat/Kraken_Arena_2D.unity";
 
-    // Looming over the bow: base near the fore deck, rising north. Close enough
-    // to see from the deck and to shell with the fore cannons.
-    private static readonly Vector3 KrakenPosition = new Vector3(0f, 22f, 0f);
+    // Looming high above the bow. Scaled up (KrakenScale) so a boss reads as a
+    // boss rather than a pinprick next to the big ship.
+    private static readonly Vector3 KrakenPosition = new Vector3(0f, 28.5f, 0f);
+    private const float KrakenScale = 2f;
 
-    // Wide enough to frame the ship AND the boss above it without manning the
-    // helm. The stock boat camera (11.25) cropped the kraken off the top.
-    private const float ArenaCameraSize = 14f;
+    // Zoomed well out, so the ship is one element in the arena rather than
+    // filling the frame, with room for the boss and the hazards around it.
+    private const float ArenaCameraSize = 20f;
 
     private static readonly string[] KrakenFrames =
     {
@@ -186,6 +187,10 @@ public static class KrakenArenaBuilder
         Animator animator = root.AddComponent<Animator>();
         animator.runtimeAnimatorController = controller;
 
+        // A boss should loom. The sprite is ~6.7 units wide at 1x; this makes
+        // it read as a threat over the ship rather than a pinprick.
+        root.transform.localScale = Vector3.one * KrakenScale;
+
         root.AddComponent<KrakenHealth>();
 
         // A generous body trigger so cannonballs register hits.
@@ -291,12 +296,14 @@ public static class KrakenArenaBuilder
         if (existing != null)
         {
             existing.transform.position = KrakenPosition;
+            existing.transform.localScale = Vector3.one * KrakenScale;
         }
         else
         {
             GameObject kraken =
                 (GameObject)PrefabUtility.InstantiatePrefab(krakenPrefab);
             kraken.transform.position = KrakenPosition;
+            kraken.transform.localScale = Vector3.one * KrakenScale;
         }
 
         SwapWaterToNight();
@@ -368,8 +375,8 @@ public static class KrakenArenaBuilder
         }
     }
 
-    // Scatter the spinning whirlpool hazards, once. Idempotent: keyed by name
-    // so re-running the builder does not stack duplicates.
+    // Clear any existing whirlpools and re-place them at the current spots, so
+    // re-running the builder actually applies new positions and counts.
     private static void PlaceWhirlpools()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -379,23 +386,20 @@ public static class KrakenArenaBuilder
             return;
         }
 
-        int existing = Object
-            .FindObjectsByType<WhirlpoolSpin>(FindObjectsSortMode.None)
-            .Length;
-        if (existing >= WhirlpoolSpots.Length)
+        foreach (WhirlpoolSpin ws in Object
+            .FindObjectsByType<WhirlpoolSpin>(FindObjectsSortMode.None))
         {
-            return;
+            Object.DestroyImmediate(ws.gameObject);
         }
 
-        for (int i = existing; i < WhirlpoolSpots.Length; i++)
+        foreach (Vector3 spot in WhirlpoolSpots)
         {
             GameObject w = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            w.transform.position = WhirlpoolSpots[i];
+            w.transform.position = spot;
         }
     }
 
-    // Scatter the crystal spires, once. Idempotent by root-object name, since
-    // the spire prefab carries no unique component to count.
+    // Clear any existing rock crags and re-place them at the current spots.
     private static void PlaceSpires(Scene scene)
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -405,18 +409,18 @@ public static class KrakenArenaBuilder
             return;
         }
 
-        int existing = scene
-            .GetRootGameObjects()
-            .Count(go => go.name.StartsWith("Spire"));
-        if (existing >= SpireSpots.Length)
+        foreach (GameObject go in scene.GetRootGameObjects())
         {
-            return;
+            if (go.name.StartsWith("Spire"))
+            {
+                Object.DestroyImmediate(go);
+            }
         }
 
-        for (int i = existing; i < SpireSpots.Length; i++)
+        foreach (Vector3 spot in SpireSpots)
         {
             GameObject s = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            s.transform.position = SpireSpots[i];
+            s.transform.position = spot;
         }
     }
 

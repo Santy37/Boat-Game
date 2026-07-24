@@ -8,8 +8,9 @@ using UnityEngine;
 /// </summary>
 public class WhirlpoolSpin : MonoBehaviour
 {
-    [Tooltip("Degrees per second. Negative spins clockwise.")]
-    [SerializeField] private float spinDegreesPerSecond = -35f;
+    [Tooltip("Degrees per second. Negative spins clockwise. Kept slow so a big " +
+             "maelstrom churns rather than looking like a spinning decal.")]
+    [SerializeField] private float spinDegreesPerSecond = -12f;
 
     private void Update()
     {
