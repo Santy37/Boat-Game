@@ -87,7 +87,7 @@ SpriteRenderer:
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 4.6875, y: 4.6875}
+  m_Size: {x: 6.976744, y: 6.976744}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -104,4 +104,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3e3ba6f844befd2439edcf7002338a52, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WhirlpoolSpin
-  spinDegreesPerSecond: -35
+  spinDegreesPerSecond: -12
