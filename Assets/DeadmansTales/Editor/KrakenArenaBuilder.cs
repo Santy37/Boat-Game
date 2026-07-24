@@ -41,9 +41,9 @@ public static class KrakenArenaBuilder
     // reads as the whole ship lurching forward and back.
     private const float WaterPixelsPerUnit = 32f;
 
-    // The whirlpool crop is 300px; 43 PPU makes it a ~7-unit maelstrom -- big
-    // enough to read as a hazard in the zoomed-out arena, not a spinning coin.
-    private const float WhirlPixelsPerUnit = 43f;
+    // The vortex frames are 128px; 18 PPU makes each a ~7-unit maelstrom.
+    private const float WhirlPixelsPerUnit = 18f;
+    private const float WhirlFps = 12f;
 
     // Spread wide across the open water between the ship and the boss.
     private static readonly Vector3[] WhirlpoolSpots =
@@ -54,14 +54,22 @@ public static class KrakenArenaBuilder
     };
 
     // The rock crag tile is ~30px; scale it up so it reads as a reef rising
-    // from the water rather than a pebble.
+    // from the water rather than a pebble. Per-instance jitter (see PlaceSpires)
+    // varies size and facing so the scatter looks natural, not stamped.
     private const float SpireScale = 2.4f;
     private static readonly Vector3[] SpireSpots =
     {
-        new Vector3(-21f, 15f, 0f),
-        new Vector3(19f, 16f, 0f),
-        new Vector3(-17f, 29f, 0f),
-        new Vector3(17f, 28f, 0f),
+        // left flank
+        new Vector3(-27f, 4f, 0f), new Vector3(-25f, 14f, 0f),
+        new Vector3(-23f, 24f, 0f), new Vector3(-19f, 30f, 0f),
+        new Vector3(-16f, -3f, 0f), new Vector3(-30f, 19f, 0f),
+        // right flank
+        new Vector3(27f, 6f, 0f), new Vector3(25f, 16f, 0f),
+        new Vector3(23f, 25f, 0f), new Vector3(19f, 29f, 0f),
+        new Vector3(16f, -3f, 0f), new Vector3(30f, 12f, 0f),
+        // fore and aft gaps
+        new Vector3(-11f, 33f, 0f), new Vector3(10f, 33f, 0f),
+        new Vector3(-7f, -6f, 0f), new Vector3(7f, -6f, 0f),
     };
 
     private const string BoatScenePath =
@@ -85,8 +93,17 @@ public static class KrakenArenaBuilder
         ArtDir + "/kraken_idle_2.png",
     };
     private static readonly string WaterPath = ArtDir + "/arena_night_water.png";
-    private static readonly string WhirlPath = ArtDir + "/arena_whirlpool.png";
     private static readonly string SpirePath = ArtDir + "/arena_spire.png";
+
+    // The whirlpool is an 8-frame procedural vortex flipbook (arms spiral
+    // inward), not a rotated decal.
+    private static readonly string[] WhirlFrames =
+    {
+        ArtDir + "/whirl_anim_0.png", ArtDir + "/whirl_anim_1.png",
+        ArtDir + "/whirl_anim_2.png", ArtDir + "/whirl_anim_3.png",
+        ArtDir + "/whirl_anim_4.png", ArtDir + "/whirl_anim_5.png",
+        ArtDir + "/whirl_anim_6.png", ArtDir + "/whirl_anim_7.png",
+    };
 
     [MenuItem("Deadman's Tales/Kraken Arena/1. Import Art")]
     public static void ImportArenaArt()
@@ -96,7 +113,10 @@ public static class KrakenArenaBuilder
             ApplySpriteImport(path, TextureWrapMode.Clamp, ArenaPixelsPerUnit);
         }
 
-        ApplySpriteImport(WhirlPath, TextureWrapMode.Clamp, WhirlPixelsPerUnit);
+        foreach (string frame in WhirlFrames)
+        {
+            ApplySpriteImport(frame, TextureWrapMode.Clamp, WhirlPixelsPerUnit);
+        }
         ApplySpriteImport(SpirePath, TextureWrapMode.Clamp, ArenaPixelsPerUnit);
         // Water tiles, so it must wrap -- and at 32 PPU to match the scroller.
         ApplySpriteImport(WaterPath, TextureWrapMode.Repeat, WaterPixelsPerUnit);
@@ -145,38 +165,10 @@ public static class KrakenArenaBuilder
             }
         }
 
-        // --- idle animation clip: 3 frames, looping, ~6 fps for a slow menace
-        AnimationClip clip = new AnimationClip { frameRate = 6f };
-        EditorCurveBinding binding = new EditorCurveBinding
-        {
-            type = typeof(SpriteRenderer),
-            path = string.Empty,
-            propertyName = "m_Sprite",
-        };
-        ObjectReferenceKeyframe[] keys =
-            new ObjectReferenceKeyframe[frames.Length];
-        for (int i = 0; i < frames.Length; i++)
-        {
-            keys[i] = new ObjectReferenceKeyframe
-            {
-                time = i / clip.frameRate,
-                value = frames[i],
-            };
-        }
-        AnimationUtility.SetObjectReferenceCurve(clip, binding, keys);
-
-        AnimationClipSettings settings =
-            AnimationUtility.GetAnimationClipSettings(clip);
-        settings.loopTime = true;
-        AnimationUtility.SetAnimationClipSettings(clip, settings);
-
-        string clipPath = AnimDir + "/KrakenIdle.anim";
-        AssetDatabase.CreateAsset(clip, clipPath);
-
-        string controllerPath = AnimDir + "/Kraken.controller";
-        AnimatorController controller =
-            AnimatorController.CreateAnimatorControllerAtPathWithClip(
-                controllerPath, clip);
+        // Idle sprite loop (breathing), ~6 fps for a slow menace.
+        AnimatorController controller = BuildLoopClip(
+            frames, 6f,
+            AnimDir + "/KrakenIdle.anim", AnimDir + "/Kraken.controller");
 
         // --- prefab: SpriteRenderer + Animator + KrakenHealth
         GameObject root = new GameObject("Kraken");
@@ -190,6 +182,17 @@ public static class KrakenArenaBuilder
         // A boss should loom. The sprite is ~6.7 units wide at 1x; this makes
         // it read as a threat over the ship rather than a pinprick.
         root.transform.localScale = Vector3.one * KrakenScale;
+
+        // Make it feel alive: a gentle float and sway on top of the breathing
+        // idle. BoatBob already does exactly this (it just oscillates a
+        // transform), so reuse it rather than write a second bobber.
+        BoatBob bob = root.AddComponent<BoatBob>();
+        SerializedObject bobbed = new SerializedObject(bob);
+        SetFloat(bobbed, "bobHeight", 0.45f);
+        SetFloat(bobbed, "bobSpeed", 0.4f);
+        SetFloat(bobbed, "rockDegrees", 3f);
+        SetFloat(bobbed, "rockSpeed", 0.3f);
+        bobbed.ApplyModifiedPropertiesWithoutUndo();
 
         root.AddComponent<KrakenHealth>();
 
@@ -211,22 +214,35 @@ public static class KrakenArenaBuilder
     public static void BuildWhirlpoolPrefab()
     {
         Directory.CreateDirectory(PrefabDir);
+        Directory.CreateDirectory(AnimDir);
 
-        Sprite whirl = AssetDatabase.LoadAssetAtPath<Sprite>(WhirlPath);
-        if (whirl == null)
+        Sprite[] frames = new Sprite[WhirlFrames.Length];
+        for (int i = 0; i < WhirlFrames.Length; i++)
         {
-            Debug.LogError(
-                "[Kraken Arena] Whirlpool sprite missing; run step 1 first.");
-            return;
+            frames[i] = AssetDatabase.LoadAssetAtPath<Sprite>(WhirlFrames[i]);
+            if (frames[i] == null)
+            {
+                Debug.LogError(
+                    $"[Kraken Arena] Whirl frame '{WhirlFrames[i]}' missing; " +
+                    "run step 1 first.");
+                return;
+            }
         }
+
+        // The vortex is a real flipbook now -- arms spiral inward -- not a
+        // rotated sprite.
+        AnimatorController controller = BuildLoopClip(
+            frames, WhirlFps,
+            AnimDir + "/Whirlpool.anim", AnimDir + "/Whirlpool.controller");
 
         GameObject root = new GameObject("Whirlpool");
         SpriteRenderer sr = root.AddComponent<SpriteRenderer>();
-        sr.sprite = whirl;
+        sr.sprite = frames[0];
         // Above the water, below the ship and boss.
         sr.sortingOrder = 1;
 
-        root.AddComponent<WhirlpoolSpin>();
+        Animator animator = root.AddComponent<Animator>();
+        animator.runtimeAnimatorController = controller;
 
         string prefabPath = PrefabDir + "/Whirlpool.prefab";
         PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
@@ -234,7 +250,51 @@ public static class KrakenArenaBuilder
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-        Debug.Log($"[Kraken Arena] Built {prefabPath}.");
+        Debug.Log($"[Kraken Arena] Built {prefabPath} (8-frame vortex).");
+    }
+
+    // Builds a looping sprite-swap AnimationClip from frames and returns a
+    // controller that plays it. Shared by the kraken idle and the whirlpool.
+    private static AnimatorController BuildLoopClip(
+        Sprite[] frames, float fps, string clipPath, string controllerPath)
+    {
+        AnimationClip clip = new AnimationClip { frameRate = fps };
+        EditorCurveBinding binding = new EditorCurveBinding
+        {
+            type = typeof(SpriteRenderer),
+            path = string.Empty,
+            propertyName = "m_Sprite",
+        };
+        ObjectReferenceKeyframe[] keys =
+            new ObjectReferenceKeyframe[frames.Length];
+        for (int i = 0; i < frames.Length; i++)
+        {
+            keys[i] = new ObjectReferenceKeyframe
+            {
+                time = i / fps,
+                value = frames[i],
+            };
+        }
+        AnimationUtility.SetObjectReferenceCurve(clip, binding, keys);
+
+        AnimationClipSettings settings =
+            AnimationUtility.GetAnimationClipSettings(clip);
+        settings.loopTime = true;
+        AnimationUtility.SetAnimationClipSettings(clip, settings);
+
+        AssetDatabase.CreateAsset(clip, clipPath);
+        return AnimatorController.CreateAnimatorControllerAtPathWithClip(
+            controllerPath, clip);
+    }
+
+    private static void SetFloat(
+        SerializedObject so, string prop, float value)
+    {
+        SerializedProperty p = so.FindProperty(prop);
+        if (p != null)
+        {
+            p.floatValue = value;
+        }
     }
 
     [MenuItem("Deadman's Tales/Kraken Arena/2c. Build Spire Prefab")]
@@ -308,7 +368,7 @@ public static class KrakenArenaBuilder
 
         SwapWaterToNight();
         FrameArenaCamera();
-        PlaceWhirlpools();
+        PlaceWhirlpools(scene);
         PlaceSpires(scene);
         EnsureArenaHud();
 
@@ -377,7 +437,7 @@ public static class KrakenArenaBuilder
 
     // Clear any existing whirlpools and re-place them at the current spots, so
     // re-running the builder actually applies new positions and counts.
-    private static void PlaceWhirlpools()
+    private static void PlaceWhirlpools(Scene scene)
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
             PrefabDir + "/Whirlpool.prefab");
@@ -386,10 +446,12 @@ public static class KrakenArenaBuilder
             return;
         }
 
-        foreach (WhirlpoolSpin ws in Object
-            .FindObjectsByType<WhirlpoolSpin>(FindObjectsSortMode.None))
+        foreach (GameObject go in scene.GetRootGameObjects())
         {
-            Object.DestroyImmediate(ws.gameObject);
+            if (go.name.StartsWith("Whirlpool"))
+            {
+                Object.DestroyImmediate(go);
+            }
         }
 
         foreach (Vector3 spot in WhirlpoolSpots)
@@ -417,10 +479,20 @@ public static class KrakenArenaBuilder
             }
         }
 
-        foreach (Vector3 spot in SpireSpots)
+        for (int i = 0; i < SpireSpots.Length; i++)
         {
             GameObject s = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            s.transform.position = spot;
+            s.transform.position = SpireSpots[i];
+
+            // Deterministic jitter so the reef looks scattered, not stamped:
+            // size varies 0.7x..1.3x and every other crag faces the other way.
+            float t = ((i * 0.6180339f) % 1f);
+            float sizeMul = 0.7f + 0.6f * t;
+            float faceX = (i % 2 == 0) ? 1f : -1f;
+            s.transform.localScale = new Vector3(
+                SpireScale * sizeMul * faceX,
+                SpireScale * sizeMul,
+                1f);
         }
     }
 
