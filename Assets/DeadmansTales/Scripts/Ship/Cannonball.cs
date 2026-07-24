@@ -7,6 +7,7 @@ using UnityEngine;
 public class Cannonball : MonoBehaviour
 {
     [SerializeField] private float lifeSeconds = 3f;
+    [SerializeField] private int damage = 1;
 
     private Vector2 velocity;
 
@@ -23,6 +24,13 @@ public class Cannonball : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
+        // Deal damage to a kraken if we hit one, then always spend the ball.
+        KrakenHealth kraken = other.GetComponentInParent<KrakenHealth>();
+        if (kraken != null)
+        {
+            kraken.TakeHit(damage);
+        }
+
         Destroy(gameObject);
     }
 }
