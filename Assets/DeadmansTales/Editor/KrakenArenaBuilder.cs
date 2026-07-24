@@ -30,15 +30,29 @@ public static class KrakenArenaBuilder
     private const string AnimDir =
         "Assets/DeadmansTales/Animations/KrakenArena";
 
+    // Placed sprites (kraken, whirlpool) match the tile density at 16 PPU.
     private const float ArenaPixelsPerUnit = 16f;
+
+    // The scrolling water is a special case: it must import at the SAME PPU as
+    // the day-water it replaces (parallax_water_b, 32 PPU), because the
+    // ScrollingWater component's tileSize/pixelsPerUnit are tuned for a 1-world-
+    // unit tile. Import it at 16 and the sprite becomes a 2-unit tile while the
+    // scroller still wraps at 1 unit -- the water snaps back every wrap, which
+    // reads as the whole ship lurching forward and back.
+    private const float WaterPixelsPerUnit = 32f;
 
     private const string BoatScenePath =
         "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
     private const string ArenaScenePath =
         "Assets/DeadmansTales/Scenes/Boat/Kraken_Arena_2D.unity";
 
-    // North of the ship, past the fore cannons, within cannonball reach.
-    private static readonly Vector3 KrakenPosition = new Vector3(0f, 26f, 0f);
+    // Looming over the bow: base near the fore deck, rising north. Close enough
+    // to see from the deck and to shell with the fore cannons.
+    private static readonly Vector3 KrakenPosition = new Vector3(0f, 22f, 0f);
+
+    // Wide enough to frame the ship AND the boss above it without manning the
+    // helm. The stock boat camera (11.25) cropped the kraken off the top.
+    private const float ArenaCameraSize = 14f;
 
     private static readonly string[] KrakenFrames =
     {
@@ -54,18 +68,19 @@ public static class KrakenArenaBuilder
     {
         foreach (string path in KrakenFrames)
         {
-            ApplySpriteImport(path, TextureWrapMode.Clamp);
+            ApplySpriteImport(path, TextureWrapMode.Clamp, ArenaPixelsPerUnit);
         }
 
-        ApplySpriteImport(WhirlPath, TextureWrapMode.Clamp);
-        // Water tiles, so it must wrap.
-        ApplySpriteImport(WaterPath, TextureWrapMode.Repeat);
+        ApplySpriteImport(WhirlPath, TextureWrapMode.Clamp, ArenaPixelsPerUnit);
+        // Water tiles, so it must wrap -- and at 32 PPU to match the scroller.
+        ApplySpriteImport(WaterPath, TextureWrapMode.Repeat, WaterPixelsPerUnit);
 
         AssetDatabase.Refresh();
         Debug.Log("[Kraken Arena] Art imported at 16 PPU, point-filtered.");
     }
 
-    private static void ApplySpriteImport(string path, TextureWrapMode wrap)
+    private static void ApplySpriteImport(
+        string path, TextureWrapMode wrap, float pixelsPerUnit)
     {
         TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
 
@@ -77,7 +92,7 @@ public static class KrakenArenaBuilder
 
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Single;
-        importer.spritePixelsPerUnit = ArenaPixelsPerUnit;
+        importer.spritePixelsPerUnit = pixelsPerUnit;
         importer.filterMode = FilterMode.Point;
         importer.textureCompression = TextureImporterCompression.Uncompressed;
         importer.mipmapEnabled = false;
@@ -182,12 +197,18 @@ public static class KrakenArenaBuilder
         Scene scene = EditorSceneManager.OpenScene(
             BoatScenePath, OpenSceneMode.Single);
 
-        // Drop the boss in north of the ship, if not already there.
-        bool krakenPresent = scene
+        // Drop the boss in north of the ship (or reposition an existing one so
+        // re-runs keep it at the current KrakenPosition).
+        KrakenHealth existing = scene
             .GetRootGameObjects()
-            .Any(go => go.GetComponentInChildren<KrakenHealth>() != null);
+            .SelectMany(go => go.GetComponentsInChildren<KrakenHealth>(true))
+            .FirstOrDefault();
 
-        if (!krakenPresent)
+        if (existing != null)
+        {
+            existing.transform.position = KrakenPosition;
+        }
+        else
         {
             GameObject kraken =
                 (GameObject)PrefabUtility.InstantiatePrefab(krakenPrefab);
@@ -195,6 +216,7 @@ public static class KrakenArenaBuilder
         }
 
         SwapWaterToNight();
+        FrameArenaCamera();
 
         bool ok = EditorSceneManager.SaveScene(scene, ArenaScenePath);
         Debug.Log(ok
@@ -224,6 +246,37 @@ public static class KrakenArenaBuilder
             if (sr != null)
             {
                 sr.sprite = night;
+            }
+        }
+    }
+
+    // Zoom the arena camera out so the boss above the bow is on screen from the
+    // start. Sets both the Camera and Camera2DFollow's serialized size, since
+    // the helm reads the latter as its "default" zoom to return to.
+    private static void FrameArenaCamera()
+    {
+        Camera cam = Object
+            .FindObjectsByType<Camera>(FindObjectsSortMode.None)
+            .FirstOrDefault(c => c.orthographic);
+        if (cam != null)
+        {
+            cam.orthographicSize = ArenaCameraSize;
+        }
+
+        foreach (MonoBehaviour mb in Object
+            .FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+        {
+            if (mb.GetType().Name != "Camera2DFollow")
+            {
+                continue;
+            }
+
+            SerializedObject so = new SerializedObject(mb);
+            SerializedProperty size = so.FindProperty("orthographicSize");
+            if (size != null)
+            {
+                size.floatValue = ArenaCameraSize;
+                so.ApplyModifiedPropertiesWithoutUndo();
             }
         }
     }
