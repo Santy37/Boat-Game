@@ -53,6 +53,17 @@ public static class KrakenArenaBuilder
         new Vector3(-3f, 25f, 0f),
     };
 
+    // The crystal spire tile is tiny (10x21). Scale it up so it reads as a
+    // hazard rising from the water rather than a pebble.
+    private const float SpireScale = 2.2f;
+    private static readonly Vector3[] SpireSpots =
+    {
+        new Vector3(-6f, 24f, 0f),
+        new Vector3(6f, 25f, 0f),
+        new Vector3(-11f, 16f, 0f),
+        new Vector3(11f, 21f, 0f),
+    };
+
     private const string BoatScenePath =
         "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
     private const string ArenaScenePath =
@@ -74,6 +85,7 @@ public static class KrakenArenaBuilder
     };
     private static readonly string WaterPath = ArtDir + "/arena_night_water.png";
     private static readonly string WhirlPath = ArtDir + "/arena_whirlpool.png";
+    private static readonly string SpirePath = ArtDir + "/arena_spire.png";
 
     [MenuItem("Deadman's Tales/Kraken Arena/1. Import Art")]
     public static void ImportArenaArt()
@@ -84,6 +96,7 @@ public static class KrakenArenaBuilder
         }
 
         ApplySpriteImport(WhirlPath, TextureWrapMode.Clamp, WhirlPixelsPerUnit);
+        ApplySpriteImport(SpirePath, TextureWrapMode.Clamp, ArenaPixelsPerUnit);
         // Water tiles, so it must wrap -- and at 32 PPU to match the scroller.
         ApplySpriteImport(WaterPath, TextureWrapMode.Repeat, WaterPixelsPerUnit);
 
@@ -219,6 +232,35 @@ public static class KrakenArenaBuilder
         Debug.Log($"[Kraken Arena] Built {prefabPath}.");
     }
 
+    [MenuItem("Deadman's Tales/Kraken Arena/2c. Build Spire Prefab")]
+    public static void BuildSpirePrefab()
+    {
+        Directory.CreateDirectory(PrefabDir);
+
+        Sprite spire = AssetDatabase.LoadAssetAtPath<Sprite>(SpirePath);
+        if (spire == null)
+        {
+            Debug.LogError(
+                "[Kraken Arena] Spire sprite missing; run step 1 first.");
+            return;
+        }
+
+        GameObject root = new GameObject("Spire");
+        SpriteRenderer sr = root.AddComponent<SpriteRenderer>();
+        sr.sprite = spire;
+        // Above the whirlpools, below the ship and boss.
+        sr.sortingOrder = 2;
+        root.transform.localScale = Vector3.one * SpireScale;
+
+        string prefabPath = PrefabDir + "/Spire.prefab";
+        PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+        Object.DestroyImmediate(root);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"[Kraken Arena] Built {prefabPath}.");
+    }
+
     [MenuItem("Deadman's Tales/Kraken Arena/3. Build Arena Scene")]
     public static void BuildArenaScene()
     {
@@ -260,6 +302,7 @@ public static class KrakenArenaBuilder
         SwapWaterToNight();
         FrameArenaCamera();
         PlaceWhirlpools();
+        PlaceSpires(scene);
         EnsureArenaHud();
 
         bool ok = EditorSceneManager.SaveScene(scene, ArenaScenePath);
@@ -351,6 +394,32 @@ public static class KrakenArenaBuilder
         }
     }
 
+    // Scatter the crystal spires, once. Idempotent by root-object name, since
+    // the spire prefab carries no unique component to count.
+    private static void PlaceSpires(Scene scene)
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            PrefabDir + "/Spire.prefab");
+        if (prefab == null)
+        {
+            return;
+        }
+
+        int existing = scene
+            .GetRootGameObjects()
+            .Count(go => go.name.StartsWith("Spire"));
+        if (existing >= SpireSpots.Length)
+        {
+            return;
+        }
+
+        for (int i = existing; i < SpireSpots.Length; i++)
+        {
+            GameObject s = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            s.transform.position = SpireSpots[i];
+        }
+    }
+
     // Add the boss HUD object if the scene has none.
     private static void EnsureArenaHud()
     {
@@ -385,6 +454,7 @@ public static class KrakenArenaBuilder
         ImportArenaArt();
         BuildKrakenPrefab();
         BuildWhirlpoolPrefab();
+        BuildSpirePrefab();
         BuildArenaScene();
     }
 }
