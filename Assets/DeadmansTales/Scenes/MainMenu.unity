@@ -161,6 +161,9 @@ MonoBehaviour:
   playerListText: {fileID: 1121495785}
   enterCodeText: {fileID: 1177160845}
   multiplayerStatusText: {fileID: 0}
+  useFixedRunSeed: 0
+  fixedRunSeed: 12345
+  runSeedInput: {fileID: 0}
 --- !u!4 &32604456
 Transform:
   m_ObjectHideFlags: 0
