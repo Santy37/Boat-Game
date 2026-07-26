@@ -381,6 +381,7 @@ GameObject:
   - component: {fileID: 8434005522542735720}
   - component: {fileID: 3428727103867693471}
   - component: {fileID: 2932199444318579540}
+  - component: {fileID: 4424567147886695379}
   m_Layer: 0
   m_Name: Player_2D_Network
   m_TagString: Untagged
@@ -1268,3 +1269,26 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &4424567147886695379
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3388892594036479966}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc9ae406983390f41bf54c2582c3b546, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSoulVFX
+  ShowTopMostFoldoutHeaderGroup: 1
+  soulFrames:
+  - {fileID: 392877701, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: 163876693, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: -340037243, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: 1976479395, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  framesPerSecond: 8
+  startOffset: {x: 0, y: 0.5, z: 0}
+  riseDistance: 2.5
+  duration: 1.2
+  soulScale: 0.65
