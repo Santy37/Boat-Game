@@ -19,7 +19,10 @@ using UnityEngine.SceneManagement;
 ///     Fantasy "Mythical Monsters" kraken (boss_kraken_1), hue-shifted to the
 ///     purple of Shay's concept with the eyes protected. 16 PPU to match tiles.
 ///   - arena_night_water : parallax_water_b tone-mapped to night.
-///   - arena_whirlpool   : the polished whirlpool crop.
+///   - whirl_anim_0..7   : the new 8-frame whirlpool sheet, checker background
+///     keyed to transparency and each frame cropped/registered on its centre.
+///   - rock_0..5         : the new six reef formations (small..large), likewise
+///     keyed from the sheet, one tight sprite each with a bottom-centre pivot.
 /// </summary>
 public static class KrakenArenaBuilder
 {
@@ -41,36 +44,19 @@ public static class KrakenArenaBuilder
     // reads as the whole ship lurching forward and back.
     private const float WaterPixelsPerUnit = 32f;
 
-    // The vortex frames are 128px; 18 PPU makes each a ~7-unit maelstrom.
-    private const float WhirlPixelsPerUnit = 18f;
+    // The staged vortex frames are 332px, each cropped and registered on its
+    // own centre so the flipbook doesn't wobble. 45 PPU makes the ~317px spiral
+    // read as a ~7-unit maelstrom.
+    private const float WhirlPixelsPerUnit = 45f;
     private const float WhirlFps = 12f;
 
-    // Spread wide across the open water between the ship and the boss.
-    private static readonly Vector3[] WhirlpoolSpots =
-    {
-        new Vector3(-14f, 21f, 0f),
-        new Vector3(13f, 23f, 0f),
-        new Vector3(-6f, 31f, 0f),
-    };
-
-    // The rock crag tile is ~30px; scale it up so it reads as a reef rising
-    // from the water rather than a pebble. Per-instance jitter (see PlaceSpires)
-    // varies size and facing so the scatter looks natural, not stamped.
-    private const float SpireScale = 2.4f;
-    private static readonly Vector3[] SpireSpots =
-    {
-        // left flank
-        new Vector3(-27f, 4f, 0f), new Vector3(-25f, 14f, 0f),
-        new Vector3(-23f, 24f, 0f), new Vector3(-19f, 30f, 0f),
-        new Vector3(-16f, -3f, 0f), new Vector3(-30f, 19f, 0f),
-        // right flank
-        new Vector3(27f, 6f, 0f), new Vector3(25f, 16f, 0f),
-        new Vector3(23f, 25f, 0f), new Vector3(19f, 29f, 0f),
-        new Vector3(16f, -3f, 0f), new Vector3(30f, 12f, 0f),
-        // fore and aft gaps
-        new Vector3(-11f, 33f, 0f), new Vector3(10f, 33f, 0f),
-        new Vector3(-7f, -6f, 0f), new Vector3(7f, -6f, 0f),
-    };
+    // The six reef formations (rock_0..5, small..large) are staged at their
+    // native pixel sizes, so a single shared PPU preserves their size
+    // progression and the world size comes from the sprite itself rather than a
+    // scale multiplier. 78 PPU makes the tallest crag ~6 units, the smallest
+    // ~2.6. They import with a bottom-centre pivot so a rock's position is the
+    // point where its foam base meets the water.
+    private const float RockPixelsPerUnit = 78f;
 
     private const string BoatScenePath =
         "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
@@ -78,13 +64,44 @@ public static class KrakenArenaBuilder
         "Assets/DeadmansTales/Scenes/Boat/Kraken_Arena_2D.unity";
 
     // Looming high above the bow. Scaled up (KrakenScale) so a boss reads as a
-    // boss rather than a pinprick next to the big ship.
+    // boss rather than a pinprick next to the big ship. The runtime KrakenStrafe
+    // takes over its position from here.
     private static readonly Vector3 KrakenPosition = new Vector3(0f, 28.5f, 0f);
-    private const float KrakenScale = 2f;
+    // A boss should DWARF the ship. At scale 2 it was dwarfed BY the ship, so
+    // it's blown up big to read as a giant monster looming over the deck.
+    private const float KrakenScale = 3.5f;
+
+    // The kraken (KrakenStrafe) stays in the TOP band and only slides
+    // left-right there -- no diving through the ship. Rocks stream through the
+    // centre for the crew to dodge; the bottom is left open for enemy ships
+    // later, and whirlpools are reserved for a telegraphed tentacle attack.
+    // Close enough that the whole boss fits INSIDE the combat camera frame --
+    // at 32 its head was cut off at the top of the screen. The camera centre
+    // sits at player+16 with ortho 24-26 and the scaled sprite is ~20 units
+    // tall, AND the ship can now dodge ~10 units downward (camera follows),
+    // so the boss needs to fit even from the bottom of the steering box.
+    private const float KrakenHoverDistance = 23f; // above the ship (top only)
+    private const float KrakenStrafeRange = 12f;   // left-right sweep half-width
+    // The reef streams as GATES with a guaranteed passable gap. Gates are spaced
+    // well apart so only one is over the ship at a time.
+    private const float ReefGateSpacing = 42f;
+    private const int ReefRocksPerGate = 3;
+    private const float ReefGapHeight = 16f;
+    // The boss hovers well above the deck, so the cannons need the reach to aim
+    // at it (the stock reticle range is far too short for a boss fight).
+    private const float CannonAimRange = 30f;
+    // Push the camera's framed centre up so the ship sits in the LOWER part of
+    // the screen, opening the top for the boss to loom without landing on it.
+    private const float CameraFrameOffsetY = 16f;
 
     // Zoomed well out, so the ship is one element in the arena rather than
     // filling the frame, with room for the boss and the hazards around it.
-    private const float ArenaCameraSize = 20f;
+    private const float ArenaCameraSize = 24f;
+    // The combat views (manning a cannon/helm) were far too tight -- the ship
+    // filled the screen and dwarfed everything. Pull them out so the whole
+    // arena reads during the fight.
+    private const float CannonCameraZoom = 24f;
+    private const float SteeringCameraZoom = 26f;
 
     private static readonly string[] KrakenFrames =
     {
@@ -93,7 +110,12 @@ public static class KrakenArenaBuilder
         ArtDir + "/kraken_idle_2.png",
     };
     private static readonly string WaterPath = ArtDir + "/arena_night_water.png";
-    private static readonly string SpirePath = ArtDir + "/arena_spire.png";
+    private static readonly string[] RockPaths =
+    {
+        ArtDir + "/rock_0.png", ArtDir + "/rock_1.png",
+        ArtDir + "/rock_2.png", ArtDir + "/rock_3.png",
+        ArtDir + "/rock_4.png", ArtDir + "/rock_5.png",
+    };
 
     // The whirlpool is an 8-frame procedural vortex flipbook (arms spiral
     // inward), not a rotated decal.
@@ -103,6 +125,43 @@ public static class KrakenArenaBuilder
         ArtDir + "/whirl_anim_2.png", ArtDir + "/whirl_anim_3.png",
         ArtDir + "/whirl_anim_4.png", ArtDir + "/whirl_anim_5.png",
         ArtDir + "/whirl_anim_6.png", ArtDir + "/whirl_anim_7.png",
+    };
+
+    // The tentacle slam: Santiago's 8-frame sheet (splash -> rise -> arc -> slam
+    // -> sink), keyed off its baked grid guides and registered so every frame
+    // shares one water-base anchor. That anchor is the sprite's pivot, so placing
+    // the tentacle at the marked spot puts the splash there and the limb rises
+    // above it. Imported at 20 PPU so the ~200px full-rise reads as a ~10-unit
+    // tentacle -- bigger than the whirlpool it erupts from.
+    private const float TentaclePixelsPerUnit = 20f;
+    // Water-base anchor within the 361x219 staged canvas, normalised from the
+    // bottom-left (see scratchpad/stage_tentacle.py).
+    private static readonly Vector2 TentaclePivot = new Vector2(0.3934f, 0.0365f);
+    private static readonly string[] TentacleFrames =
+    {
+        ArtDir + "/tentacle_0.png", ArtDir + "/tentacle_1.png",
+        ArtDir + "/tentacle_2.png", ArtDir + "/tentacle_3.png",
+        ArtDir + "/tentacle_4.png", ArtDir + "/tentacle_5.png",
+        ArtDir + "/tentacle_6.png", ArtDir + "/tentacle_7.png",
+    };
+
+    // The oil glob the kraken lobs at the ship (Javier's "reuse the cannonball"
+    // idea). One compact blob lifted from Santiago's transparent blob sheet
+    // (largest connected component, highlight intact). 60 PPU makes the ~150px
+    // glob a ~2.5-unit projectile.
+    private const float OilPixelsPerUnit = 60f;
+    private static readonly string OilPath = ArtDir + "/oil.png";
+
+    // Cosmetic drifting ghost souls (4-frame float). Small, faint, in the
+    // background -- pure atmosphere, no gameplay.
+    private const float SoulPixelsPerUnit = 90f;
+    private const float SoulFps = 6f;
+    private const int SoulCount = 7;
+    private const int SoulSeed = 20260726;
+    private static readonly string[] SoulFrames =
+    {
+        ArtDir + "/soul_0.png", ArtDir + "/soul_1.png",
+        ArtDir + "/soul_2.png", ArtDir + "/soul_3.png",
     };
 
     [MenuItem("Deadman's Tales/Kraken Arena/1. Import Art")]
@@ -117,16 +176,38 @@ public static class KrakenArenaBuilder
         {
             ApplySpriteImport(frame, TextureWrapMode.Clamp, WhirlPixelsPerUnit);
         }
-        ApplySpriteImport(SpirePath, TextureWrapMode.Clamp, ArenaPixelsPerUnit);
+        foreach (string frame in SoulFrames)
+        {
+            ApplySpriteImport(frame, TextureWrapMode.Clamp, SoulPixelsPerUnit);
+        }
+        foreach (string frame in TentacleFrames)
+        {
+            // Custom pivot on the shared water-base anchor so the flipbook rises
+            // from a fixed point instead of jittering frame to frame.
+            ApplySpriteImport(
+                frame, TextureWrapMode.Clamp, TentaclePixelsPerUnit,
+                SpriteAlignment.Custom, TentaclePivot);
+        }
+        // Oil projectile: a centred pivot so it flies and spins about its middle.
+        ApplySpriteImport(OilPath, TextureWrapMode.Clamp, OilPixelsPerUnit);
+        foreach (string rock in RockPaths)
+        {
+            // Bottom-centre pivot so the placement point is the rock's waterline.
+            ApplySpriteImport(
+                rock, TextureWrapMode.Clamp, RockPixelsPerUnit,
+                SpriteAlignment.BottomCenter);
+        }
         // Water tiles, so it must wrap -- and at 32 PPU to match the scroller.
         ApplySpriteImport(WaterPath, TextureWrapMode.Repeat, WaterPixelsPerUnit);
 
         AssetDatabase.Refresh();
-        Debug.Log("[Kraken Arena] Art imported at 16 PPU, point-filtered.");
+        Debug.Log("[Kraken Arena] Art imported (point-filtered, per-sprite PPU).");
     }
 
     private static void ApplySpriteImport(
-        string path, TextureWrapMode wrap, float pixelsPerUnit)
+        string path, TextureWrapMode wrap, float pixelsPerUnit,
+        SpriteAlignment alignment = SpriteAlignment.Center,
+        Vector2? customPivot = null)
     {
         TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
 
@@ -143,6 +224,20 @@ public static class KrakenArenaBuilder
         importer.textureCompression = TextureImporterCompression.Uncompressed;
         importer.mipmapEnabled = false;
         importer.wrapMode = wrap;
+
+        // Sprite alignment (pivot) lives on TextureImporterSettings, not on the
+        // importer directly. Read the settings we just configured, set the
+        // pivot, and write them back. A custom pivot (normalised, from bottom-
+        // left) registers frames that share a canvas on a common anchor.
+        TextureImporterSettings settings = new TextureImporterSettings();
+        importer.ReadTextureSettings(settings);
+        settings.spriteAlignment = (int)alignment;
+        if (alignment == SpriteAlignment.Custom && customPivot.HasValue)
+        {
+            settings.spritePivot = customPivot.Value;
+        }
+        importer.SetTextureSettings(settings);
+
         importer.SaveAndReimport();
     }
 
@@ -297,33 +392,141 @@ public static class KrakenArenaBuilder
         }
     }
 
-    [MenuItem("Deadman's Tales/Kraken Arena/2c. Build Spire Prefab")]
-    public static void BuildSpirePrefab()
+    [MenuItem("Deadman's Tales/Kraken Arena/2c. Build Rock Prefabs")]
+    public static void BuildRockPrefabs()
     {
         Directory.CreateDirectory(PrefabDir);
 
-        Sprite spire = AssetDatabase.LoadAssetAtPath<Sprite>(SpirePath);
-        if (spire == null)
+        for (int i = 0; i < RockPaths.Length; i++)
         {
-            Debug.LogError(
-                "[Kraken Arena] Spire sprite missing; run step 1 first.");
-            return;
+            Sprite rock = AssetDatabase.LoadAssetAtPath<Sprite>(RockPaths[i]);
+            if (rock == null)
+            {
+                Debug.LogError(
+                    $"[Kraken Arena] Rock sprite '{RockPaths[i]}' missing; " +
+                    "run step 1 first.");
+                return;
+            }
+
+            GameObject root = new GameObject($"Rock_{i}");
+            SpriteRenderer sr = root.AddComponent<SpriteRenderer>();
+            sr.sprite = rock;
+            // Above the whirlpools, below the ship and boss.
+            sr.sortingOrder = 2;
+
+            string prefabPath = PrefabDir + $"/Rock_{i}.prefab";
+            PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+            Object.DestroyImmediate(root);
         }
 
-        GameObject root = new GameObject("Spire");
-        SpriteRenderer sr = root.AddComponent<SpriteRenderer>();
-        sr.sprite = spire;
-        // Above the whirlpools, below the ship and boss.
-        sr.sortingOrder = 2;
-        root.transform.localScale = Vector3.one * SpireScale;
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log(
+            $"[Kraken Arena] Built {RockPaths.Length} reef-rock prefabs.");
+    }
 
-        string prefabPath = PrefabDir + "/Spire.prefab";
+    [MenuItem("Deadman's Tales/Kraken Arena/2d. Build Soul Prefab")]
+    public static void BuildSoulPrefab()
+    {
+        Directory.CreateDirectory(PrefabDir);
+        Directory.CreateDirectory(AnimDir);
+
+        Sprite[] frames = new Sprite[SoulFrames.Length];
+        for (int i = 0; i < SoulFrames.Length; i++)
+        {
+            frames[i] = AssetDatabase.LoadAssetAtPath<Sprite>(SoulFrames[i]);
+            if (frames[i] == null)
+            {
+                Debug.LogError(
+                    $"[Kraken Arena] Soul frame '{SoulFrames[i]}' missing; " +
+                    "run step 1 first.");
+                return;
+            }
+        }
+
+        AnimatorController controller = BuildLoopClip(
+            frames, SoulFps,
+            AnimDir + "/Soul.anim", AnimDir + "/Soul.controller");
+
+        GameObject root = new GameObject("Soul");
+        SpriteRenderer sr = root.AddComponent<SpriteRenderer>();
+        sr.sprite = frames[0];
+        sr.color = new Color(1f, 1f, 1f, 0.65f); // faint + ghostly
+        sr.sortingOrder = 0;                      // drift in the background
+
+        Animator animator = root.AddComponent<Animator>();
+        animator.runtimeAnimatorController = controller;
+
+        root.AddComponent<SoulDrift>();
+
+        string prefabPath = PrefabDir + "/Soul.prefab";
         PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
         Object.DestroyImmediate(root);
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-        Debug.Log($"[Kraken Arena] Built {prefabPath}.");
+        Debug.Log($"[Kraken Arena] Built {prefabPath} (4-frame drifting soul).");
+    }
+
+    [MenuItem("Deadman's Tales/Kraken Arena/2e. Build Oil Prefab")]
+    public static void BuildOilPrefab()
+    {
+        Directory.CreateDirectory(PrefabDir);
+
+        Sprite oil = AssetDatabase.LoadAssetAtPath<Sprite>(OilPath);
+        if (oil == null)
+        {
+            Debug.LogError(
+                $"[Kraken Arena] Oil sprite '{OilPath}' missing; run step 1.");
+            return;
+        }
+
+        GameObject root = new GameObject("OilShot");
+        SpriteRenderer sr = root.AddComponent<SpriteRenderer>();
+        sr.sprite = oil;
+        sr.sortingOrder = 7; // in front of the tentacle as it flies
+        root.AddComponent<OilShot>();
+
+        string prefabPath = PrefabDir + "/OilShot.prefab";
+        PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+        Object.DestroyImmediate(root);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"[Kraken Arena] Built {prefabPath} (oil projectile).");
+    }
+
+    // Scatter faint drifting souls across the arena for atmosphere.
+    // Idempotent via the "Souls" parent.
+    private static void PlaceSouls(Scene scene, Vector2 shipCenter)
+    {
+        foreach (GameObject go in scene.GetRootGameObjects())
+        {
+            if (go.name.StartsWith("Souls"))
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            PrefabDir + "/Soul.prefab");
+        if (prefab == null)
+        {
+            return;
+        }
+
+        GameObject parent = new GameObject("Souls");
+        System.Random rng = new System.Random(SoulSeed);
+        for (int i = 0; i < SoulCount; i++)
+        {
+            float x = shipCenter.x
+                + Mathf.Lerp(-46f, 46f, (float)rng.NextDouble());
+            float y = shipCenter.y
+                + Mathf.Lerp(-24f, 30f, (float)rng.NextDouble());
+            GameObject s = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            s.transform.SetParent(parent.transform, true);
+            s.transform.position = new Vector3(x, y, 0f);
+        }
     }
 
     [MenuItem("Deadman's Tales/Kraken Arena/3. Build Arena Scene")]
@@ -353,24 +556,33 @@ public static class KrakenArenaBuilder
             .SelectMany(go => go.GetComponentsInChildren<KrakenHealth>(true))
             .FirstOrDefault();
 
-        if (existing != null)
-        {
-            existing.transform.position = KrakenPosition;
-            existing.transform.localScale = Vector3.one * KrakenScale;
-        }
-        else
-        {
-            GameObject kraken =
-                (GameObject)PrefabUtility.InstantiatePrefab(krakenPrefab);
-            kraken.transform.position = KrakenPosition;
-            kraken.transform.localScale = Vector3.one * KrakenScale;
-        }
+        GameObject kraken = existing != null
+            ? existing.gameObject
+            : (GameObject)PrefabUtility.InstantiatePrefab(krakenPrefab);
+        kraken.transform.position = KrakenPosition;
+        kraken.transform.localScale = Vector3.one * KrakenScale;
 
-        SwapWaterToNight();
+        // Water is left at the boat scene's original colour on purpose -- the
+        // dark "night" tone clashed with the bright whirlpool art, so the arena
+        // keeps the original day water it inherits from the Save-As.
         FrameArenaCamera();
-        PlaceWhirlpools(scene);
-        PlaceSpires(scene);
+        OrientArenaSail(scene);
+
+        // Three bands: the kraken strafes across the TOP only, rocks stream
+        // through the CENTRE for the ship to dodge, and the bottom is left open
+        // (enemy ships + whirlpool tentacle attacks come later). Cannons get the
+        // range to reach the boss overhead.
+        Vector2 shipCenter = GetShipCenter(scene);
+        RemoveBoatRunnerClutter(scene);
+        BuildScrollingReef(scene, shipCenter);
+        SetupKrakenMotion(kraken, shipCenter);
+        SetupKrakenAttack(kraken, scene);
+        TuneCannonsForBoss(scene);
+        TuneArenaCameraFraming(scene);
+        PlaceSouls(scene, shipCenter);
+
         EnsureArenaHud();
+        EnsureArenaTestPlayer(scene);
 
         bool ok = EditorSceneManager.SaveScene(scene, ArenaScenePath);
         Debug.Log(ok
@@ -378,30 +590,6 @@ public static class KrakenArenaBuilder
             : "[Kraken Arena] FAILED to save the arena scene.");
 
         RegisterArenaScene();
-    }
-
-    // Repoint the ship scene's scrolling water at the night tile, so the arena
-    // reads as a boss fight rather than the daytime sail. Only the sprite is
-    // swapped; the existing tiling/scroll setup is left alone.
-    private static void SwapWaterToNight()
-    {
-        Sprite night = AssetDatabase.LoadAssetAtPath<Sprite>(WaterPath);
-        if (night == null)
-        {
-            return;
-        }
-
-        ScrollingWater[] waters = Object
-            .FindObjectsByType<ScrollingWater>(FindObjectsSortMode.None);
-
-        foreach (ScrollingWater water in waters)
-        {
-            SpriteRenderer sr = water.GetComponent<SpriteRenderer>();
-            if (sr != null)
-            {
-                sr.sprite = night;
-            }
-        }
     }
 
     // Zoom the arena camera out so the boss above the bow is on screen from the
@@ -435,65 +623,410 @@ public static class KrakenArenaBuilder
         }
     }
 
-    // Clear any existing whirlpools and re-place them at the current spots, so
-    // re-running the builder actually applies new positions and counts.
-    private static void PlaceWhirlpools(Scene scene)
+    // Orient the arena as a side-scrolling gauntlet: the ship is a side-view
+    // sprite, so the reef streams horizontally (right -> left) rather than up
+    // and down. The treadmill water scrolls left to match; the ship is mirrored
+    // to face right (bow into the oncoming reef); and the helm's steering box is
+    // reshaped to give vertical room, since the crew now weaves up and down.
+    private static void OrientArenaSail(Scene scene)
     {
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-            PrefabDir + "/Whirlpool.prefab");
-        if (prefab == null)
+        foreach (ScrollingWater water in Object
+            .FindObjectsByType<ScrollingWater>(FindObjectsSortMode.None))
+        {
+            SerializedObject so = new SerializedObject(water);
+            SerializedProperty speed = so.FindProperty("scrollSpeed");
+            if (speed != null)
+            {
+                speed.vector2Value = new Vector2(-3f, 0f);
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        foreach (ShipHelm helm in Object
+            .FindObjectsByType<ShipHelm>(FindObjectsSortMode.None))
+        {
+            SerializedObject so = new SerializedObject(helm);
+            SerializedProperty bounds = so.FindProperty("moveBounds");
+            if (bounds != null)
+            {
+                // Real room in BOTH axes: vertical for dodging the reef gates,
+                // horizontal so the ship can chase/flee across the arena.
+                bounds.vector2Value = new Vector2(16f, 10f);
+            }
+            SerializedProperty steer = so.FindProperty("moveSpeed");
+            if (steer != null)
+            {
+                // Stock 3 u/s was a barge; the dodge-gauntlet needs a ship
+                // that answers the wheel.
+                steer.floatValue = 6f;
+            }
+            SerializedProperty helmZoom = so.FindProperty("steeringCameraZoom");
+            if (helmZoom != null)
+            {
+                helmZoom.floatValue = SteeringCameraZoom;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            // Mirror the ship so the bow points right, into the oncoming reef.
+            Transform ship =
+                so.FindProperty("ship")?.objectReferenceValue as Transform;
+            MirrorFaceRight(ship);
+        }
+
+        MirrorFaceRight(FindByName(scene, "Ship"));
+    }
+
+    // Mirror the ship (localScale.x = -1) so its bow faces right, into the
+    // oncoming reef. Santiago wants this look.
+    //
+    // NOTE: the mirror was once suspected of causing the spawn fly-up (the hull
+    // EdgeCollider2D is a child of Ship and flips with it, while the
+    // PlayerSpawns are root objects and do not). MEASURED result: the player
+    // climbs identically mirrored or not, with zero physics contacts, zero
+    // rigidbody velocity and zero input -- a direct transform write by
+    // something on the player, nothing to do with hull collision. Cannon aim
+    // is world-space, so the negative scale is safe.
+    private static void MirrorFaceRight(Transform ship)
+    {
+        if (ship == null)
         {
             return;
         }
+        Vector3 s = ship.localScale;
+        ship.localScale = new Vector3(-Mathf.Abs(s.x), s.y, s.z);
+    }
 
+    private static Transform FindByName(Scene scene, string name)
+    {
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            if (root.name == name)
+            {
+                return root.transform;
+            }
+            Transform found = root.transform.Find(name);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    // Replace any static hazards with a single ScrollingReef that streams the
+    // rock formations + whirlpools past the (near-stationary) ship, so the crew
+    // actually has a field to dodge. Clears legacy static rocks/spires/
+    // whirlpools and any prior reef so re-runs stay idempotent.
+    private static void BuildScrollingReef(Scene scene, Vector2 shipCenter)
+    {
         foreach (GameObject go in scene.GetRootGameObjects())
         {
-            if (go.name.StartsWith("Whirlpool"))
+            if (go.name.StartsWith("Rock") || go.name.StartsWith("Spire")
+                || go.name.StartsWith("Whirlpool")
+                || go.name.StartsWith("ScrollingReef")
+                || go.name.StartsWith("MarginFillers"))
             {
                 Object.DestroyImmediate(go);
             }
         }
 
-        foreach (Vector3 spot in WhirlpoolSpots)
+        GameObject reefObject = new GameObject("ScrollingReef");
+        ScrollingReef reef = reefObject.AddComponent<ScrollingReef>();
+
+        SerializedObject so = new SerializedObject(reef);
+
+        SerializedProperty rocks = so.FindProperty("rockPrefabs");
+        rocks.arraySize = RockPaths.Length;
+        for (int i = 0; i < RockPaths.Length; i++)
         {
-            GameObject w = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            w.transform.position = spot;
+            rocks.GetArrayElementAtIndex(i).objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<GameObject>(
+                    PrefabDir + $"/Rock_{i}.prefab");
+        }
+
+        // Gated so there is ALWAYS a passable gap; band centred on the ship.
+        so.FindProperty("gateSpacing").floatValue = ReefGateSpacing;
+        so.FindProperty("rocksPerGate").intValue = ReefRocksPerGate;
+        so.FindProperty("gapHeight").floatValue = ReefGapHeight;
+        so.FindProperty("laneMinY").floatValue = shipCenter.y - 13f;
+        so.FindProperty("laneMaxY").floatValue = shipCenter.y + 13f;
+
+        Collider2D shipHitbox = FindShipHitbox(scene);
+        if (shipHitbox != null)
+        {
+            so.FindProperty("shipHitbox").objectReferenceValue = shipHitbox;
+        }
+        else
+        {
+            Debug.LogWarning(
+                "[Kraken Arena] No 'ShipHitBox' collider found; reef will be "
+                + "visual only (no contact damage).");
+        }
+
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    // The arena is a Save-As of the boat endless-runner, so it inherits that
+    // runner's obstacle spawner (BoatObstacleGenerator) and its spawn area. The
+    // arena streams its own ScrollingReef instead, so strip the inherited spawner
+    // -- otherwise it litters the deck with boat rocks (NetworkObjects with
+    // colliders) that fight the reef and can shove the just-spawned player.
+    private static void RemoveBoatRunnerClutter(Scene scene)
+    {
+        foreach (BoatObstacleGenerator gen in Object
+            .FindObjectsByType<BoatObstacleGenerator>(FindObjectsSortMode.None))
+        {
+            SerializedObject so = new SerializedObject(gen);
+            BoxCollider2D area = so.FindProperty("generationArea")
+                ?.objectReferenceValue as BoxCollider2D;
+            if (area != null)
+            {
+                Object.DestroyImmediate(area.gameObject);
+            }
+            Object.DestroyImmediate(gen.gameObject);
         }
     }
 
-    // Clear any existing rock crags and re-place them at the current spots.
-    private static void PlaceSpires(Scene scene)
+    // The ship's hull hitbox, so the reef can damage the ship on contact.
+    private static Collider2D FindShipHitbox(Scene scene)
     {
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-            PrefabDir + "/Spire.prefab");
-        if (prefab == null)
+        foreach (GameObject root in scene.GetRootGameObjects())
         {
-            return;
+            foreach (Collider2D col in
+                root.GetComponentsInChildren<Collider2D>(true))
+            {
+                if (col.gameObject.name == "ShipHitBox")
+                {
+                    return col;
+                }
+            }
+        }
+        return null;
+    }
+
+    // The playable deck centre -- the anchor the reef/boss/souls/camera build
+    // around. IMPORTANT: the "Ship" root transform sits at the waterline origin
+    // (0,0), NOT on the deck, which is ~12 units up (cannons, helm, spawns and
+    // the camera all cluster there). Centring on the Ship root put the whole
+    // arena 12 units below the crew -- the reef and boss ended up off-screen
+    // under the deck. The spawn markers ARE the deck, so use their centroid.
+    private static Vector2 GetShipCenter(Scene scene)
+    {
+        PlayerSpawnPoint2D[] spawns = Object
+            .FindObjectsByType<PlayerSpawnPoint2D>(FindObjectsSortMode.None);
+        if (spawns.Length > 0)
+        {
+            Vector2 sum = Vector2.zero;
+            foreach (PlayerSpawnPoint2D s in spawns)
+            {
+                sum += (Vector2)s.transform.position;
+            }
+            return sum / spawns.Length;
         }
 
+        foreach (ShipHelm helm in Object
+            .FindObjectsByType<ShipHelm>(FindObjectsSortMode.None))
+        {
+            SerializedObject so = new SerializedObject(helm);
+            Transform ship =
+                so.FindProperty("ship")?.objectReferenceValue as Transform;
+            if (ship != null)
+            {
+                return ship.position;
+            }
+        }
+
+        Transform named = FindByName(scene, "Ship");
+        return named != null ? (Vector2)named.position : new Vector2(0f, 2f);
+    }
+
+    // Swap the kraken's BoatBob for a KrakenStrafe so it slides left-right in
+    // the TOP band only -- no diving through the ship.
+    private static void SetupKrakenMotion(GameObject kraken, Vector2 center)
+    {
+        BoatBob bob = kraken.GetComponent<BoatBob>();
+        if (bob != null)
+        {
+            Object.DestroyImmediate(bob);
+        }
+
+        KrakenStrafe strafe = kraken.GetComponent<KrakenStrafe>();
+        if (strafe == null)
+        {
+            strafe = kraken.AddComponent<KrakenStrafe>();
+        }
+
+        SerializedObject so = new SerializedObject(strafe);
+        so.FindProperty("shipCenter").vector2Value = center;
+        so.FindProperty("hoverDistance").floatValue = KrakenHoverDistance;
+        so.FindProperty("strafeRange").floatValue = KrakenStrafeRange;
+        // Slow, heavy motion -- a giant boss with weight, not a floaty cork.
+        so.FindProperty("strafeSpeed").floatValue = 0.35f;
+        so.FindProperty("bobHeight").floatValue = 0.35f;
+        so.FindProperty("bobSpeed").floatValue = 0.5f;
+        // Stay up top -- never dive through the ship.
+        so.FindProperty("sideSwitchSeconds").floatValue = 99999f;
+        so.FindProperty("rocks").arraySize = 0;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        // Open with the boss up top.
+        kraken.transform.position = new Vector3(
+            center.x, center.y + KrakenHoverDistance,
+            kraken.transform.position.z);
+    }
+
+    // Give the kraken its telegraphed whirlpool tentacle-slam attack.
+    private static void SetupKrakenAttack(GameObject kraken, Scene scene)
+    {
+        KrakenAttack attack = kraken.GetComponent<KrakenAttack>();
+        if (attack == null)
+        {
+            attack = kraken.AddComponent<KrakenAttack>();
+        }
+
+        SerializedObject so = new SerializedObject(attack);
+        so.FindProperty("whirlpoolPrefab").objectReferenceValue =
+            AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrefabDir + "/Whirlpool.prefab");
+
+        // The strike now plays the WHOLE rise-arc-slam flipbook as the hit
+        // (the telegraph is whirlpool-only), so give the pop-out enough time
+        // to read as an eruption rather than a single flicker.
+        SerializedProperty slam = so.FindProperty("slamTime");
+        if (slam != null)
+        {
+            slam.floatValue = 0.55f;
+        }
+
+        // The tentacle flipbook that erupts from the whirlpool telegraph.
+        SerializedProperty frames = so.FindProperty("tentacleFrames");
+        if (frames != null)
+        {
+            frames.arraySize = TentacleFrames.Length;
+            for (int i = 0; i < TentacleFrames.Length; i++)
+            {
+                frames.GetArrayElementAtIndex(i).objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<Sprite>(TentacleFrames[i]);
+            }
+        }
+
+        Collider2D shipHitbox = FindShipHitbox(scene);
+        if (shipHitbox != null)
+        {
+            so.FindProperty("shipHitbox").objectReferenceValue = shipHitbox;
+        }
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        SetupKrakenOilAttack(kraken, scene, shipHitbox);
+    }
+
+    // Give the kraken its ranged oil barrage (Javier's cannonball-reuse idea):
+    // it lobs oil blobs at the ship on a separate cadence from the slam.
+    private static void SetupKrakenOilAttack(
+        GameObject kraken, Scene scene, Collider2D shipHitbox)
+    {
+        KrakenOilAttack oil = kraken.GetComponent<KrakenOilAttack>();
+        if (oil == null)
+        {
+            oil = kraken.AddComponent<KrakenOilAttack>();
+        }
+
+        SerializedObject so = new SerializedObject(oil);
+        so.FindProperty("oilPrefab").objectReferenceValue =
+            AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrefabDir + "/OilShot.prefab");
+        if (shipHitbox != null)
+        {
+            so.FindProperty("shipHitbox").objectReferenceValue = shipHitbox;
+        }
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    // Give the ship's cannons the reach to hit the boss overhead, and pull the
+    // cannon camera out so the arena is visible while manning one.
+    private static void TuneCannonsForBoss(Scene scene)
+    {
+        foreach (ShipCannon cannon in Object
+            .FindObjectsByType<ShipCannon>(FindObjectsSortMode.None))
+        {
+            SerializedObject so = new SerializedObject(cannon);
+            SerializedProperty range = so.FindProperty("aimRange");
+            if (range != null)
+            {
+                range.floatValue = CannonAimRange;
+            }
+            SerializedProperty zoom = so.FindProperty("cannonCameraZoom");
+            if (zoom != null)
+            {
+                zoom.floatValue = CannonCameraZoom;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+    }
+
+    // Frame the arena so the ship sits low and the boss has room above it.
+    //
+    // ONLY Camera2DFollow (the networked follow camera) gets the offset, and
+    // LocalCoopCamera is DISABLED in this scene outright. LocalCoopCamera is
+    // the couch co-op framer and it LEASHES players -- it clamps every
+    // PlayerCharacter's transform+rigidbody into its visible rectangle each
+    // LateUpdate. With the follow camera holding the view 16 units above the
+    // player, the leash rectangle sat above the player too, so the leash
+    // dragged the player up, the follow camera re-centred above the new spot,
+    // and the pair ran away at ~55 u/s -- the measured "shot straight up on
+    // spawn" bug (see Logs/arena_diag.txt: climb stopped the instant the
+    // camera object was disabled; zero velocity, zero input, zero contacts
+    // throughout). The arena is networked-only for now, so the couch framer
+    // has no business running here. Re-enable it deliberately (leash tuned for
+    // the offset) if the arena ever gets a local co-op mode.
+    private static void TuneArenaCameraFraming(Scene scene)
+    {
+        foreach (MonoBehaviour mb in Object
+            .FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+        {
+            string typeName = mb.GetType().Name;
+            if (typeName == "LocalCoopCamera")
+            {
+                SerializedObject coop = new SerializedObject(mb);
+                SerializedProperty enabledProp = coop.FindProperty("m_Enabled");
+                if (enabledProp != null)
+                {
+                    enabledProp.boolValue = false;
+                    coop.ApplyModifiedPropertiesWithoutUndo();
+                }
+                continue;
+            }
+
+            if (typeName != "Camera2DFollow")
+            {
+                continue;
+            }
+
+            SerializedObject so = new SerializedObject(mb);
+            SerializedProperty off = so.FindProperty("viewOffset");
+            if (off != null)
+            {
+                off.vector2Value = new Vector2(0f, CameraFrameOffsetY);
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+    }
+
+    // TESTING ONLY: drop a KrakenArenaTestPlayer into the arena so hitting Play
+    // on the scene directly spawns a controllable player (the arena isn't wired
+    // through the menu/spawn coordinator yet). Idempotent by name.
+    private static void EnsureArenaTestPlayer(Scene scene)
+    {
         foreach (GameObject go in scene.GetRootGameObjects())
         {
-            if (go.name.StartsWith("Spire"))
+            if (go.name == "KrakenArenaTestPlayer")
             {
                 Object.DestroyImmediate(go);
             }
         }
 
-        for (int i = 0; i < SpireSpots.Length; i++)
-        {
-            GameObject s = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            s.transform.position = SpireSpots[i];
-
-            // Deterministic jitter so the reef looks scattered, not stamped:
-            // size varies 0.7x..1.3x and every other crag faces the other way.
-            float t = ((i * 0.6180339f) % 1f);
-            float sizeMul = 0.7f + 0.6f * t;
-            float faceX = (i % 2 == 0) ? 1f : -1f;
-            s.transform.localScale = new Vector3(
-                SpireScale * sizeMul * faceX,
-                SpireScale * sizeMul,
-                1f);
-        }
+        GameObject tester = new GameObject("KrakenArenaTestPlayer");
+        tester.AddComponent<KrakenArenaTestPlayer>();
     }
 
     // Add the boss HUD object if the scene has none.
@@ -525,12 +1058,15 @@ public static class KrakenArenaBuilder
     }
 
     // One-shot: run every step in order.
+    [MenuItem("Deadman's Tales/Kraken Arena/0. Build Everything")]
     public static void BuildAllFromCommandLine()
     {
         ImportArenaArt();
         BuildKrakenPrefab();
         BuildWhirlpoolPrefab();
-        BuildSpirePrefab();
+        BuildRockPrefabs();
+        BuildSoulPrefab();
+        BuildOilPrefab();
         BuildArenaScene();
     }
 }

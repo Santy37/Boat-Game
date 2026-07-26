@@ -10,6 +10,8 @@ public class Cannonball : MonoBehaviour
     [SerializeField] private int damage = 1;
 
     private Vector2 velocity;
+    private KrakenHealth kraken;
+    private Collider2D krakenBody;
 
     public void Launch(Vector2 startVelocity)
     {
@@ -17,9 +19,30 @@ public class Cannonball : MonoBehaviour
         Destroy(gameObject, lifeSeconds);
     }
 
+    private void Start()
+    {
+        // The ball prefab has no collider or rigidbody, so OnTriggerEnter2D
+        // below never actually fires -- cannons could not hurt the boss at
+        // all. Rather than bolt physics onto the ball (it spawns inside the
+        // ship's trigger hitbox and would pop instantly), hit-test the boss
+        // directly, the same way OilShot hit-tests the ship.
+        kraken = FindFirstObjectByType<KrakenHealth>();
+        if (kraken != null)
+        {
+            krakenBody = kraken.GetComponent<Collider2D>();
+        }
+    }
+
     private void Update()
     {
         transform.position += (Vector3)(velocity * Time.deltaTime);
+
+        if (kraken != null && !kraken.IsDead && krakenBody != null
+            && krakenBody.OverlapPoint(transform.position))
+        {
+            kraken.TakeHit(damage);
+            Destroy(gameObject);
+        }
     }
 
     private void OnTriggerEnter2D(Collider2D other)
