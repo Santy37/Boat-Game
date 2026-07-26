@@ -2381,7 +2381,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.8497925, y: -4.2573853}
+  m_AnchoredPosition: {x: -0.8498535, y: -4.2574463}
   m_SizeDelta: {x: 36.00122, y: 49.03662}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &280912807
@@ -7999,7 +7999,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.84973145, y: -4.2573853}
+  m_AnchoredPosition: {x: -0.84973145, y: -4.2574463}
   m_SizeDelta: {x: 36.0011, y: 49.036743}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1156862729
@@ -8718,7 +8718,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.000061035156, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: -0.00004196167}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1289498677
@@ -8943,7 +8943,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.8497925, y: -4.2573853}
+  m_AnchoredPosition: {x: -0.8498535, y: -4.2574463}
   m_SizeDelta: {x: 36.00122, y: 49.03662}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1300389494
@@ -11005,7 +11005,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1757554392}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 32604455}
+        m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
+        m_MethodName: LoadLevelThree
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1757554392
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12425,7 +12437,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1995418883}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 32604455}
+        m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
+        m_MethodName: LoadLevelTwo
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1995418883
 MonoBehaviour:
   m_ObjectHideFlags: 0
