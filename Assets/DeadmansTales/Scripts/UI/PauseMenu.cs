@@ -11,7 +11,7 @@ public class PauseMenu : MonoBehaviour
 
     private bool menuIsOpen;
     private bool returningToMainMenu;
-
+    private bool deathScreenBlocking;
     public static bool InputBlocked { get; private set; }
 
     private void Start()
@@ -32,6 +32,11 @@ public class PauseMenu : MonoBehaviour
 
     public void TogglePauseMenu()
     {
+        if (deathScreenBlocking)
+        {
+            return;
+        }
+
         if (returningToMainMenu)
         {
             return;
@@ -58,6 +63,16 @@ public class PauseMenu : MonoBehaviour
     public void OpenLevelSelect()
     {
         Debug.Log("Level Select");
+    }
+
+    public void SetDeathScreenBlocking(bool blocked)
+    {
+        deathScreenBlocking = blocked;
+        menuIsOpen = false;
+
+        pauseMenuPanel.SetActive(false);
+        pauseButton.SetActive(!blocked);
+        InputBlocked = blocked;
     }
 
     public void ResumeGame()

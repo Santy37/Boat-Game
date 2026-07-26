@@ -23,6 +23,9 @@ public class Camera2DFollow : MonoBehaviour
     [Header("Camera")]
     [SerializeField] private float zOffset = -10f;
     [SerializeField] private float orthographicSize = 11f;
+    [Tooltip("Shift the framed centre away from the target, e.g. push the ship "
+        + "low so a boss fits above. Zero = centred on the target.")]
+    [SerializeField] private Vector2 viewOffset = Vector2.zero;
 
     [Header("Pixel Snapping")]
     [SerializeField] private bool snapToPixels = true;
@@ -96,6 +99,9 @@ public class Camera2DFollow : MonoBehaviour
                 );
             }
         }
+
+        desiredPosition.x += viewOffset.x;
+        desiredPosition.y += viewOffset.y;
 
         if (snapToPixels && pixelsPerUnit > 0f)
         {
