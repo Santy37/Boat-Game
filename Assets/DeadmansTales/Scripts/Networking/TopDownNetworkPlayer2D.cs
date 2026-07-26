@@ -1,3 +1,4 @@
+using DeadmansTales.Ship;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -12,9 +13,26 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     private const float MoveInputHeartbeatSeconds = 0.05f;
     private const float ServerInputStaleSeconds = 0.5f;
 
+    // Defensive floor against a modified client spamming fire requests.
+    // Real pacing is still whatever cooldown the manned ShipCannon enforces
+    // client-side; this only stops obviously-abusive request rates.
+    private const float MinimumServerFireIntervalSeconds = 0.15f;
+
     [Header("Movement")]
     [SerializeField]
     private float moveSpeed = 5f;
+
+    [Header("Ship Cannon Firing")]
+    [Tooltip(
+        "Not something this player 'carries' -- the ship's cannons aren't " +
+        "networked objects themselves, so a manned ShipCannon routes its " +
+        "fire request through whichever player is sitting in the seat, " +
+        "which IS a networked object and can reach the server. This is " +
+        "the projectile that request spawns. Must be registered as a " +
+        "Network Prefab."
+    )]
+    [SerializeField]
+    private NetworkCannonball networkCannonballPrefab;
 
     // Ready state belongs to the player owner. The server reads every player's
     // value when deciding whether the host may start the game.
@@ -38,6 +56,7 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     private bool serverStationLocked;
     private Vector2 lastSubmittedMoveInput;
     private float nextMoveInputHeartbeatTime;
+    private float nextServerFireTime;
 
     public bool IsLobbyReady => lobbyReady.Value;
 
@@ -246,6 +265,70 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
         {
             animation.UnlockFacing();
         }
+    }
+
+    /// <summary>
+    /// Called on the owning client by a manned <c>ShipCannon</c> to request
+    /// a networked cannonball. Routed through the server so every peer sees
+    /// the same shot and the hit is resolved with authority, instead of the
+    /// old behavior where each client's cannon fired a purely local ball
+    /// nobody else could see.
+    /// </summary>
+    public void RequestFireCannon(Vector2 origin, Vector2 velocity)
+    {
+        if (!IsSpawned || !IsOwner)
+        {
+            return;
+        }
+
+        FireCannonServerRpc(origin, velocity);
+    }
+
+    [ServerRpc]
+    private void FireCannonServerRpc(Vector2 origin, Vector2 velocity)
+    {
+        if (Time.time < nextServerFireTime)
+        {
+            return;
+        }
+
+        nextServerFireTime = Time.time + MinimumServerFireIntervalSeconds;
+
+        if (networkCannonballPrefab == null)
+        {
+            Debug.LogWarning(
+                "[Cannon] No networked cannonball prefab assigned on the " +
+                "player prefab; fire request ignored.",
+                this
+            );
+            return;
+        }
+
+        NetworkCannonball ball = Instantiate(
+            networkCannonballPrefab,
+            origin,
+            Quaternion.identity
+        );
+
+        ball.NetworkObject.Spawn(true);
+
+        // Same self-hit fix as EnemyShipCannon: tell the ball which ship
+        // fired it so its own hull/rail colliders never count as a hit,
+        // even when Engaged with an enemy ship at point-blank range. There's
+        // only ever one player ship, so the same PlayerShipMarker lookup
+        // used elsewhere (NetworkShipLeak, EnemyShipApproach, etc.) resolves
+        // it here too.
+        PlayerShipMarker playerShip =
+            FindFirstObjectByType<PlayerShipMarker>();
+
+        if (playerShip != null)
+        {
+            ball.SetIgnoreShipServer(
+                playerShip.GetComponent<NetworkShipSinkMeter>()
+            );
+        }
+
+        ball.LaunchServer(velocity);
     }
 
     /// <summary>
