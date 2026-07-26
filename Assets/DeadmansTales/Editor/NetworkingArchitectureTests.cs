@@ -18,13 +18,13 @@ internal sealed class NetworkingArchitectureTests
     private const string NetworkManagerPrefabPath =
         "Assets/DeadmansTales/Prefabs/Networking/NetworkManager.prefab";
     private const string MainMenuScenePath =
-        "Assets/DeadmansTales/Scenes/MainMenu.unity";
+        "Assets/DeadmansTales/Scenes/Menu/MainMenu.unity";
     private const string LobbyScenePath =
         "Assets/DeadmansTales/Scenes/Island/Lobby_Island_2D.unity";
     private const string BoatScenePath =
         "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
     private const string IslandScenePath =
-        "Assets/DeadmansTales/Scenes/Island_After_Ocean_01_2D.unity";
+        "Assets/DeadmansTales/Scenes/Island/Island_After_Ocean_01_2D.unity";
     private const string EnemyPrefabPath =
         "Assets/DeadmansTales/Prefabs/basicenemy.prefab";
     private const string PlayerPrefabPath =
