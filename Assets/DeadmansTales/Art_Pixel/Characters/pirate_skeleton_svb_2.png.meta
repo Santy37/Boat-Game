@@ -1,0 +1,1361 @@
+fileFormatVersion: 2
+guid: ce2af30d6c299f548be7e82c8d7bca58
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_0
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 486
+        width: 48
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c5e26394eb4fa0e4c8cb7b6a02bbc6be
+      internalID: -1712377330
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_1
+      rect:
+        serializedVersion: 2
+        x: 122
+        y: 486
+        width: 48
+        height: 66
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0bcd1233dc16b37428b2ba8a94e002d6
+      internalID: -1423262826
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_2
+      rect:
+        serializedVersion: 2
+        x: 218
+        y: 486
+        width: 48
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b62fc1a8dade6494c8148ab200338077
+      internalID: 587246558
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_3
+      rect:
+        serializedVersion: 2
+        x: 314
+        y: 486
+        width: 70
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e0db59d8d51aa0842ac436c7a8f1a1f7
+      internalID: -1499931805
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_4
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 486
+        width: 74
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1ff6bba0c37249a4f91f6e230d3689ac
+      internalID: -635041862
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_5
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 486
+        width: 74
+        height: 62
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d9ef2e354673cc24cbfa25743c4062bb
+      internalID: 68743362
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_6
+      rect:
+        serializedVersion: 2
+        x: 610
+        y: 486
+        width: 40
+        height: 66
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 633d8d5789a817b40946f6d3aa87d979
+      internalID: -1622478388
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_7
+      rect:
+        serializedVersion: 2
+        x: 706
+        y: 486
+        width: 40
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: af6acb73da0639c4ea474131efe75497
+      internalID: -2106084121
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_8
+      rect:
+        serializedVersion: 2
+        x: 802
+        y: 486
+        width: 40
+        height: 66
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ce732197113b37246a335683b43adb27
+      internalID: 518918824
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_9
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 390
+        width: 64
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0236234d3c6de5f4f86af6f8023b03d8
+      internalID: -596430264
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_10
+      rect:
+        serializedVersion: 2
+        x: 122
+        y: 390
+        width: 64
+        height: 66
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d9092dd810640e14b96799c2e7fc5845
+      internalID: -2106705063
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_11
+      rect:
+        serializedVersion: 2
+        x: 218
+        y: 390
+        width: 64
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c9718f6f964893245962ab212a632278
+      internalID: 2043272806
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_12
+      rect:
+        serializedVersion: 2
+        x: 314
+        y: 390
+        width: 70
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fb8d3d03d5ae1a246bb56c3c3625e2ca
+      internalID: -1960399165
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_13
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 390
+        width: 74
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b8e90e591aa74944c8def0dc2fbd2bcc
+      internalID: -53383456
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_14
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 390
+        width: 74
+        height: 62
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 91f3208652568714baf088e1ba5cb788
+      internalID: 640403300
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_15
+      rect:
+        serializedVersion: 2
+        x: 604
+        y: 390
+        width: 44
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 71eb393d3b0105047a512559d776d476
+      internalID: -1915400466
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_16
+      rect:
+        serializedVersion: 2
+        x: 702
+        y: 390
+        width: 42
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6fc351e189ef3f745b17fa8fc043ae7d
+      internalID: 337451987
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_17
+      rect:
+        serializedVersion: 2
+        x: 800
+        y: 390
+        width: 40
+        height: 72
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b596295dd64a31743974c7b68ae59add
+      internalID: 1638592941
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_18
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 294
+        width: 42
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1d8a77182ad1ada488c144018611bad2
+      internalID: -975620201
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_19
+      rect:
+        serializedVersion: 2
+        x: 126
+        y: 294
+        width: 42
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 69554e6df8be13642bd664f9014d63d1
+      internalID: -1050815565
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_20
+      rect:
+        serializedVersion: 2
+        x: 222
+        y: 294
+        width: 42
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 557265aa6013a84499aeb93b7c6b7d13
+      internalID: -1908318323
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_21
+      rect:
+        serializedVersion: 2
+        x: 296
+        y: 294
+        width: 66
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 61a820ed467268545899241e34ee284c
+      internalID: -1261135224
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_22
+      rect:
+        serializedVersion: 2
+        x: 386
+        y: 294
+        width: 74
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 39f6f1ce18b649349973c84d71b4a5ab
+      internalID: 1847250092
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_23
+      rect:
+        serializedVersion: 2
+        x: 488
+        y: 294
+        width: 68
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 99ceb312e6db85345b8ca7d784b0039f
+      internalID: -1499589350
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_24
+      rect:
+        serializedVersion: 2
+        x: 602
+        y: 294
+        width: 48
+        height: 56
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 90ec26997c9eb3f4290b255c62d93164
+      internalID: -1992317666
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_25
+      rect:
+        serializedVersion: 2
+        x: 698
+        y: 294
+        width: 48
+        height: 54
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5fd0acd0a4d156246867e29c7fbf3302
+      internalID: 1750175826
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_26
+      rect:
+        serializedVersion: 2
+        x: 794
+        y: 294
+        width: 48
+        height: 56
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 60734d91a1eb9aa40aae83ed2610f371
+      internalID: 89888502
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_27
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 198
+        width: 48
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 52d2891854310e144a085c4286f53f9e
+      internalID: 238284504
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_28
+      rect:
+        serializedVersion: 2
+        x: 122
+        y: 198
+        width: 48
+        height: 66
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0426def8690e56c43a575ca145768c10
+      internalID: -1348044403
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_29
+      rect:
+        serializedVersion: 2
+        x: 218
+        y: 198
+        width: 48
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 402524304f313364ba05ab8575c3b952
+      internalID: 1398962616
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_30
+      rect:
+        serializedVersion: 2
+        x: 314
+        y: 198
+        width: 70
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1969fefb0f4996d489cdc8ccd39d0a56
+      internalID: 1898276256
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_31
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 198
+        width: 74
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5ca7f6fc959e6844d956d5f206457012
+      internalID: -1068328511
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_32
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 198
+        width: 74
+        height: 62
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 04e649ca19c08fc4f9acc484d8e46822
+      internalID: -156143081
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_33
+      rect:
+        serializedVersion: 2
+        x: 602
+        y: 198
+        width: 48
+        height: 56
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ae1ec3f9790ddbc41bb6ae360949e69e
+      internalID: 1799650384
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_34
+      rect:
+        serializedVersion: 2
+        x: 698
+        y: 198
+        width: 48
+        height: 54
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2ccb9b3bec4471d4daae1d0692efbab0
+      internalID: -82809540
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_35
+      rect:
+        serializedVersion: 2
+        x: 794
+        y: 198
+        width: 48
+        height: 56
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d38745706ac30394983188a3eca3d178
+      internalID: -1129647300
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_36
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 102
+        width: 52
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ae0fab47298ce884cb4794d29977bad0
+      internalID: 1465822725
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_37
+      rect:
+        serializedVersion: 2
+        x: 124
+        y: 102
+        width: 52
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 49bf4c23b7dff2f43b07ec4d4b9eb356
+      internalID: 1814356084
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_38
+      rect:
+        serializedVersion: 2
+        x: 218
+        y: 102
+        width: 50
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 49d8642d76db22841abbb2bc1778cd50
+      internalID: -1312957921
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_39
+      rect:
+        serializedVersion: 2
+        x: 318
+        y: 102
+        width: 42
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 25492952dc3d9ab4188c462616e73dc5
+      internalID: 976107539
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_40
+      rect:
+        serializedVersion: 2
+        x: 414
+        y: 102
+        width: 42
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 483293a7a4431a1429c1a073709df5d2
+      internalID: -2055130397
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_41
+      rect:
+        serializedVersion: 2
+        x: 510
+        y: 102
+        width: 42
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 87e980e2f94e6004285e7ec6ded59322
+      internalID: 1265487208
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_42
+      rect:
+        serializedVersion: 2
+        x: 602
+        y: 102
+        width: 48
+        height: 56
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 738bcd232a5fb9b4791dd2e63c2dccd4
+      internalID: 1075662361
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_43
+      rect:
+        serializedVersion: 2
+        x: 698
+        y: 102
+        width: 48
+        height: 54
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 14a1ba5028e4b354da2c8e224c3d7de4
+      internalID: 402916498
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_44
+      rect:
+        serializedVersion: 2
+        x: 794
+        y: 102
+        width: 48
+        height: 56
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 637dbc4ad33a16f46a87a90e2f9c6daf
+      internalID: -1631150593
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_45
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 6
+        width: 52
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b8a826418a90c5d499c3c6bb5401274c
+      internalID: -292708801
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_46
+      rect:
+        serializedVersion: 2
+        x: 124
+        y: 6
+        width: 52
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2cbec4c84324b5f4ea8810f36f5fc5b6
+      internalID: 871003822
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_47
+      rect:
+        serializedVersion: 2
+        x: 218
+        y: 6
+        width: 50
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f9cc28d2bf61c2941a71021f6e500b7a
+      internalID: -1513519437
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_48
+      rect:
+        serializedVersion: 2
+        x: 320
+        y: 6
+        width: 42
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e44e09e08dd12c246b623786976e9f7e
+      internalID: 55972633
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_49
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 6
+        width: 40
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bbf1e8ad7ca1f8c4da2f99eb0a4262b5
+      internalID: 236347345
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_50
+      rect:
+        serializedVersion: 2
+        x: 510
+        y: 6
+        width: 42
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4b18e04580a6a774495501100abf807b
+      internalID: -154674136
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_51
+      rect:
+        serializedVersion: 2
+        x: 596
+        y: 2
+        width: 56
+        height: 42
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f890b1e81e742524496d0a0866651520
+      internalID: 1493657648
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_52
+      rect:
+        serializedVersion: 2
+        x: 692
+        y: 2
+        width: 56
+        height: 42
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: feb19e0343ae98744bdea74b34dee9be
+      internalID: -1114716208
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pirate_skeleton_svb_2_53
+      rect:
+        serializedVersion: 2
+        x: 788
+        y: 2
+        width: 56
+        height: 42
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bc71317ce34b5ba40bd3b6aae03e4b89
+      internalID: 1029313575
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 05b3a4a6e02f56b41a12cd83dc9610d8
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      pirate_skeleton_svb_2_0: -1712377330
+      pirate_skeleton_svb_2_1: -1423262826
+      pirate_skeleton_svb_2_10: -2106705063
+      pirate_skeleton_svb_2_11: 2043272806
+      pirate_skeleton_svb_2_12: -1960399165
+      pirate_skeleton_svb_2_13: -53383456
+      pirate_skeleton_svb_2_14: 640403300
+      pirate_skeleton_svb_2_15: -1915400466
+      pirate_skeleton_svb_2_16: 337451987
+      pirate_skeleton_svb_2_17: 1638592941
+      pirate_skeleton_svb_2_18: -975620201
+      pirate_skeleton_svb_2_19: -1050815565
+      pirate_skeleton_svb_2_2: 587246558
+      pirate_skeleton_svb_2_20: -1908318323
+      pirate_skeleton_svb_2_21: -1261135224
+      pirate_skeleton_svb_2_22: 1847250092
+      pirate_skeleton_svb_2_23: -1499589350
+      pirate_skeleton_svb_2_24: -1992317666
+      pirate_skeleton_svb_2_25: 1750175826
+      pirate_skeleton_svb_2_26: 89888502
+      pirate_skeleton_svb_2_27: 238284504
+      pirate_skeleton_svb_2_28: -1348044403
+      pirate_skeleton_svb_2_29: 1398962616
+      pirate_skeleton_svb_2_3: -1499931805
+      pirate_skeleton_svb_2_30: 1898276256
+      pirate_skeleton_svb_2_31: -1068328511
+      pirate_skeleton_svb_2_32: -156143081
+      pirate_skeleton_svb_2_33: 1799650384
+      pirate_skeleton_svb_2_34: -82809540
+      pirate_skeleton_svb_2_35: -1129647300
+      pirate_skeleton_svb_2_36: 1465822725
+      pirate_skeleton_svb_2_37: 1814356084
+      pirate_skeleton_svb_2_38: -1312957921
+      pirate_skeleton_svb_2_39: 976107539
+      pirate_skeleton_svb_2_4: -635041862
+      pirate_skeleton_svb_2_40: -2055130397
+      pirate_skeleton_svb_2_41: 1265487208
+      pirate_skeleton_svb_2_42: 1075662361
+      pirate_skeleton_svb_2_43: 402916498
+      pirate_skeleton_svb_2_44: -1631150593
+      pirate_skeleton_svb_2_45: -292708801
+      pirate_skeleton_svb_2_46: 871003822
+      pirate_skeleton_svb_2_47: -1513519437
+      pirate_skeleton_svb_2_48: 55972633
+      pirate_skeleton_svb_2_49: 236347345
+      pirate_skeleton_svb_2_5: 68743362
+      pirate_skeleton_svb_2_50: -154674136
+      pirate_skeleton_svb_2_51: 1493657648
+      pirate_skeleton_svb_2_52: -1114716208
+      pirate_skeleton_svb_2_53: 1029313575
+      pirate_skeleton_svb_2_6: -1622478388
+      pirate_skeleton_svb_2_7: -2106084121
+      pirate_skeleton_svb_2_8: 518918824
+      pirate_skeleton_svb_2_9: -596430264
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

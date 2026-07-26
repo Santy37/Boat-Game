@@ -47,7 +47,6 @@ public sealed class PlayerAttack : NetworkBehaviour
     private float nextServerAttackTime;
     private float bufferedAttackUntil = float.NegativeInfinity;
     private NetworkPlayerLoadout loadout;
-    private MeleeSwingVisual swingVisual;
     private Vector2 lastAimDirection = Vector2.down;
 
     private void Awake()
@@ -207,12 +206,6 @@ public sealed class PlayerAttack : NetworkBehaviour
 
     private void PlayAttackAnimation(Vector2 aimDirection)
     {
-        if (swingVisual == null)
-        {
-            swingVisual = MeleeSwingVisual.CreateFor(transform);
-        }
-
-        swingVisual.Play(SanitizeAimDirection(aimDirection));
 
         if (anim == null)
         {
