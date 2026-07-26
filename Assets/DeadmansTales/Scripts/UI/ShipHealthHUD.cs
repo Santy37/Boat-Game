@@ -23,7 +23,16 @@ namespace DeadmansTales.UI
         {
             if (shipHealth == null || !shipHealth.IsSpawned)
             {
-                shipHealth = FindFirstObjectByType<NetworkShipHealth>();
+                // Not just "any" NetworkShipHealth -- once enemy ships exist
+                // they carry their own copy of this same component, and a
+                // blind FindFirstObjectByType could just as easily latch
+                // onto an enemy ship's health instead of the player's own.
+                PlayerShipMarker playerShip =
+                    FindFirstObjectByType<PlayerShipMarker>();
+
+                shipHealth = playerShip != null
+                    ? playerShip.GetComponent<NetworkShipHealth>()
+                    : null;
 
                 if (shipHealth == null)
                 {
@@ -44,7 +53,7 @@ namespace DeadmansTales.UI
             if (label != null)
             {
                 label.text =
-                    $"Ship {shipHealth.CurrentHealth.Value:0}/" +
+                    $"Ship Health {shipHealth.CurrentHealth.Value:0}/" +
                     $"{shipHealth.MaximumHealth:0}";
             }
         }

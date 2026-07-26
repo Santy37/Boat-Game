@@ -121,12 +121,12 @@ GameObject:
   - component: {fileID: 742961755056228196}
   - component: {fileID: 5753195178114590821}
   - component: {fileID: 891813077528410435}
-  - component: {fileID: 7766362530514860330}
   - component: {fileID: 5028301478647668058}
   - component: {fileID: 3336169940720809042}
   - component: {fileID: 8249647752612713881}
+  - component: {fileID: 1412265417801322317}
   m_Layer: 0
-  m_Name: basicenemy
+  m_Name: ship_basicenemy
   m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -142,7 +142,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2509641300781948399}
@@ -284,7 +284,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1624004529
+  GlobalObjectIdHash: 2712267589
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -318,36 +318,6 @@ MonoBehaviour:
   fadeTime: 1
   animator: {fileID: 0}
   deathDelay: 0.75
---- !u!114 &7766362530514860330
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4707447174414615646}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8d8dfe9a05ed3841a5e6bb7fee20322, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
-  ShowTopMostFoldoutHeaderGroup: 1
-  enemy: {fileID: 891813077528410435}
-  enemyAttack: {fileID: 5028301478647668058}
-  homeCenter: {fileID: 0}
-  wanderAreaSize: {x: 4, y: 4}
-  wanderSpeed: 1.5
-  wanderPointTolerance: 0.15
-  wanderPauseRange: {x: 0.5, y: 2}
-  aggroAreaSize: {x: 12, y: 12}
-  chaseExitBuffer: 0.75
-  useLineOfSight: 0
-  lineOfSightBlockers:
-    serializedVersion: 2
-    m_Bits: 0
-  chaseSpeed: 2.5
-  attackRange: 1.1
-  scanInterval: 0.25
-  stuckRerollTime: 1
 --- !u!114 &5028301478647668058
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -427,6 +397,37 @@ MonoBehaviour:
   UseRigidBodyForMotion: 1
   AutoUpdateKinematicState: 1
   AutoSetKinematicOnDespawn: 1
+--- !u!114 &1412265417801322317
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4707447174414615646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e6d7e4c6e6ca454e966bfef0b033163, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShipEnemyAI
+  ShowTopMostFoldoutHeaderGroup: 1
+  enemy: {fileID: 0}
+  enemyAttack: {fileID: 0}
+  deckBounds: {fileID: 0}
+  maxWanderSampleAttempts: 12
+  homeCenter: {fileID: 0}
+  wanderSpeed: 1.5
+  wanderPointTolerance: 0.15
+  wanderPauseRange: {x: 0.5, y: 2}
+  aggroAreaSize: {x: 12, y: 12}
+  chaseExitBuffer: 0.75
+  useLineOfSight: 0
+  lineOfSightBlockers:
+    serializedVersion: 2
+    m_Bits: 0
+  chaseSpeed: 3
+  attackRange: 1.1
+  scanInterval: 0.25
+  stuckRerollTime: 0.4
 --- !u!1 &5534248754904750370
 GameObject:
   m_ObjectHideFlags: 0

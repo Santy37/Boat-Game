@@ -480,7 +480,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1975822317
+  GlobalObjectIdHash: 540265415
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -571,6 +571,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TopDownNetworkPlayer2D
   ShowTopMostFoldoutHeaderGroup: 1
   moveSpeed: 7
+  networkCannonballPrefab: {fileID: 7702061559974792982, guid: f725d5b4e842c4144b9d5307e424bf83, type: 3}
 --- !u!114 &1262089826811194947
 MonoBehaviour:
   m_ObjectHideFlags: 0
