@@ -13,15 +13,13 @@ public class MainMenuManager : MonoBehaviour
     private static readonly string[] SelectableSceneNames =
     {
     "Lobby_Island_2D",
-    "Island_After_Ocean_01_2D",
-    "Kraken_Arena_2D"
+    "Island_After_Ocean_01_2D"
 };
 
     private static readonly string[] SelectableLevelDisplayNames =
     {
     "LOBBY ISLAND",
-    "OCEAN ISLAND",
-    "KRAKEN ISLAND"
+    "OCEAN ISLAND"
 };
 
     private static readonly int[] SelectableStartingStages =
@@ -456,7 +454,7 @@ public class MainMenuManager : MonoBehaviour
 
     public void LoadLevelThree()
     {
-        LoadSelectableLevel(2);
+        ShowLevelComingSoon();
     }
 
     public void LoadLevelFour()
