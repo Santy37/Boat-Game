@@ -24,6 +24,14 @@ PrefabInstance:
       propertyPath: maxHealth
       value: 70
       objectReference: {fileID: 0}
+    - target: {fileID: 2296261034680024127, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 2428563498545336907, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 4402209427228508660, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
       propertyPath: m_SpriteTilingProperty.pivot.y
       value: 0.43
@@ -40,8 +48,16 @@ PrefabInstance:
       propertyPath: m_Name
       value: Enemy_BloodFiend
       objectReference: {fileID: 0}
+    - target: {fileID: 4707447174414615646, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 5028301478647668058, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
       propertyPath: damage
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 5534248754904750370, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 5753195178114590821, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
@@ -52,6 +68,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 962408030, guid: 07884ce0b275e214d81eb8339e812999, type: 3}
+    - target: {fileID: 6386494018146187053, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 7454055848396189668, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 7766362530514860330, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
       propertyPath: chaseSpeed
       value: 3.6
@@ -59,6 +83,18 @@ PrefabInstance:
     - target: {fileID: 7766362530514860330, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
       propertyPath: wanderSpeed
       value: 1.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8232605428776712807, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8407470902080193420, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8495084141260895481, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
+      propertyPath: m_Layer
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 8989381395586752537, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
       propertyPath: m_LocalPosition.x
