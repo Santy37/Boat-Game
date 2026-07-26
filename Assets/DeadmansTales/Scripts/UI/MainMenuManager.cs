@@ -12,20 +12,21 @@ public class MainMenuManager : MonoBehaviour
 
     private static readonly string[] SelectableSceneNames =
     {
-        "Lobby_Island_2D",
-        "Boat_Gameplay_2D",
-        "Island_After_Ocean_01_2D",
-        "Island_Shop_2D"
-    };
+    "Lobby_Island_2D",
+    "Island_After_Ocean_01_2D"
+};
 
     private static readonly string[] SelectableLevelDisplayNames =
     {
-        "LOBBY ISLAND",
-        "THE SHIP",
-        "OCEAN ISLAND",
-        "PORT MARKET"
-    };
+    "LOBBY ISLAND",
+    "OCEAN ISLAND"
+};
 
+    private static readonly int[] SelectableStartingStages =
+    {
+    1,
+    2
+};
     /// <summary>
     /// Stage index each level starts a fresh run at.
     ///
@@ -36,13 +37,7 @@ public class MainMenuManager : MonoBehaviour
     /// camp chests. Entering at stage 2 gives the same island the normal
     /// boat -> island transition produces for a given seed.
     /// </summary>
-    private static readonly int[] SelectableStartingStages =
-    {
-        1,
-        1,
-        2,
-        2
-    };
+
 
     [Header("Menu Panels")]
     public GameObject mainMenuPanel;
@@ -150,7 +145,15 @@ public class MainMenuManager : MonoBehaviour
 
     private async void Start()
     {
-        ShowMainMenu();
+        if (PlayerPrefs.GetInt("OpenLevelSelectAfterDeath", 0) == 1)
+        {
+            PlayerPrefs.DeleteKey("OpenLevelSelectAfterDeath");
+            ShowLevelSelectMenu();
+        }
+        else
+        {
+            ShowMainMenu();
+        }
 
         if (lobbyService == null)
         {
@@ -249,7 +252,7 @@ public class MainMenuManager : MonoBehaviour
 
         if (lobbyCodeText != null)
         {
-            lobbyCodeText.text = "LOBBY";
+            lobbyCodeText.text = "";
         }
 
         RefreshLobbyUi();
@@ -276,7 +279,7 @@ public class MainMenuManager : MonoBehaviour
 
         if (lobbyCodeText != null)
         {
-            lobbyCodeText.text = "LOBBY";
+            lobbyCodeText.text = "";
         }
 
         HandleJoinCodeInputChanged(
@@ -451,12 +454,12 @@ public class MainMenuManager : MonoBehaviour
 
     public void LoadLevelThree()
     {
-        LoadSelectableLevel(2);
+        ShowLevelComingSoon();
     }
 
     public void LoadLevelFour()
     {
-        LoadSelectableLevel(3);
+        ShowLevelComingSoon();
     }
 
     /// <summary>
@@ -911,7 +914,7 @@ public class MainMenuManager : MonoBehaviour
         {
             if (lobbyCodeText != null)
             {
-                lobbyCodeText.text = "LOBBY";
+                lobbyCodeText.text = "";
             }
 
             if (playerListText != null && playerListText.gameObject.activeSelf)
