@@ -17,6 +17,9 @@ public class LocalCoopCamera : MonoBehaviour
     [SerializeField] private float minZoom = 6f;
     [SerializeField] private float maxZoom = 14f;
     [SerializeField] private float smooth = 5f;
+    [Tooltip("Shift the framed centre away from the crew, e.g. push them into "
+        + "the lower part of the screen so a boss fits above. Zero = centred.")]
+    [SerializeField] private Vector2 frameOffset = Vector2.zero;
 
     [Header("2D")]
     [SerializeField] private float zOffset = -10f;
@@ -108,7 +111,10 @@ public class LocalCoopCamera : MonoBehaviour
         cam.orthographicSize = Mathf.Lerp(
             cam.orthographicSize, target, smooth * Time.deltaTime);
 
-        Vector3 desired = new Vector3(bounds.center.x, bounds.center.y, zOffset);
+        Vector3 desired = new Vector3(
+            bounds.center.x + frameOffset.x,
+            bounds.center.y + frameOffset.y,
+            zOffset);
         transform.position = Vector3.Lerp(
             transform.position, desired, smooth * Time.deltaTime);
     }

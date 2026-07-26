@@ -51067,6 +51067,7 @@ MonoBehaviour:
   movementBounds: {fileID: 1587133498}
   zOffset: -10
   orthographicSize: 8
+  viewOffset: {x: 0, y: 0}
   snapToPixels: 1
   pixelsPerUnit: 32
 --- !u!81 &1110585870

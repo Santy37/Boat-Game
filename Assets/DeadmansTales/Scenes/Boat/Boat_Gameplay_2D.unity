@@ -599,6 +599,7 @@ MonoBehaviour:
   movementBounds: {fileID: 0}
   zOffset: -10
   orthographicSize: 11.25
+  viewOffset: {x: 0, y: 0}
   snapToPixels: 1
   pixelsPerUnit: 32
 --- !u!114 &379537962
@@ -735,6 +736,7 @@ MonoBehaviour:
   minZoom: 6
   maxZoom: 14
   smooth: 5
+  frameOffset: {x: 0, y: 0}
   zOffset: -10
   leashPlayers: 1
   leashMargin: 1
