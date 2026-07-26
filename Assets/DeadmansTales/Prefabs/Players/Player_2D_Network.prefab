@@ -574,6 +574,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TopDownNetworkPlayer2D
   ShowTopMostFoldoutHeaderGroup: 1
   moveSpeed: 7
+  networkCannonballPrefab: {fileID: 7702061559974792982, guid: f725d5b4e842c4144b9d5307e424bf83, type: 3}
 --- !u!114 &9065463809971633901
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,3 +1,4 @@
+using DeadmansTales.Ship;
 using DeadmansTales.WorldGeneration;
 using Unity.Netcode;
 using UnityEngine;
@@ -19,6 +20,15 @@ namespace DeadmansTales.Networking
         [SerializeField]
         private bool requireAllEnemiesDefeated;
 
+        [Tooltip(
+            "Blocks passage until every EnemyShip in the scene has been " +
+            "sunk/despawned (see EnemyShipCleanup). Independent of " +
+            "Require All Enemies Defeated, which only counts individual " +
+            "Enemy (pirate) instances, not ships."
+        )]
+        [SerializeField]
+        private bool requireAllEnemyShipsDefeated;
+
         [SerializeField]
         private bool advanceStage = true;
 
@@ -26,6 +36,7 @@ namespace DeadmansTales.Networking
 
         private bool sceneLoadRequested;
         private int cachedRemainingEnemies;
+        private int cachedRemainingEnemyShips;
         private float nextEnemyCountRefreshTime;
 
         /// <summary>
@@ -37,15 +48,32 @@ namespace DeadmansTales.Networking
         {
             get
             {
-                if (Time.unscaledTime >= nextEnemyCountRefreshTime)
-                {
-                    nextEnemyCountRefreshTime =
-                        Time.unscaledTime + EnemyCountRefreshSeconds;
-                    cachedRemainingEnemies = CountRemainingEnemies();
-                }
-
+                RefreshCountsIfStale();
                 return cachedRemainingEnemies;
             }
+        }
+
+        /// <summary>Same throttled-cache pattern as RemainingEnemies.</summary>
+        public int RemainingEnemyShips
+        {
+            get
+            {
+                RefreshCountsIfStale();
+                return cachedRemainingEnemyShips;
+            }
+        }
+
+        private void RefreshCountsIfStale()
+        {
+            if (Time.unscaledTime < nextEnemyCountRefreshTime)
+            {
+                return;
+            }
+
+            nextEnemyCountRefreshTime =
+                Time.unscaledTime + EnemyCountRefreshSeconds;
+            cachedRemainingEnemies = CountRemainingEnemies();
+            cachedRemainingEnemyShips = CountRemainingEnemyShips();
         }
 
         public override string InteractionPrompt
@@ -55,6 +83,11 @@ namespace DeadmansTales.Networking
                 if (sceneLoadRequested)
                 {
                     return "Loading Next Stage...";
+                }
+
+                if (requireAllEnemyShipsDefeated && RemainingEnemyShips > 0)
+                {
+                    return $"Sink All Enemy Ships ({RemainingEnemyShips} Remaining)";
                 }
 
                 int remaining = RemainingEnemies;
@@ -85,6 +118,11 @@ namespace DeadmansTales.Networking
                 {
                     return false;
                 }
+            }
+
+            if (requireAllEnemyShipsDefeated && CountRemainingEnemyShips() > 0)
+            {
+                return false;
             }
 
             return !requireAllEnemiesDefeated || CountRemainingEnemies() == 0;
@@ -171,6 +209,20 @@ namespace DeadmansTales.Networking
             }
 
             return remaining;
+        }
+
+        /// <summary>
+        /// An EnemyShip's whole NetworkObject is despawned/destroyed by
+        /// EnemyShipCleanup once it's dealt with (sunk or crew wiped), so
+        /// simply counting how many EnemyShipApproach instances still exist
+        /// in the scene is enough -- there's nothing left to check once a
+        /// ship is actually gone.
+        /// </summary>
+        private static int CountRemainingEnemyShips()
+        {
+            return FindObjectsByType<EnemyShipApproach>(
+                FindObjectsSortMode.None
+            ).Length;
         }
     }
 }

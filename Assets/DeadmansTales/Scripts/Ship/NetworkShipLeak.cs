@@ -5,10 +5,11 @@ using UnityEngine;
 namespace DeadmansTales.Ship
 {
     /// <summary>
-    /// A hull leak on the boat. While active it steadily damages the shared
-    /// ship health until a player patches it with E. Leaks are scene-placed
-    /// and dormant by default; <see cref="ShipLeakDirector"/> opens them on
-    /// an escalating timer during the run.
+    /// A hull leak on the boat. While active it steadily damages the ship's
+    /// SinkLevel until a player patches it with E -- the same meter cannon
+    /// hits damage, and the same one repair stations restore. Leaks are
+    /// scene-placed and dormant by default; <see cref="ShipLeakDirector"/>
+    /// opens them on an escalating timer during the run.
     /// </summary>
     public sealed class NetworkShipLeak : NetworkInteractable2D
     {
@@ -17,7 +18,7 @@ namespace DeadmansTales.Ship
         private float damagePerSecond = 4f;
 
         [SerializeField]
-        private NetworkShipHealth shipHealth;
+        private NetworkShipSinkMeter sinkMeter;
 
         [SerializeField]
         [Tooltip("Visual shown only while the leak is open.")]
@@ -55,14 +56,14 @@ namespace DeadmansTales.Ship
                 return;
             }
 
-            NetworkShipHealth ship = ResolveShipHealth();
+            NetworkShipSinkMeter meter = ResolveSinkMeter();
 
-            if (ship == null || ship.IsSunk)
+            if (meter == null)
             {
                 return;
             }
 
-            ship.TakeDamageServer(damagePerSecond * Time.deltaTime);
+            meter.TakeDamageServer(damagePerSecond * Time.deltaTime);
         }
 
         /// <summary>Server-only: opens this leak.</summary>
@@ -112,14 +113,23 @@ namespace DeadmansTales.Ship
             }
         }
 
-        private NetworkShipHealth ResolveShipHealth()
+        private NetworkShipSinkMeter ResolveSinkMeter()
         {
-            if (shipHealth == null)
+            // Leaks only ever exist on the player's own ship -- resolve
+            // through PlayerShipMarker rather than a scene-wide find, since
+            // enemy ships now carry this same component type and a blind
+            // find could grab the wrong ship's meter.
+            if (sinkMeter == null)
             {
-                shipHealth = FindFirstObjectByType<NetworkShipHealth>();
+                PlayerShipMarker playerShip =
+                    FindFirstObjectByType<PlayerShipMarker>();
+
+                sinkMeter = playerShip != null
+                    ? playerShip.GetComponent<NetworkShipSinkMeter>()
+                    : null;
             }
 
-            return shipHealth;
+            return sinkMeter;
         }
     }
 }

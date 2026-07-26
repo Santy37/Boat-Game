@@ -33,14 +33,23 @@ public class BoatBob : MonoBehaviour
     [SerializeField] private bool snapToPixels = true;
     [SerializeField] private float pixelsPerUnit = 32f;
 
-    private Vector3 basePosition;
     private Quaternion baseRotation;
     private float bobPhase;
     private float rockPhase;
 
+    // The offset this script itself added last frame. Subtracting it back
+    // out of the current transform recovers whatever "real" position/
+    // rotation another script (e.g. EnemyShipApproach, ShipHelm) set this
+    // frame, so bobbing layers on top of movement instead of overwriting it.
+    // Without this, BoatBob would cache the ship's spawn position once in
+    // Awake and silently snap it back there every frame -- even with
+    // bobHeight/rockDegrees at 0 -- which fully cancels out any other
+    // script's movement on the same object.
+    private Vector3 lastAppliedPositionOffset;
+    private Quaternion lastAppliedRotationOffset = Quaternion.identity;
+
     private void Awake()
     {
-        basePosition = transform.localPosition;
         baseRotation = transform.localRotation;
 
         if (randomizePhase)
@@ -50,13 +59,17 @@ public class BoatBob : MonoBehaviour
         }
     }
 
-    private void Update()
+    private void LateUpdate()
     {
         float t = Time.time;
 
-        float y = Mathf.Sin(t * bobSpeed * Mathf.PI * 2f + bobPhase) * bobHeight;
+        Vector3 externalPosition =
+            transform.localPosition - lastAppliedPositionOffset;
 
-        Vector3 p = basePosition + new Vector3(0f, y, 0f);
+        float y = Mathf.Sin(t * bobSpeed * Mathf.PI * 2f + bobPhase) * bobHeight;
+        Vector3 offset = new Vector3(0f, y, 0f);
+
+        Vector3 p = externalPosition + offset;
 
         if (snapToPixels && pixelsPerUnit > 0f)
         {
@@ -65,12 +78,20 @@ public class BoatBob : MonoBehaviour
         }
 
         transform.localPosition = p;
+        lastAppliedPositionOffset = p - externalPosition;
 
         if (rockDegrees > 0f)
         {
+            Quaternion externalRotation =
+                transform.localRotation *
+                Quaternion.Inverse(lastAppliedRotationOffset);
+
             float angle =
                 Mathf.Sin(t * rockSpeed * Mathf.PI * 2f + rockPhase) * rockDegrees;
-            transform.localRotation = baseRotation * Quaternion.Euler(0f, 0f, angle);
+            Quaternion rockOffset = Quaternion.Euler(0f, 0f, angle);
+
+            transform.localRotation = externalRotation * rockOffset;
+            lastAppliedRotationOffset = rockOffset;
         }
     }
 }

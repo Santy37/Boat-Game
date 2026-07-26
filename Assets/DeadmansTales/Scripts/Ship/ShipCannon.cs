@@ -26,6 +26,11 @@ public class ShipCannon : MonoBehaviour
     [SerializeField] private float aimRange = 8f;
     [Tooltip("How fast the reticle moves with the aim keys (units/sec).")]
     [SerializeField] private float aimSpeed = 6f;
+    [Tooltip(
+        "Degrees the reticle may swing to either side of 'facing'. 90 " +
+        "means a 180 deg forward arc; the cannon cannot aim behind itself."
+    )]
+    [SerializeField] private float maxAimAngleFromFacing = 90f;
 
     [Header("Camera")]
     [Tooltip("Camera size while manning (larger = zoomed out).")]
@@ -150,7 +155,42 @@ public class ShipCannon : MonoBehaviour
         Vector2 offset = (Vector2)target.position - from
             + move * (aimSpeed * Time.deltaTime);
 
+        offset = ClampToFacingArc(offset);
+
         target.position = from + Vector2.ClampMagnitude(offset, aimRange);
+    }
+
+    /// <summary>
+    /// Keeps the aim offset within maxAimAngleFromFacing degrees of the
+    /// cannon's facing direction, so the reticle -- and therefore the shot
+    /// -- can't swing around to point back through the ship it's mounted
+    /// on. Preserves the offset's magnitude, only clamps its direction.
+    /// </summary>
+    private Vector2 ClampToFacingArc(Vector2 offset)
+    {
+        if (offset.sqrMagnitude < 0.0001f)
+        {
+            return offset;
+        }
+
+        Vector2 facingDirection = facing.sqrMagnitude > 0.0001f
+            ? facing.normalized
+            : Vector2.up;
+
+        float angleFromFacing = Vector2.SignedAngle(facingDirection, offset);
+        float clampedAngle = Mathf.Clamp(
+            angleFromFacing, -maxAimAngleFromFacing, maxAimAngleFromFacing);
+
+        if (Mathf.Approximately(angleFromFacing, clampedAngle))
+        {
+            return offset;
+        }
+
+        float magnitude = offset.magnitude;
+        Vector2 clampedDirection =
+            Quaternion.Euler(0f, 0f, clampedAngle) * facingDirection;
+
+        return clampedDirection.normalized * magnitude;
     }
 
     private void Fire()
@@ -166,7 +206,29 @@ public class ShipCannon : MonoBehaviour
             : from + facing;
 
         Vector2 direction = (to - from).normalized;
+
+        // The reticle starts sitting exactly on the muzzle when the cannon
+        // is manned (see Man()), so an operator who fires without ever
+        // touching the aim keys gets a zero-length (to - from) vector here.
+        // A zero vector's .normalized is (0, 0), which used to send the
+        // ball out at zero speed -- it would spawn and just sit there.
+        // Default to the cannon's configured facing instead of doing
+        // nothing.
+        if (direction.sqrMagnitude < 0.0001f)
+        {
+            direction = facing.normalized;
+        }
+
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+
+        // Networked players fire through the server so every peer sees the
+        // same shot and it can deal authoritative damage. Local split-screen
+        // players skip networking entirely -- there's only one machine
+        // watching, so the old direct-instantiate ball is still correct.
+        if (operatorPlayer.TryFireNetworkedCannon(from, direction * ballSpeed))
+        {
+            return;
+        }
 
         if (cannonballPrefab == null)
         {
