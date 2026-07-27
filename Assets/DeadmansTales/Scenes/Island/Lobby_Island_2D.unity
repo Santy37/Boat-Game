@@ -150,7 +150,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ControlsDisplay
   title: Controls
   show: 1
-  margin: {x: 14, y: 14}
+  offsetFromCenter: {x: 240, y: 20}
   panelWidth: 360
   fallbackBindings: []
 --- !u!4 &31932386
@@ -46458,6 +46458,7 @@ MonoBehaviour:
   movementBounds: {fileID: 0}
   zOffset: -10
   orthographicSize: 11.25
+  viewOffset: {x: 0, y: 0}
   snapToPixels: 1
   pixelsPerUnit: 32
 --- !u!114 &1557504383
@@ -46476,6 +46477,7 @@ MonoBehaviour:
   minZoom: 6
   maxZoom: 14
   smooth: 5
+  frameOffset: {x: 0, y: 0}
   zOffset: -10
   leashPlayers: 1
   leashMargin: 1
@@ -50289,55 +50291,6 @@ Tilemap:
     e31: 0
     e32: 0
     e33: 1
---- !u!1 &1996258217
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1996258219}
-  - component: {fileID: 1996258218}
-  m_Layer: 0
-  m_Name: Lobby_Runtime_Enemies
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1996258218
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1996258217}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3d67dee99badbb4449e9d523549be3b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Networking.NetworkSceneEnemySpawner2D
-  enemyPrefab: {fileID: 4707447174414615646, guid: 49345d9ebe7ab1d4da32064c471385ba, type: 3}
-  spawnPositions:
-  - {x: 5.7804203, y: 5.5951567}
-  - {x: 6.981089, y: 9.666224}
-  - {x: 9.9625225, y: 7.1564746}
---- !u!4 &1996258219
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1996258217}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2082511595
 GameObject:
   m_ObjectHideFlags: 0
@@ -51200,7 +51153,6 @@ SceneRoots:
   - {fileID: 785128453}
   - {fileID: 504152563}
   - {fileID: 4363264223737452124}
-  - {fileID: 1996258219}
   - {fileID: 159991209}
   - {fileID: 649806650}
   - {fileID: 31932386}
