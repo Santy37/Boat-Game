@@ -21,14 +21,6 @@ public sealed class Enemy : NetworkBehaviour
     [SerializeField]
     private CanvasGroup healthBarVisibility;
 
-    [SerializeField]
-    [Min(0f)]
-    private float visibleTime = 2f;
-
-    [SerializeField]
-    [Min(0.01f)]
-    private float fadeTime = 1f;
-
     [Header("Death")]
     [SerializeField]
     private Animator animator;
@@ -49,7 +41,6 @@ public sealed class Enemy : NetworkBehaviour
 
     public float MaximumHealth => Mathf.Max(1f, maxHealth);
 
-    private Coroutine hideHealthBarCoroutine;
     private Coroutine despawnCoroutine;
     private Coroutine hitFlashCoroutine;
     private bool deathPresentationApplied;
@@ -69,6 +60,56 @@ public sealed class Enemy : NetworkBehaviour
         {
             flashOriginalColors[index] = flashRenderers[index].color;
         }
+
+        CenterHealthBarOverBody();
+    }
+
+    /// <summary>
+    /// Centres the health bar over the enemy's VISIBLE body.
+    ///
+    /// The bar canvas is authored at x = 0 on the prefab root, but the art
+    /// lives on an offset child (basicenemy's GFX sits at x 0.709), so every
+    /// bar drew noticeably left of the sprite it belonged to. Aligning to the
+    /// largest renderer's bounds at spawn fixes the whole family of enemy
+    /// prefabs and their variants in one place, whatever their art offset.
+    /// </summary>
+    private void CenterHealthBarOverBody()
+    {
+        if (healthBarVisibility == null)
+        {
+            return;
+        }
+
+        SpriteRenderer body = null;
+        float bodyArea = 0f;
+        foreach (SpriteRenderer renderer in flashRenderers)
+        {
+            if (renderer == null || !renderer.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            Vector3 size = renderer.bounds.size;
+            float area = size.x * size.y;
+            if (area > bodyArea)
+            {
+                bodyArea = area;
+                body = renderer;
+            }
+        }
+
+        if (body == null)
+        {
+            return;
+        }
+
+        Transform bar = healthBarVisibility.transform;
+        Vector3 barPosition = bar.position;
+        bar.position = new Vector3(
+            body.bounds.center.x,
+            barPosition.y,
+            barPosition.z
+        );
     }
 
     public override void OnNetworkSpawn()
@@ -82,7 +123,7 @@ public sealed class Enemy : NetworkBehaviour
             CurrentHealth.Value = MaximumHealth;
         }
 
-        ApplyHealthPresentation(CurrentHealth.Value, false);
+        ApplyHealthPresentation(CurrentHealth.Value);
     }
 
     public override void OnNetworkDespawn()
@@ -95,12 +136,6 @@ public sealed class Enemy : NetworkBehaviour
         if (deathPresentationApplied && NetworkObject.IsSceneObject == true)
         {
             HideDeathPresentation();
-        }
-
-        if (hideHealthBarCoroutine != null)
-        {
-            StopCoroutine(hideHealthBarCoroutine);
-            hideHealthBarCoroutine = null;
         }
 
         if (despawnCoroutine != null)
@@ -153,7 +188,7 @@ public sealed class Enemy : NetworkBehaviour
             hitFlashCoroutine = StartCoroutine(PlayHitFlash());
         }
 
-        ApplyHealthPresentation(currentValue, true);
+        ApplyHealthPresentation(currentValue);
     }
 
     private IEnumerator PlayHitFlash()
@@ -186,7 +221,7 @@ public sealed class Enemy : NetworkBehaviour
         }
     }
 
-    private void ApplyHealthPresentation(float health, bool showTemporaryBar)
+    private void ApplyHealthPresentation(float health)
     {
         if (healthBar != null)
         {
@@ -197,14 +232,14 @@ public sealed class Enemy : NetworkBehaviour
 
         if (health > 0f)
         {
-            if (healthBarVisibility != null && !showTemporaryBar)
+            // The bar tracks the wound, not the hit: visible for as long as
+            // the enemy is hurt, hidden again only at full health. The old
+            // show-for-two-seconds-after-a-hit timer kept reading as a bug --
+            // walk away to open a chest and every crab's bar vanished.
+            if (healthBarVisibility != null)
             {
-                healthBarVisibility.alpha = 0f;
-            }
-
-            if (showTemporaryBar)
-            {
-                ShowHealthBar();
+                healthBarVisibility.alpha =
+                    health < MaximumHealth ? 1f : 0f;
             }
 
             return;
@@ -269,41 +304,4 @@ public sealed class Enemy : NetworkBehaviour
         }
     }
 
-    private void ShowHealthBar()
-    {
-        if (healthBarVisibility == null)
-        {
-            return;
-        }
-
-        if (hideHealthBarCoroutine != null)
-        {
-            StopCoroutine(hideHealthBarCoroutine);
-        }
-
-        healthBarVisibility.alpha = 1f;
-        hideHealthBarCoroutine = StartCoroutine(HideHealthBar());
-    }
-
-    private IEnumerator HideHealthBar()
-    {
-        yield return new WaitForSeconds(visibleTime);
-
-        float timer = 0f;
-        float safeFadeTime = Mathf.Max(0.01f, fadeTime);
-
-        while (timer < safeFadeTime)
-        {
-            timer += Time.deltaTime;
-            healthBarVisibility.alpha = Mathf.Lerp(
-                1f,
-                0f,
-                timer / safeFadeTime
-            );
-            yield return null;
-        }
-
-        healthBarVisibility.alpha = 0f;
-        hideHealthBarCoroutine = null;
-    }
 }
