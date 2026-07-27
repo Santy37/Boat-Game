@@ -57,7 +57,12 @@ public sealed class PlayerGun : NetworkBehaviour
         if (DeadmansTales.UI.ShopScreenHUD.PointerOverPanel)
             return;
 
-        if (Input.GetMouseButtonDown(1))
+        if (!HotbarUI.IsSelected(2))
+        {
+            return;
+        }
+
+        if (Input.GetMouseButtonDown(0))
         {
             TryShoot();
         }

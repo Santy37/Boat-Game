@@ -82,6 +82,11 @@ public sealed class PlayerAttack : NetworkBehaviour
             return;
         }
 
+        if (!HotbarUI.IsSelected(1))
+        {
+            return;
+        }
+
         if (Input.GetMouseButtonDown(0))
         {
             bufferedAttackUntil =
