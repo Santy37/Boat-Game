@@ -173,15 +173,13 @@ public static class TutorialIslandBuilder
         (new Vector2(1f, -4.5f), new Vector2(16f, 6f),
             "Left Click to attack  -  you swing toward your cursor", true),
 
-        // The southern chest (LootMarker_02) is the closest to spawn, so it
-        // is where opening and eating get taught.
-        (new Vector2(6f, -7f), new Vector2(5.5f, 5.5f),
+        // The level's ONE chest: the guaranteed reward at the island centre.
+        // (The two prompts that used to sit on the old scattered loot spots
+        // outlived their chests when the Loot budget was zeroed, leaving
+        // "press E" hints over empty sand.)
+        (new Vector2(0f, 0f), new Vector2(6f, 5f),
             "Press  E  to open the chest  -  eat the food it drops to heal",
             false),
-
-        // The eastern chest (LootMarker_03), on the way out.
-        (new Vector2(15.7f, 2f), new Vector2(5.5f, 5.5f),
-            "Press  E  to open the chest", false),
 
         // The relocated exit rowboat.
         (new Vector2(28f, 2.5f), new Vector2(9f, 9f),

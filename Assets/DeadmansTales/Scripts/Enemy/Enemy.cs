@@ -232,14 +232,14 @@ public sealed class Enemy : NetworkBehaviour
 
         if (health > 0f)
         {
-            // The bar tracks the wound, not the hit: visible for as long as
-            // the enemy is hurt, hidden again only at full health. The old
-            // show-for-two-seconds-after-a-hit timer kept reading as a bug --
-            // walk away to open a chest and every crab's bar vanished.
+            // ALWAYS visible while the enemy lives. Every conditional-
+            // visibility scheme tried here (show-after-hit timer, then
+            // show-while-damaged) kept surfacing as "the bar disappeared" in
+            // playtests; a permanently shown bar has no path that can hide it
+            // short of the enemy actually dying.
             if (healthBarVisibility != null)
             {
-                healthBarVisibility.alpha =
-                    health < MaximumHealth ? 1f : 0f;
+                healthBarVisibility.alpha = 1f;
             }
 
             return;

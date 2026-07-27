@@ -343,7 +343,9 @@ internal static class IslandStageBuilder
             maxHealth: 55f,
             chaseSpeed: 4.2f,
             wanderSpeed: 2.2f,
-            attackDamage: 6f,
+            // Raised 6 -> 24 after level-one playtesting: crab hits need to
+            // hurt enough that eating chest food to heal actually matters.
+            attackDamage: 24f,
             tint: new Color(1f, 0.58f, 0.45f, 1f),
             scale: 0.85f
         );
