@@ -385,6 +385,54 @@ public static class TutorialIslandBuilder
             : "[Level One] No Loot budget entry found to zero.");
     }
 
+    private const string DeathScreenPrefabPath =
+        "Assets/DeadmansTales/Prefabs/UI/DeathScreenUI.prefab";
+
+    /// <summary>
+    /// Adds Shay's damage/death screen UI (the red border that flashes when
+    /// you get hit, plus the death screen) to level one.
+    ///
+    /// That prefab was hand-placed into the other combat scenes (post-Ocean
+    /// island, kraken arena) rather than placed by the island painter, so the
+    /// generated level one never received it -- players took crab hits with no
+    /// screen feedback at all. The component finds the local player's health
+    /// at runtime, so an instance at the scene root is all it needs.
+    /// </summary>
+    [MenuItem(MenuRoot + "8. Add Damage/Death Screen UI")]
+    public static void EnsureDeathScreenUi()
+    {
+        if (!TryOpenLevelOne(out Scene scene))
+        {
+            return;
+        }
+
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            DeathScreenPrefabPath);
+        if (prefab == null)
+        {
+            Debug.LogError(
+                $"[Level One] Missing {DeathScreenPrefabPath}; cannot add "
+                + "damage feedback.");
+            return;
+        }
+
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            if (PrefabUtility.GetCorrespondingObjectFromOriginalSource(root)
+                == prefab)
+            {
+                Debug.Log("[Level One] Damage/death screen UI already "
+                    + "present.");
+                return;
+            }
+        }
+
+        PrefabUtility.InstantiatePrefab(prefab, scene);
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log("[Level One] Added the damage/death screen UI.");
+    }
+
     /// <summary>
     /// Gets level one open for editing. Uses the already-open scene when it is
     /// the right one, so a hand-authored level is never reloaded out from
@@ -418,6 +466,7 @@ public static class TutorialIslandBuilder
         MakeChestsDropFood();
         AddTutorialPrompts();
         UseSingleCentreChest();
+        EnsureDeathScreenUi();
     }
 
     [MenuItem(MenuRoot + "0. Build Everything")]
