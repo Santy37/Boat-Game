@@ -256,14 +256,16 @@ public static class TutorialIslandBuilder
             "Assets/DeadmansTales/Prefabs/Gameplay/"
                 + "NetworkRewardChest_Upgrade.prefab",
         };
+        // Coconut is deliberately excluded: its prefab points at a sprite cut
+        // from the BEACH TILESET (tf_beach_tileB) rather than the food art, so
+        // it renders as the top of a grass tuft lying on the sand. Apple and
+        // meat both come from island_food_items and read correctly.
         string[] foodPaths =
         {
             "Assets/DeadmansTales/Prefabs/Gameplay/"
                 + "NetworkFoodPickup_Apple.prefab",
             "Assets/DeadmansTales/Prefabs/Gameplay/"
                 + "NetworkFoodPickup_Meat.prefab",
-            "Assets/DeadmansTales/Prefabs/Gameplay/"
-                + "NetworkFoodPickup_Coconut.prefab",
         };
 
         GameObject[] food = foodPaths
@@ -322,6 +324,70 @@ public static class TutorialIslandBuilder
     }
 
     /// <summary>
+    /// Leaves level one with exactly ONE chest: the guaranteed reward in the
+    /// middle of the island.
+    ///
+    /// The seeded generator draws chests from two budgets -- the Loot category
+    /// (which scattered 2-3 around the loot markers) and the Reward category
+    /// (the single guaranteed chest at the island's centre). Zeroing the Loot
+    /// budget leaves the centre chest as the level's one prize, which reads
+    /// much clearer in a tutorial.
+    /// </summary>
+    [MenuItem(MenuRoot + "7. Single Centre Chest")]
+    public static void UseSingleCentreChest()
+    {
+        if (!TryOpenLevelOne(out Scene scene))
+        {
+            return;
+        }
+
+        int updated = 0;
+        foreach (DeadmansTales.WorldGeneration.SeededIslandContentGenerator
+            generator in Object.FindObjectsByType<
+                DeadmansTales.WorldGeneration.SeededIslandContentGenerator>(
+                FindObjectsSortMode.None))
+        {
+            SerializedObject so = new SerializedObject(generator);
+            SerializedProperty budgets = so.FindProperty("contentBudgets");
+            if (budgets == null)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < budgets.arraySize; i++)
+            {
+                SerializedProperty entry = budgets.GetArrayElementAtIndex(i);
+                SerializedProperty category =
+                    entry.FindPropertyRelative("category");
+                if (category == null)
+                {
+                    continue;
+                }
+
+                // 1 == SeededContentCategory.Loot
+                if (category.enumValueIndex != 1)
+                {
+                    continue;
+                }
+
+                entry.FindPropertyRelative("minimumCount").intValue = 0;
+                entry.FindPropertyRelative("maximumCount").intValue = 0;
+                updated++;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(generator);
+        }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log(updated > 0
+            ? $"[Level One] Loot budget zeroed ({updated} entry) -- only the "
+                + "centre reward chest remains."
+            : "[Level One] No Loot budget entry found to zero.");
+    }
+
+    /// <summary>
     /// Gets level one open for editing. Uses the already-open scene when it is
     /// the right one, so a hand-authored level is never reloaded out from
     /// under unsaved edits, and never shows a save prompt in batch mode.
@@ -353,6 +419,7 @@ public static class TutorialIslandBuilder
     {
         MakeChestsDropFood();
         AddTutorialPrompts();
+        UseSingleCentreChest();
     }
 
     [MenuItem(MenuRoot + "0. Build Everything")]

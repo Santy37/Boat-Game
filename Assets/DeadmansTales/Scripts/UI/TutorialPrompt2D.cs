@@ -55,6 +55,23 @@ public class TutorialPrompt2D : MonoBehaviour
         active = this;
     }
 
+    /// <summary>
+    /// Also claim the hint while the player simply STANDS in the zone.
+    ///
+    /// OnTriggerEnter2D never fires for a collider you are already inside, and
+    /// the crew spawns directly on top of the "WASD to move" zone -- so the
+    /// very first hint, the one that matters most, silently never appeared.
+    /// </summary>
+    private void OnTriggerStay2D(Collider2D other)
+    {
+        if (consumed || active == this || !IsLocalPlayer(other))
+        {
+            return;
+        }
+
+        active = this;
+    }
+
     private void OnTriggerExit2D(Collider2D other)
     {
         if (!IsLocalPlayer(other))
