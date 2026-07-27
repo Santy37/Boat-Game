@@ -120,17 +120,9 @@ public static class TutorialIslandBuilder
     [MenuItem(MenuRoot + "4. Fix Marker Stages (crabs + chests not spawning)")]
     public static void FixMarkerStages()
     {
-        Scene scene = SceneManager.GetActiveScene();
-        if (scene.path != LevelOneScenePath)
+        if (!TryOpenLevelOne(out Scene scene))
         {
-            if (!EditorSceneManager
-                .SaveCurrentModifiedScenesIfUserWantsTo())
-            {
-                Debug.Log("[Level One] Cancelled.");
-                return;
-            }
-            scene = EditorSceneManager.OpenScene(
-                LevelOneScenePath, OpenSceneMode.Single);
+            return;
         }
 
         int changed = 0;
@@ -163,6 +155,204 @@ public static class TutorialIslandBuilder
         EditorSceneManager.SaveScene(scene);
         Debug.Log($"[Level One] {changed} marker(s) now spawn at stage one -- "
             + "crabs and chests will appear.");
+    }
+
+    // Teaching beats along the west -> east walk. Placed where the mechanic is
+    // first needed rather than dumped at spawn.
+    // Positions read from the hand-authored scene, not from the generated
+    // layout: the crew spawns south-centre (~0,-9), the chests sit at the
+    // loot markers, and the rowboat was moved east to ~(29.6, 2.5).
+    private static readonly (Vector2 Position, Vector2 Size, string Message,
+        bool Once)[] TutorialPrompts =
+    {
+        // Right on top of the spawn point -- the first thing anyone reads.
+        (new Vector2(0f, -9f), new Vector2(13f, 7f),
+            "WASD  /  Arrow Keys  to move", true),
+
+        // Between spawn and the first crabs at (-2,-3) and (5,-4).
+        (new Vector2(1f, -4.5f), new Vector2(16f, 6f),
+            "Left Click to attack  -  you swing toward your cursor", true),
+
+        // The southern chest (LootMarker_02) is the closest to spawn, so it
+        // is where opening and eating get taught.
+        (new Vector2(6f, -7f), new Vector2(5.5f, 5.5f),
+            "Press  E  to open the chest  -  eat the food it drops to heal",
+            false),
+
+        // The eastern chest (LootMarker_03), on the way out.
+        (new Vector2(15.7f, 2f), new Vector2(5.5f, 5.5f),
+            "Press  E  to open the chest", false),
+
+        // The relocated exit rowboat.
+        (new Vector2(28f, 2.5f), new Vector2(9f, 9f),
+            "Step onto the rowboat to sail on", false),
+    };
+
+    private const string PromptParentName = "Level1_TutorialPrompts";
+
+    /// <summary>
+    /// Adds the tutorial hint zones to level one, in place.
+    ///
+    /// ADDITIVE ON PURPOSE: level one is hand-authored, so this only replaces
+    /// its own prompt group and never repaints the island or disturbs anything
+    /// else in the scene.
+    /// </summary>
+    [MenuItem(MenuRoot + "5. Add Tutorial Prompts")]
+    public static void AddTutorialPrompts()
+    {
+        if (!TryOpenLevelOne(out Scene scene))
+        {
+            return;
+        }
+
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            if (root.name == PromptParentName)
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        GameObject parent = new GameObject(PromptParentName);
+        for (int i = 0; i < TutorialPrompts.Length; i++)
+        {
+            var prompt = TutorialPrompts[i];
+
+            GameObject zone = new GameObject($"Prompt_{i:D2}");
+            zone.transform.SetParent(parent.transform, true);
+            zone.transform.position = new Vector3(
+                prompt.Position.x, prompt.Position.y, 0f);
+
+            BoxCollider2D area = zone.AddComponent<BoxCollider2D>();
+            area.isTrigger = true;
+            area.size = prompt.Size;
+
+            TutorialPrompt2D hint = zone.AddComponent<TutorialPrompt2D>();
+            SerializedObject so = new SerializedObject(hint);
+            so.FindProperty("message").stringValue = prompt.Message;
+            so.FindProperty("showOnlyOnce").boolValue = prompt.Once;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log($"[Level One] Added {TutorialPrompts.Length} tutorial "
+            + "prompt zone(s).");
+    }
+
+    /// <summary>
+    /// Makes reward chests spill food when opened, so level one teaches the
+    /// eat-to-heal loop. Edits the chest PREFABS, so it applies wherever
+    /// chests appear.
+    /// </summary>
+    [MenuItem(MenuRoot + "6. Make Chests Drop Food")]
+    public static void MakeChestsDropFood()
+    {
+        string[] chestPaths =
+        {
+            "Assets/DeadmansTales/Prefabs/Gameplay/NetworkRewardChest.prefab",
+            "Assets/DeadmansTales/Prefabs/Gameplay/"
+                + "NetworkRewardChest_Weapon.prefab",
+            "Assets/DeadmansTales/Prefabs/Gameplay/"
+                + "NetworkRewardChest_Upgrade.prefab",
+        };
+        string[] foodPaths =
+        {
+            "Assets/DeadmansTales/Prefabs/Gameplay/"
+                + "NetworkFoodPickup_Apple.prefab",
+            "Assets/DeadmansTales/Prefabs/Gameplay/"
+                + "NetworkFoodPickup_Meat.prefab",
+            "Assets/DeadmansTales/Prefabs/Gameplay/"
+                + "NetworkFoodPickup_Coconut.prefab",
+        };
+
+        GameObject[] food = foodPaths
+            .Select(AssetDatabase.LoadAssetAtPath<GameObject>)
+            .Where(prefab => prefab != null)
+            .ToArray();
+
+        if (food.Length == 0)
+        {
+            Debug.LogError("[Level One] No food pickup prefabs found.");
+            return;
+        }
+
+        int updated = 0;
+        foreach (string path in chestPaths)
+        {
+            GameObject chest = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (chest == null)
+            {
+                continue;
+            }
+
+            NetworkRewardChest reward =
+                chest.GetComponent<NetworkRewardChest>();
+            if (reward == null)
+            {
+                continue;
+            }
+
+            SerializedObject so = new SerializedObject(reward);
+            SerializedProperty prefabs =
+                so.FindProperty("foodRewardPrefabs");
+            SerializedProperty count = so.FindProperty("foodRewardCount");
+            if (prefabs == null || count == null)
+            {
+                continue;
+            }
+
+            prefabs.arraySize = food.Length;
+            for (int i = 0; i < food.Length; i++)
+            {
+                prefabs.GetArrayElementAtIndex(i).objectReferenceValue =
+                    food[i];
+            }
+            count.intValue = 2;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorUtility.SetDirty(chest);
+            updated++;
+        }
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"[Level One] {updated} chest prefab(s) now spill "
+            + $"{food.Length} kinds of food (2 per chest).");
+    }
+
+    /// <summary>
+    /// Gets level one open for editing. Uses the already-open scene when it is
+    /// the right one, so a hand-authored level is never reloaded out from
+    /// under unsaved edits, and never shows a save prompt in batch mode.
+    /// </summary>
+    private static bool TryOpenLevelOne(out Scene scene)
+    {
+        scene = SceneManager.GetActiveScene();
+        if (scene.path == LevelOneScenePath)
+        {
+            return true;
+        }
+
+        if (!Application.isBatchMode
+            && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        {
+            Debug.Log("[Level One] Cancelled.");
+            return false;
+        }
+
+        scene = EditorSceneManager.OpenScene(
+            LevelOneScenePath, OpenSceneMode.Single);
+        return scene.IsValid();
+    }
+
+    /// <summary>
+    /// Applies both level-one content passes in one headless run.
+    /// </summary>
+    public static void ApplyContentFromCommandLine()
+    {
+        MakeChestsDropFood();
+        AddTutorialPrompts();
     }
 
     [MenuItem(MenuRoot + "0. Build Everything")]
