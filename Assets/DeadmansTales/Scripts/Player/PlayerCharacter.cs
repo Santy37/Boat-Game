@@ -129,6 +129,25 @@ public class PlayerCharacter : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Ask this player's authoritative side to fire a networked cannonball.
+    /// Local (non-networked/split-screen) players return false so the
+    /// caller can spawn a plain local ball itself, exactly like before --
+    /// there's only one machine watching, so networking would add nothing.
+    /// Networked players return true and the shot is routed through the
+    /// server instead.
+    /// </summary>
+    public bool TryFireNetworkedCannon(Vector2 origin, Vector2 velocity)
+    {
+        if (networkPlayer == null)
+        {
+            return false;
+        }
+
+        networkPlayer.RequestFireCannon(origin, velocity);
+        return true;
+    }
+
     /// <summary>Release from a station and restore movement.</summary>
     public void ExitStation()
     {

@@ -10,25 +10,30 @@ public class MainMenuManager : MonoBehaviour
 {
     private const int LobbyMaxPlayers = 4;
 
-    // LEVEL 1 is the tutorial island, not the lobby: the lobby is reached
-    // through the multiplayer lobby flow (GameModeMenu.multiplayerLobbyScene)
-    // and is no longer a selectable "level". OCEAN ISLAND keeps its slot.
+    // LEVEL 1 is the tutorial island (Crab Beach), not the lobby: the lobby
+    // is reached through the multiplayer lobby flow
+    // (GameModeMenu.multiplayerLobbyScene) and is no longer a selectable
+    // "level". OCEAN ISLAND keeps its slot, and the kraken arena is level
+    // three (re-added on main by NEWUI while this branch was in flight).
     private static readonly string[] SelectableSceneNames =
     {
     "Level_1_Crab_Beach_2D",
-    "Island_After_Ocean_01_2D"
+    "Island_After_Ocean_01_2D",
+    "Kraken_Arena_2D"
 };
 
     private static readonly string[] SelectableLevelDisplayNames =
     {
     "CRAB BEACH",
-    "OCEAN ISLAND"
+    "OCEAN ISLAND",
+    "Kraken ISLAND"
 };
 
     private static readonly int[] SelectableStartingStages =
     {
     1,
-    2
+    2,
+    3
 };
     /// <summary>
     /// Stage index each level starts a fresh run at.
@@ -457,7 +462,7 @@ public class MainMenuManager : MonoBehaviour
 
     public void LoadLevelThree()
     {
-        ShowLevelComingSoon();
+        LoadSelectableLevel(2);
     }
 
     public void LoadLevelFour()
