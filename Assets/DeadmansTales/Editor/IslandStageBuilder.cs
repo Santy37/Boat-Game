@@ -170,6 +170,7 @@ internal static class IslandStageBuilder
     private static Vector2? activeCameraFocus;
     private static Vector2[] activeSpawnPositions;
     private static Vector2? activeRewardPosition;
+    private static Vector2Int? activePierAnchor;
 
     private static string ActiveScenePath =>
         activeScenePath ?? IslandScenePath;
@@ -206,6 +207,12 @@ internal static class IslandStageBuilder
     // it along with the water bounds.
     private static RectInt ActiveLandBounds =>
         activeLandBounds ?? new RectInt(-28, -22, 56, 44);
+    // Bottom-left cell of the 8x3 pier stamp. The pier is the ONLY walkable
+    // path over water, so it has to bridge the shore to the exit rowboat --
+    // an anchor tuned for a smaller island lands inland and strands the boat
+    // behind the ocean collision wall.
+    private static Vector2Int ActivePierAnchor =>
+        activePierAnchor ?? new Vector2Int(20, 1);
 
     private static readonly Vector2[] DefaultSpawnPositions =
     {
@@ -532,6 +539,10 @@ internal static class IslandStageBuilder
         activeCameraBoundsSize = new Vector2(92f, 69f);
         activeCameraFocus = new Vector2(0f, -12f);
 
+        // Run the pier out from the east shore (land ends at x=32) to under
+        // the exit rowboat, so the crew can actually board it.
+        activePierAnchor = new Vector2Int(33, 1);
+
         try
         {
             GameObject crabPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -600,12 +611,102 @@ internal static class IslandStageBuilder
             activeCameraFocus = null;
             activeSpawnPositions = null;
             activeRewardPosition = null;
+            activePierAnchor = null;
         }
     }
 
     public static void BuildLevelOneIslandFromCommandLine()
     {
         BuildLevelOneIsland();
+    }
+
+    /// <summary>
+    /// Runs the exit pier out to wherever the rowboat currently sits, IN
+    /// PLACE, without repainting the island.
+    ///
+    /// The ocean is a solid collision wall everywhere outside the sand, and
+    /// the pier is the one sanctioned hole in it. Level one's boat was moved
+    /// out into open water, which left the exit portal's trigger stranded
+    /// several cells beyond the last reachable tile -- players could clear
+    /// both crabs and still never board. This rebuilds the walkway to reach
+    /// it.
+    ///
+    /// Additive on purpose: level one is hand-authored now, so a full repaint
+    /// would throw away the placement pass.
+    /// </summary>
+    [MenuItem("Deadman's Tales/Level One/11. Run The Pier Out To The Boat")]
+    public static void BuildLevelOneExitPier()
+    {
+        // Sampling the lobby art opens the LOBBY scene, so it has to happen
+        // before level one is opened or we would close the scene we edit.
+        SourceIslandArt sourceArt = CaptureSourceIslandArt();
+
+        if (!sourceArt.PropStamps.TryGetValue("Pier", out PropStamp pier))
+        {
+            Debug.LogError("[Level One] The lobby has no pier stamp to copy.");
+            return;
+        }
+
+        Scene scene = EditorSceneManager.OpenScene(
+            LevelOneScenePath, OpenSceneMode.Single);
+
+        Tilemap ground = FindTilemap(scene, "Tilemap_Ground");
+        Tilemap props = FindTilemap(scene, "Tilemap_Props");
+        Tilemap overhead = FindTilemap(scene, "Tilemap_Overhead");
+        Tilemap waterCollision = FindTilemap(
+            scene, "Tilemap_WaterCollision");
+
+        Transform boat = scene
+            .GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
+            .FirstOrDefault(t => t.name == "Island_Exit_Rowboat");
+
+        if (boat == null)
+        {
+            Debug.LogError("[Level One] No Island_Exit_Rowboat in the scene.");
+            return;
+        }
+
+        // Land the pier's far end under the boat, and keep its near end on the
+        // shore row so it joins the beach instead of floating.
+        int boatCell = Mathf.FloorToInt(boat.position.x);
+        int anchorY = 1;
+        int anchorX = boatCell - 7;
+
+        PaintCoastalPier(
+            pier,
+            new Vector3Int(anchorX, anchorY, 0),
+            props,
+            overhead,
+            waterCollision
+        );
+
+        // The stamp only clears the cells it covers. Punch the remaining water
+        // collision between the sand and the pier's near end too, otherwise
+        // the walkway starts one tile offshore and is still unreachable.
+        ground.CompressBounds();
+        int shoreX = ground.cellBounds.xMax;
+        int opened = 0;
+        for (int x = shoreX - 1; x < anchorX; x++)
+        {
+            for (int y = anchorY; y < anchorY + 3; y++)
+            {
+                Vector3Int cell = new Vector3Int(x, y, 0);
+                if (waterCollision.GetTile(cell) != null)
+                {
+                    waterCollision.SetTile(cell, null);
+                    opened++;
+                }
+            }
+        }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log(
+            $"[Level One] Pier runs x{anchorX}..{anchorX + 7} at y{anchorY}"
+            + $"..{anchorY + 2}, reaching the rowboat at x{boat.position.x:0.0}"
+            + $" ({opened} extra water cell(s) opened at the shore)."
+        );
     }
 
     public static void CapturePreviewFromCommandLine()
@@ -2618,7 +2719,7 @@ internal static class IslandStageBuilder
 
         PaintCoastalPier(
             stamps["Pier"],
-            new Vector3Int(20, 1, 0),
+            new Vector3Int(ActivePierAnchor.x, ActivePierAnchor.y, 0),
             props,
             overhead,
             waterCollision
