@@ -11,6 +11,13 @@ using UnityEngine;
 [RequireComponent(typeof(Camera))]
 public class LocalCoopCamera : MonoBehaviour
 {
+    [Header("Zoom")]
+    [Tooltip("OFF: the camera never zooms from player spread - it holds Fixed " +
+             "Zoom below. (The helm/cannon zoom-out still works.)")]
+    [SerializeField] private bool enableZoom = true;
+    [Tooltip("Camera size when Enable Zoom is OFF (bigger = more zoomed out).")]
+    [SerializeField] private float fixedZoom = 8f;
+
     [Header("Framing")]
     [Tooltip("Extra world units kept around the players.")]
     [SerializeField] private float padding = 3f;
@@ -59,6 +66,9 @@ public class LocalCoopCamera : MonoBehaviour
         hasZoomOverride = false;
     }
 
+    /// <summary>True while a station (helm / cannon) is holding a zoom-out.</summary>
+    public bool HasZoomOverride => hasZoomOverride;
+
     private void LateUpdate()
     {
         PlayerCharacter[] players =
@@ -96,7 +106,13 @@ public class LocalCoopCamera : MonoBehaviour
 
         if (hasZoomOverride)
         {
+            // Helm / cannon zoom-out always wins.
             target = zoomOverride;
+        }
+        else if (!enableZoom)
+        {
+            // No spread zooming - hold the fixed size.
+            target = fixedZoom;
         }
         else
         {
@@ -108,8 +124,9 @@ public class LocalCoopCamera : MonoBehaviour
                 Mathf.Max(neededVertical, neededHorizontal), minZoom, maxZoom);
         }
 
-        cam.orthographicSize = Mathf.Lerp(
-            cam.orthographicSize, target, smooth * Time.deltaTime);
+        // Snap the zoom (no easing) so the progress bar snaps with it instead
+        // of drifting/scaling during the transition.
+        cam.orthographicSize = target;
 
         Vector3 desired = new Vector3(
             bounds.center.x + frameOffset.x,

@@ -260,6 +260,10 @@ public class ShipCannon : MonoBehaviour
 
         player.EnterStation(seat, facing);
 
+        if (coopCamera == null)
+        {
+            coopCamera = FindFirstObjectByType<LocalCoopCamera>();
+        }
         if (coopCamera != null)
         {
             coopCamera.SetZoomOverride(cannonCameraZoom);
@@ -280,6 +284,10 @@ public class ShipCannon : MonoBehaviour
 
         operatorPlayer = null;
 
+        if (coopCamera == null)
+        {
+            coopCamera = FindFirstObjectByType<LocalCoopCamera>();
+        }
         if (coopCamera != null)
         {
             coopCamera.ClearZoomOverride();
