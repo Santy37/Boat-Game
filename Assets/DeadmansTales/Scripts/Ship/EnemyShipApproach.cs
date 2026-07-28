@@ -40,11 +40,11 @@ namespace DeadmansTales.Ship
         private float approachSpeed = 2f;
 
         [Tooltip(
-            "Fallback stop distance, only used if Hull Contact isn't " +
-            "assigned. Prefer wiring Hull Contact instead -- a fixed " +
-            "distance doesn't account for either ship's actual size, so " +
-            "the hulls can visually overlap/phase through before this " +
-            "triggers."
+            "How close the ship gets, measured to the player ship. It stops " +
+            "when it reaches this distance OR (if Hull Contact is wired) when " +
+            "the hulls actually touch -- whichever happens first. Acts as a " +
+            "stand-off offset: raise it to keep ships farther away, lower it " +
+            "toward 0 to let them close right up to the hull."
         )]
         [SerializeField]
         [Min(0f)]
@@ -204,9 +204,14 @@ namespace DeadmansTales.Ship
                 );
             }
 
-            bool shouldEngage = hullContact != null
-                ? hullContact.IsTouchingPlayerShip
-                : distance <= engagementRange;
+            // Stop when the hull actually touches OR the ship has closed to
+            // within Engagement Range -- whichever happens first. This makes
+            // Engagement Range a stand-off offset that always applies: 0 lets
+            // the ship come right up to the hull, larger values keep it farther.
+            bool hullTouching =
+                hullContact != null && hullContact.IsTouchingPlayerShip;
+            bool withinRange = distance <= engagementRange;
+            bool shouldEngage = hullTouching || withinRange;
 
             if (shouldEngage)
             {

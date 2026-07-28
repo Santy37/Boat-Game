@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using DeadmansTales.Ship;
 using Unity.Netcode;
 using UnityEngine;
@@ -7,11 +8,14 @@ using UnityEngine.SceneManagement;
 namespace DeadmansTales.Networking
 {
     /// <summary>
-    /// Seeds 1-3 enemy ships into a fixed set of designated spawn spots for
-    /// the ocean voyage. Follows the same seeded-RNG pattern as
-    /// BoatObstacleGenerator (BoatRunDirector.CreateRandom) and the same
-    /// server-ready spawn/scene-placement pattern as
-    /// NetworkSceneEnemySpawner2D.
+    /// Server-authoritative enemy-ship spawner, driven by the boat progress bar.
+    ///
+    /// This no longer spawns on its own. The progress bar (BoatLegProgress)
+    /// calls <see cref="Trigger"/> when the ship icon reaches an enemy event,
+    /// and this spawner then places <see cref="amount"/> ships, waiting
+    /// <see cref="interval"/> seconds between each, at a random or a chosen
+    /// spawn point. Spawning is server-only, so every client's progress bar can
+    /// safely call Trigger() -- clients simply do nothing.
     ///
     /// EnemyShip's crew (basicenemyship instances) can't be part of the
     /// EnemyShip prefab itself -- they each carry their own NetworkObject
@@ -27,7 +31,7 @@ namespace DeadmansTales.Networking
         private const string RandomStreamName = "EnemyShipSpawns";
 
         [Header("Spawn Spots")]
-        [Tooltip("Exactly one enemy ship will be attempted per chosen spot, up to Maximum Ships Spawned.")]
+        [Tooltip("Empty GameObjects marking where enemy ships can appear.")]
         [SerializeField]
         private Transform[] spawnPoints = new Transform[3];
 
@@ -35,14 +39,28 @@ namespace DeadmansTales.Networking
         [SerializeField]
         private GameObject enemyShipPrefab;
 
-        [Tooltip("Random count of ships spawned is chosen between these, inclusive.")]
+        [Header("Spawning")]
+        [Tooltip("How many ships to spawn each time the progress bar triggers.")]
         [SerializeField]
-        [Min(1)]
-        private int minimumShipsSpawned = 1;
+        [Min(0)]
+        private int amount = 1;
 
+        [Tooltip("Seconds to wait between each ship in a single trigger.")]
         [SerializeField]
-        [Min(1)]
-        private int maximumShipsSpawned = 3;
+        [Min(0f)]
+        private float interval = 0.5f;
+
+        [Tooltip(
+            "ON: pick a random spawn point for each ship. " +
+            "OFF: always use Chosen Spawn Point."
+        )]
+        [SerializeField]
+        private bool randomSpawnPoint = true;
+
+        [Tooltip("Spawn-point index used when Random Spawn Point is OFF.")]
+        [SerializeField]
+        [Min(0)]
+        private int chosenSpawnPoint;
 
         [Header("Crew")]
         [SerializeField]
@@ -66,182 +84,191 @@ namespace DeadmansTales.Networking
             new Vector2(1.5f, -0.5f)
         };
 
-        private Coroutine spawnRoutine;
+        private System.Random rng;
+        private bool initialized;
 
-        private void OnEnable()
-        {
-            Debug.Log(
-                $"[Enemy Ship Spawner] {name} OnEnable -- starting " +
-                "SpawnWhenReady coroutine.",
-                this
-            );
-            spawnRoutine = StartCoroutine(SpawnWhenReady());
-        }
+        // The ships spawned by the current trigger. Pruned of destroyed entries
+        // by IsResolving; the progress bar waits on this to empty out.
+        private readonly List<GameObject> activeShips = new List<GameObject>();
+        private bool spawning;
 
-        private void OnDisable()
+        /// <summary>
+        /// True from the moment a trigger starts spawning until every ship it
+        /// spawned has been destroyed. The boat progress bar waits on this
+        /// before it resumes and clears the event icon.
+        /// </summary>
+        public bool IsResolving
         {
-            if (spawnRoutine != null)
+            get
             {
-                StopCoroutine(spawnRoutine);
-                spawnRoutine = null;
+                activeShips.RemoveAll(ship => ship == null);
+                return spawning || activeShips.Count > 0;
             }
         }
 
-        private IEnumerator SpawnWhenReady()
+        /// <summary>
+        /// Called by the boat progress bar when the ship reaches an enemy event.
+        /// Server-only; clients ignore it.
+        /// </summary>
+        public void Trigger()
         {
-            float nextWaitLogTime = 0f;
-
-            while (
-                BoatRunDirector.Instance == null ||
-                !BoatRunDirector.Instance.IsRunReady
-            )
+            if (!TryPrepareServer())
             {
-                if (Time.time >= nextWaitLogTime)
-                {
-                    nextWaitLogTime = Time.time + 2f;
-                    Debug.Log(
-                        $"[Enemy Ship Spawner] {name} waiting -- " +
-                        $"BoatRunDirector.Instance=" +
-                        $"{(BoatRunDirector.Instance != null)}, IsRunReady=" +
-                        $"{(BoatRunDirector.Instance != null && BoatRunDirector.Instance.IsRunReady)}.",
-                        this
-                    );
-                }
-
-                yield return null;
+                return;
             }
 
-            BoatRunDirector runDirector = BoatRunDirector.Instance;
-
-            Debug.Log(
-                $"[Enemy Ship Spawner] {name} run is ready -- " +
-                $"runDirector.IsServer={runDirector.IsServer}.",
-                this
-            );
-
-            if (!runDirector.IsServer)
-            {
-                Debug.Log(
-                    $"[Enemy Ship Spawner] {name} is not the server -- " +
-                    "skipping spawn on this client.",
-                    this
-                );
-                spawnRoutine = null;
-                yield break;
-            }
-
-            SpawnEnemyShips(runDirector);
-            spawnRoutine = null;
+            // Mark busy up front so IsResolving is true the instant we return,
+            // before the coroutine has added any ships to the list.
+            spawning = true;
+            StartCoroutine(SpawnRoutine());
         }
 
-        private void SpawnEnemyShips(BoatRunDirector runDirector)
+        private bool TryPrepareServer()
         {
+            if (BoatRunDirector.Instance == null ||
+                !BoatRunDirector.Instance.IsRunReady)
+            {
+                return false;
+            }
+
+            if (!BoatRunDirector.Instance.IsServer)
+            {
+                return false;
+            }
+
             if (enemyShipPrefab == null)
             {
                 Debug.LogWarning(
                     "[Enemy Ship Spawner] No enemy ship prefab assigned.",
                     this
                 );
-                return;
+                return false;
             }
 
-            Transform[] validSpawnPoints = FilterValidSpawnPoints();
-
-            if (validSpawnPoints.Length == 0)
+            if (spawnPoints == null || spawnPoints.Length == 0)
             {
                 Debug.LogWarning(
                     "[Enemy Ship Spawner] No spawn points assigned.",
                     this
                 );
-                return;
+                return false;
             }
 
-            System.Random rng = runDirector.CreateRandom(RandomStreamName);
-
-            int lowClamped = Mathf.Clamp(
-                minimumShipsSpawned,
-                1,
-                validSpawnPoints.Length
-            );
-            int highClamped = Mathf.Clamp(
-                maximumShipsSpawned,
-                lowClamped,
-                validSpawnPoints.Length
-            );
-
-            // System.Random.Next's upper bound is exclusive.
-            int shipCount = rng.Next(lowClamped, highClamped + 1);
-
-            int[] spotOrder = ShuffledIndices(validSpawnPoints.Length, rng);
-
-            int spawned = 0;
-            for (
-                int index = 0;
-                index < spotOrder.Length && spawned < shipCount;
-                index++
-            )
+            if (!initialized)
             {
-                Transform spot = validSpawnPoints[spotOrder[index]];
-                SpawnOneShip(spot, rng);
-                spawned++;
+                rng = BoatRunDirector.Instance.CreateRandom(RandomStreamName);
+                initialized = true;
             }
 
-            Debug.Log(
-                $"[Enemy Ship Spawner] Spawned {spawned} enemy ship(s) " +
-                $"in {gameObject.scene.name}.",
-                this
-            );
+            return true;
         }
 
-        private Transform[] FilterValidSpawnPoints()
+        private IEnumerator SpawnRoutine()
         {
-            int validCount = 0;
+            // Fresh trigger: forget the previous batch (any survivors would
+            // already have been pruned once destroyed).
+            activeShips.Clear();
 
-            foreach (Transform point in spawnPoints)
+            // Decide where each ship in this trigger goes up front, so they
+            // land on DIFFERENT spawn points and never stack on top of each
+            // other.
+            List<Transform> spots = BuildSpawnOrder();
+            if (spots.Count == 0)
             {
-                if (point != null)
+                spawning = false;
+                yield break;
+            }
+
+            for (int i = 0; i < amount; i++)
+            {
+                GameObject ship = SpawnOneShip(spots[i % spots.Count], rng);
+                if (ship != null)
                 {
-                    validCount++;
+                    activeShips.Add(ship);
+                }
+
+                if (interval > 0f && i < amount - 1)
+                {
+                    yield return new WaitForSeconds(interval);
                 }
             }
 
-            Transform[] valid = new Transform[validCount];
-            int writeIndex = 0;
+            // Done placing ships; from here IsResolving depends only on whether
+            // any spawned ship is still alive.
+            spawning = false;
+        }
 
+        // The ordered list of spots to spawn at. When random, it is a shuffle
+        // of every valid spot (so repeats only happen once all spots are used).
+        // When not random, it is just the single chosen spot.
+        private List<Transform> BuildSpawnOrder()
+        {
+            List<Transform> valid = new List<Transform>();
             foreach (Transform point in spawnPoints)
             {
                 if (point != null)
                 {
-                    valid[writeIndex] = point;
-                    writeIndex++;
+                    valid.Add(point);
                 }
+            }
+
+            if (valid.Count == 0)
+            {
+                Debug.LogWarning(
+                    "[Enemy Ship Spawner] All spawn points are empty.",
+                    this
+                );
+                return valid;
+            }
+
+            if (!randomSpawnPoint)
+            {
+                Transform chosen = ChosenPoint();
+                valid.Clear();
+                if (chosen != null)
+                {
+                    valid.Add(chosen);
+                }
+                return valid;
+            }
+
+            // Fisher-Yates shuffle, driven by the seeded RNG.
+            for (int i = valid.Count - 1; i > 0; i--)
+            {
+                int swap = rng.Next(0, i + 1);
+                (valid[i], valid[swap]) = (valid[swap], valid[i]);
             }
 
             return valid;
         }
 
-        private static int[] ShuffledIndices(int count, System.Random rng)
+        // The spot selected by the Chosen Spawn Point dropdown (an index into
+        // the spawnPoints array). Returns null if that slot is empty.
+        private Transform ChosenPoint()
         {
-            int[] indices = new int[count];
-
-            for (int i = 0; i < count; i++)
+            if (spawnPoints == null || spawnPoints.Length == 0)
             {
-                indices[i] = i;
+                return null;
             }
 
-            // Fisher-Yates, driven by the seeded RNG so spot selection is
-            // deterministic for a given seed.
-            for (int i = count - 1; i > 0; i--)
+            int index = Mathf.Clamp(chosenSpawnPoint, 0, spawnPoints.Length - 1);
+            Transform point = spawnPoints[index];
+
+            if (point == null)
             {
-                int swapIndex = rng.Next(0, i + 1);
-                (indices[i], indices[swapIndex]) =
-                    (indices[swapIndex], indices[i]);
+                Debug.LogWarning(
+                    $"[Enemy Ship Spawner] Chosen spawn point (index {index}) " +
+                    "is empty.",
+                    this
+                );
             }
 
-            return indices;
+            return point;
         }
 
-        private void SpawnOneShip(Transform spot, System.Random rng)
+        // Returns the spawned ship GameObject (or null if it could not be
+        // spawned), so the trigger can track it for IsResolving.
+        private GameObject SpawnOneShip(Transform spot, System.Random rng)
         {
             GameObject shipObject = Instantiate(
                 enemyShipPrefab,
@@ -262,7 +289,7 @@ namespace DeadmansTales.Networking
                     this
                 );
                 Destroy(shipObject);
-                return;
+                return null;
             }
 
             shipNetworkObject.Spawn(true);
@@ -272,7 +299,7 @@ namespace DeadmansTales.Networking
 
             if (shipApproach == null || crewPrefab == null || crewPerShip <= 0)
             {
-                return;
+                return shipObject;
             }
 
             Enemy[] spawnedCrew = new Enemy[crewPerShip];
@@ -288,6 +315,8 @@ namespace DeadmansTales.Networking
             }
 
             shipApproach.SetCrewServer(spawnedCrew);
+
+            return shipObject;
         }
 
         private Enemy SpawnOneCrewMember(

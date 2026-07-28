@@ -36,6 +36,15 @@ public class DestructibleObstacle : NetworkBehaviour
     [Tooltip("Units/sec it drifts toward the ship.")]
     [SerializeField] private float driftSpeed = 1.5f;
 
+    [Header("Cleanup")]
+    [Tooltip(
+        "Safety despawn so a dodged obstacle - especially an indestructible " +
+        "one that can only be steered around - can't drift on forever and " +
+        "stall the voyage (the progress bar waits for obstacles to clear). " +
+        "Seconds after it spawns. Make this longer than it takes to reach " +
+        "the ship at Drift Speed.")]
+    [SerializeField] private float maxLifetimeSeconds = 30f;
+
     [Header("Health Bar")]
     [SerializeField] private Vector2 healthBarSize = new Vector2(52f, 8f);
     [Tooltip("How far above the obstacle (world units) the bar floats.")]
@@ -53,6 +62,10 @@ public class DestructibleObstacle : NetworkBehaviour
     // Locked at spawn: a straight line toward where the ship was. It does NOT
     // re-track the ship, so steering the ship away dodges it.
     private Vector2 driftDirection = Vector2.left;
+
+    // Server clock time at which this obstacle safety-despawns if it hasn't
+    // already been destroyed or hit the ship.
+    private float despawnTime;
 
     private Texture2D pixel;
 
@@ -83,6 +96,7 @@ public class DestructibleObstacle : NetworkBehaviour
         }
 
         health.Value = Mathf.Max(1, maxHealth);
+        despawnTime = Time.time + Mathf.Max(1f, maxLifetimeSeconds);
 
         // Aim at the ship's current position and keep that heading for good.
         PlayerShipMarker ship = FindFirstObjectByType<PlayerShipMarker>();
@@ -110,8 +124,21 @@ public class DestructibleObstacle : NetworkBehaviour
 
     private void Update()
     {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        // Safety despawn: a dodged obstacle (or an indestructible one that was
+        // steered around) cleans itself up instead of drifting forever.
+        if (Time.time >= despawnTime)
+        {
+            DespawnSelf();
+            return;
+        }
+
         // Indestructible obstacles ignore cannonballs entirely.
-        if (!IsServer || !destructible || hitbox == null)
+        if (!destructible || hitbox == null)
         {
             return;
         }
@@ -192,6 +219,14 @@ public class DestructibleObstacle : NetworkBehaviour
     {
         // No bar for indestructible obstacles.
         if (!destructible || pixel == null)
+        {
+            return;
+        }
+
+        // Only show the bar once it has actually been hit: hidden at full
+        // health (and before health is initialized), hidden again once it is
+        // destroyed.
+        if (health.Value <= 0 || health.Value >= maxHealth)
         {
             return;
         }

@@ -180,10 +180,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DestructibleObstacle
   ShowTopMostFoldoutHeaderGroup: 1
-  health: 30
+  destructible: 0
+  maxHealth: 30
   cannonballDamage: 10
   shipDamageOnHit: 15
   driftSpeed: 1.5
+  healthBarSize: {x: 52, y: 8}
+  healthBarWorldYOffset: 0.7
 --- !u!50 &5116907951467988425
 Rigidbody2D:
   serializedVersion: 5

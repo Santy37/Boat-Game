@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DeadmansTales.Networking;
 using UnityEngine;
 
 /// <summary>
@@ -52,14 +53,25 @@ public class BoatLegProgress : MonoBehaviour
     [SerializeField] private Transform obstacleIcon;
     [Tooltip("Pirate ship icon - hidden at start, cloned onto the line.")]
     [SerializeField] private Transform pirateShipIcon;
-    [Tooltip("Nudge event icons off the line, e.g. y = -1 to drop the rocks " +
-             "down onto it.")]
-    [SerializeField] private Vector2 eventOffset = new Vector2(0f, -1f);
+    [Tooltip("Nudge event icons off the line, e.g. y = 6 to lift the rocks " +
+             "up above it.")]
+    [SerializeField] private Vector2 eventOffset = new Vector2(0f, 6f);
     [Tooltip("Events spawn no closer to the START island than this " +
              "(0 = start island, 1 = end island).")]
     [SerializeField, Range(0f, 1f)] private float eventMinFraction = 0.25f;
     [Tooltip("Events spawn no closer to the END island than this.")]
     [SerializeField, Range(0f, 1f)] private float eventMaxFraction = 0.9f;
+    [Tooltip("Smallest gap allowed between two events along the line so they " +
+             "never sit on top of each other (fraction of the whole line).")]
+    [SerializeField, Range(0f, 0.5f)] private float eventMinSpacing = 0.12f;
+
+    [Header("Progress Bar - Real Spawns (driven by the events above)")]
+    [Tooltip("Fires when the ship reaches a PIRATE SHIP event. Leave empty " +
+             "to only show the icon/message with no real spawn.")]
+    [SerializeField] private NetworkEnemyShipSpawner2D enemyShipSpawner;
+    [Tooltip("Fires when the ship reaches an OBSTACLE event. Leave empty to " +
+             "only show the icon/message with no real spawn.")]
+    [SerializeField] private BoatObstacleGenerator obstacleGenerator;
 
     [Header("Progress Bar - Event Pause")]
     [Tooltip("Ship pauses when it gets within this many units of an event.")]
@@ -70,6 +82,9 @@ public class BoatLegProgress : MonoBehaviour
     [SerializeField] private string obstacleMessage = "Protect the ship!";
     [Tooltip("Message shown for ENEMY SHIP events.")]
     [SerializeField] private string enemyMessage = "Attack the pirates!";
+    [Tooltip("Seconds the event message stays on screen. The bar still keeps " +
+             "waiting for the event to clear even after the message hides.")]
+    [SerializeField] private float messageDuration = 5f;
 
     [Header("Progress Bar - Arrival Message")]
     [Tooltip("Shown centred when the bar finishes (then the portal is usable).")]
@@ -81,7 +96,14 @@ public class BoatLegProgress : MonoBehaviour
 
     private int activeEvent = -1;
     private float eventEndTime;
+    // When true, the active event just waits out eventPauseDuration (used on
+    // clients, or when no spawner is wired). When false, it waits until the
+    // triggered spawner reports IsResolving == false.
+    private bool activeEventTimed;
     private string currentMessage = string.Empty;
+    // Clock time at which the current event message hides (the bar keeps
+    // waiting for the event even after this).
+    private float messageHideTime;
 
     private bool sailed;
     private Vector3 normalScale = Vector3.one;
@@ -146,28 +168,72 @@ public class BoatLegProgress : MonoBehaviour
             GameObject clone = Instantiate(template.gameObject, transform);
             clone.SetActive(true);
             events.Add(clone.transform);
-            // Random spot on the line, kept away from the start island.
-            eventFractions.Add(Random.Range(eventMinFraction, eventMaxFraction));
+            // Random spot on the line, kept away from the start island and
+            // spaced apart from the events already placed.
+            eventFractions.Add(PickSpacedFraction());
             eventIsEnemy.Add(template == pirateShipIcon);
             eventDone.Add(false);
         }
     }
 
+    // Picks a fraction along the line that is at least eventMinSpacing away
+    // from every event placed so far, so icons never overlap. Tries a number
+    // of random spots; if the line is too crowded to satisfy the spacing it
+    // falls back to the least-crowded spot it found rather than looping forever.
+    private float PickSpacedFraction()
+    {
+        const int attempts = 30;
+        float best = Random.Range(eventMinFraction, eventMaxFraction);
+        float bestGap = -1f;
+
+        for (int attempt = 0; attempt < attempts; attempt++)
+        {
+            float candidate = Random.Range(eventMinFraction, eventMaxFraction);
+
+            // Distance to the nearest already-placed event.
+            float nearest = float.MaxValue;
+            for (int i = 0; i < eventFractions.Count; i++)
+            {
+                nearest = Mathf.Min(
+                    nearest, Mathf.Abs(candidate - eventFractions[i]));
+            }
+
+            // First event, or far enough from all the others: accept it.
+            if (eventFractions.Count == 0 || nearest >= eventMinSpacing)
+            {
+                return candidate;
+            }
+
+            // Otherwise remember the roomiest spot as a fallback.
+            if (nearest > bestGap)
+            {
+                bestGap = nearest;
+                best = candidate;
+            }
+        }
+
+        return best;
+    }
+
     private void Update()
     {
-        // Paused at an event: hold the bar until the pause time is up.
+        // Paused at an event: hold the bar until the event is resolved.
         if (activeEvent >= 0)
         {
-            if (Time.time >= eventEndTime)
+            // Hide the message after its duration, but keep waiting.
+            if (currentMessage.Length > 0 && Time.time >= messageHideTime)
             {
-                eventDone[activeEvent] = true;
-                activeEvent = -1;
                 currentMessage = string.Empty;
+            }
+
+            if (IsActiveEventResolved())
+            {
+                CompleteActiveEvent();
             }
             return;
         }
 
-        // Ship reached an event? -> pause and show its message.
+        // Ship reached an event? -> pause, show its message, and spawn.
         Vector2 shipPos = Vector2.Lerp(startSpot, endSpot, progress01);
         for (int i = 0; i < events.Count; i++)
         {
@@ -180,8 +246,37 @@ public class BoatLegProgress : MonoBehaviour
             if (Vector2.Distance(shipPos, evPos) <= eventTriggerRange)
             {
                 activeEvent = i;
-                eventEndTime = Time.time + eventPauseDuration;
                 currentMessage = eventIsEnemy[i] ? enemyMessage : obstacleMessage;
+                messageHideTime = Time.time + messageDuration;
+
+                // Tell the matching spawner to spawn its stuff. This runs once
+                // per event (we return while paused). The spawners are
+                // server-guarded, so it is safe for every client to call.
+                bool spawnerWired;
+                if (eventIsEnemy[i])
+                {
+                    spawnerWired = enemyShipSpawner != null;
+                    if (spawnerWired)
+                    {
+                        enemyShipSpawner.Trigger();
+                    }
+                }
+                else
+                {
+                    spawnerWired = obstacleGenerator != null;
+                    if (spawnerWired)
+                    {
+                        obstacleGenerator.Trigger();
+                    }
+                }
+
+                // The server waits for the spawned things to be cleared; a pure
+                // client (or an unwired event) just waits out a fixed pause so
+                // its bar never hangs.
+                bool isServer = BoatRunDirector.Instance != null &&
+                                BoatRunDirector.Instance.IsServer;
+                activeEventTimed = !(isServer && spawnerWired);
+                eventEndTime = Time.time + eventPauseDuration;
                 return;
             }
         }
@@ -191,6 +286,38 @@ public class BoatLegProgress : MonoBehaviour
         {
             progress01 = Mathf.Clamp01(progress01 + Time.deltaTime / legDuration);
         }
+    }
+
+    // Has the current event finished? Timed events wait out the pause; spawn
+    // events wait until their spawner has cleared everything it spawned.
+    private bool IsActiveEventResolved()
+    {
+        if (activeEventTimed)
+        {
+            return Time.time >= eventEndTime;
+        }
+
+        bool stillResolving = eventIsEnemy[activeEvent]
+            ? enemyShipSpawner != null && enemyShipSpawner.IsResolving
+            : obstacleGenerator != null && obstacleGenerator.IsResolving;
+
+        return !stillResolving;
+    }
+
+    // Finish the active event: take its icon off the line and let the bar move.
+    private void CompleteActiveEvent()
+    {
+        int i = activeEvent;
+        eventDone[i] = true;
+
+        if (events[i] != null)
+        {
+            Destroy(events[i].gameObject);
+            events[i] = null;
+        }
+
+        activeEvent = -1;
+        currentMessage = string.Empty;
     }
 
     private bool IsManning()
