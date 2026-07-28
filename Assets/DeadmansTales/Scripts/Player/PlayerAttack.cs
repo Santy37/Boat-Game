@@ -43,6 +43,12 @@ public sealed class PlayerAttack : NetworkBehaviour
     [Min(1)]
     private int maximumTargetsPerSwing = 4;
 
+    [SerializeField]
+    private AudioSource audioSource;
+
+    [SerializeField]
+    private AudioClip swordSwingClip;
+
     private float nextLocalAttackTime;
     private float nextServerAttackTime;
     private float bufferedAttackUntil = float.NegativeInfinity;
@@ -54,6 +60,11 @@ public sealed class PlayerAttack : NetworkBehaviour
         if (anim == null)
         {
             anim = GetComponentInChildren<Animator>(true);
+        }
+
+        if (audioSource == null)
+        {
+            audioSource = GetComponentInChildren<AudioSource>(true);
         }
 
         loadout = GetComponent<NetworkPlayerLoadout>();
@@ -124,6 +135,7 @@ public sealed class PlayerAttack : NetworkBehaviour
         // Anticipate only the animation locally. Damage and cooldown validation
         // remain authoritative on the server.
         PlayAttackAnimation(aimDirection);
+        PlaySwordSwingSound();
         RequestAttackRpc(aimDirection);
         return true;
     }
@@ -146,6 +158,14 @@ public sealed class PlayerAttack : NetworkBehaviour
         }
 
         return lastAimDirection;
+    }
+
+    public void PlaySwordSwingSound()
+    {
+        if (audioSource == null || swordSwingClip == null)
+            return;
+
+        audioSource.PlayOneShot(swordSwingClip);
     }
 
     [Rpc(SendTo.Server)]
@@ -202,6 +222,7 @@ public sealed class PlayerAttack : NetworkBehaviour
         }
 
         PlayAttackAnimation(aimDirection);
+        PlaySwordSwingSound();
     }
 
     private void PlayAttackAnimation(Vector2 aimDirection)
