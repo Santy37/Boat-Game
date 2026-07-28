@@ -787,6 +787,7 @@ MonoBehaviour:
   cooldown: 1
   aimRange: 30
   aimSpeed: 6
+  maxAimAngleFromFacing: 90
   cannonCameraZoom: 24
   fallbackManKey: 101
   fallbackFireKey: 32
@@ -1373,6 +1374,7 @@ MonoBehaviour:
   cooldown: 1
   aimRange: 30
   aimSpeed: 6
+  maxAimAngleFromFacing: 90
   cannonCameraZoom: 24
   fallbackManKey: 101
   fallbackFireKey: 32
@@ -3363,6 +3365,7 @@ MonoBehaviour:
   cooldown: 1
   aimRange: 30
   aimSpeed: 6
+  maxAimAngleFromFacing: 90
   cannonCameraZoom: 24
   fallbackManKey: 101
   fallbackFireKey: 32
@@ -3515,6 +3518,7 @@ MonoBehaviour:
   cooldown: 1
   aimRange: 30
   aimSpeed: 6
+  maxAimAngleFromFacing: 90
   cannonCameraZoom: 24
   fallbackManKey: 101
   fallbackFireKey: 32
@@ -7391,6 +7395,7 @@ MonoBehaviour:
   destinationSceneName: Island_After_Ocean_01_2D
   requireGenerationComplete: 0
   requireAllEnemiesDefeated: 0
+  requireAllEnemyShipsDefeated: 0
   advanceStage: 1
 --- !u!61 &1875922522
 BoxCollider2D:
