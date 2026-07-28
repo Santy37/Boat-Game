@@ -34,6 +34,9 @@ public sealed class PlayerGun : NetworkBehaviour
 
     private NetworkPlayerLoadout loadout;
 
+
+
+
     private static readonly int ShootTrigger =
         Animator.StringToHash("Shoot");
 
@@ -67,7 +70,21 @@ public sealed class PlayerGun : NetworkBehaviour
             TryShoot();
         }
     }
+    public float CooldownRemainingNormalized
+    {
+        get
+        {
+            if (fireCooldown <= 0f)
+            {
+                return 0f;
+            }
 
+            return Mathf.Clamp01(
+                (nextLocalFireTime - Time.unscaledTime) /
+                fireCooldown
+            );
+        }
+    }
     public bool TryShoot()
     {
         if (

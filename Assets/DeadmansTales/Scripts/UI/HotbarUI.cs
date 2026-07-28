@@ -1,6 +1,7 @@
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
 
 public sealed class HotbarUI : MonoBehaviour
 {
@@ -20,7 +21,17 @@ public sealed class HotbarUI : MonoBehaviour
     [SerializeField]
     private TextMeshProUGUI foodCountText;
 
+    [Header("Gun Cooldown")]
+    [SerializeField]
+    private Image gunCooldownOverlay;
+
+    [Header("Sword Cooldown")]
+    [SerializeField]
+    private Image swordCooldownOverlay;
+
     private NetworkPlayerLoadout cachedLoadout;
+    private PlayerGun cachedGun;
+    private PlayerAttack cachedAttack;
     private void Start()
     {
         SelectSlot(1);
@@ -29,6 +40,8 @@ public sealed class HotbarUI : MonoBehaviour
     private void Update()
     {
         RefreshFoodCount();
+        RefreshGunCooldown();
+        RefreshSwordCooldown();
 
         if (PauseMenu.InputBlocked)
         {
@@ -74,7 +87,93 @@ public sealed class HotbarUI : MonoBehaviour
             ? $"x{loadout.FoodCount.Value}"
             : "x0";
     }
+    private void RefreshSwordCooldown()
+    {
+        if (swordCooldownOverlay == null)
+        {
+            return;
+        }
 
+        PlayerAttack attack = ResolveLocalAttack();
+
+        float remaining = attack != null
+            ? attack.CooldownRemainingNormalized
+            : 0f;
+
+        swordCooldownOverlay.fillAmount = remaining;
+
+        swordCooldownOverlay.gameObject.SetActive(
+            remaining > 0.001f
+        );
+    }
+
+    private PlayerAttack ResolveLocalAttack()
+    {
+        if (cachedAttack != null)
+        {
+            return cachedAttack;
+        }
+
+        NetworkManager manager = NetworkManager.Singleton;
+
+        if (
+            manager == null ||
+            !manager.IsListening ||
+            manager.LocalClient == null ||
+            manager.LocalClient.PlayerObject == null
+        )
+        {
+            return null;
+        }
+
+        cachedAttack = manager.LocalClient.PlayerObject
+            .GetComponent<PlayerAttack>();
+
+        return cachedAttack;
+    }
+    private void RefreshGunCooldown()
+    {
+        if (gunCooldownOverlay == null)
+        {
+            return;
+        }
+
+        PlayerGun gun = ResolveLocalGun();
+
+        float remaining = gun != null
+            ? gun.CooldownRemainingNormalized
+            : 0f;
+
+        gunCooldownOverlay.fillAmount = remaining;
+        gunCooldownOverlay.gameObject.SetActive(
+            remaining > 0.001f
+        );
+    }
+
+    private PlayerGun ResolveLocalGun()
+    {
+        if (cachedGun != null)
+        {
+            return cachedGun;
+        }
+
+        NetworkManager manager = NetworkManager.Singleton;
+
+        if (
+            manager == null ||
+            !manager.IsListening ||
+            manager.LocalClient == null ||
+            manager.LocalClient.PlayerObject == null
+        )
+        {
+            return null;
+        }
+
+        cachedGun = manager.LocalClient.PlayerObject
+            .GetComponent<PlayerGun>();
+
+        return cachedGun;
+    }
     private NetworkPlayerLoadout ResolveLocalLoadout()
     {
         if (cachedLoadout != null)
