@@ -314,8 +314,6 @@ MonoBehaviour:
   maxHealth: 200
   healthBar: {fileID: 3684657573309533505}
   healthBarVisibility: {fileID: 1766749571657408597}
-  visibleTime: 2
-  fadeTime: 1
   animator: {fileID: 0}
   deathDelay: 0.75
 --- !u!114 &5028301478647668058
