@@ -7,7 +7,13 @@ using DeadmansTales.Networking;
 
 /// <summary>
 /// LEVEL ONE -- "Crab Beach", the tutorial island that teaches the opening
-/// mechanics: walk up and melee a crab, and open a chest.
+/// mechanics: move, melee, and open a chest.
+///
+/// Shaped as a SHORELINE LOOP. The crew lands on the south sand and walks
+/// anticlockwise round the island, meeting one teaching hint per leg, and the
+/// only crabs on the beach wait at the eastern dock -- so the walk teaches and
+/// the dock tests. The exit rowboat already refuses to sail while an enemy
+/// lives, which turns those two crabs into the level's one gate.
 ///
 /// The island itself is painted by IslandStageBuilder.BuildLevelOneIsland,
 /// which reuses the post-Ocean island's shoreline/prop/collision painter with
@@ -157,33 +163,48 @@ public static class TutorialIslandBuilder
             + "crabs and chests will appear.");
     }
 
-    // Teaching beats along the west -> east walk. Placed where the mechanic is
-    // first needed rather than dumped at spawn.
-    // Positions read from the hand-authored scene, not from the generated
-    // layout: the crew spawns south-centre (~0,-9), the chests sit at the
-    // loot markers, and the rowboat was moved east to ~(29.6, 2.5).
+    // Teaching beats along the SHORELINE LOOP: the crew spawns south-centre,
+    // walks anticlockwise round the island -- south shore, west lobe, north
+    // shore -- and arrives at the dock in the east having been taught one
+    // mechanic per leg. Each of these is a "star" on the level-one sketch.
+    //
+    // The loop replaced a straight west -> east march whose hints all bunched
+    // into the first few metres: three of the four fired before the player had
+    // walked twenty units, and the last one sat alone at the far dock.
+    //
+    // Positions match the enlarged island the builder paints (64x34 cells):
+    // the crew spawns on the south beach (~0,-12), the reward chest sits on
+    // the north-shore walk at (1,11), and the exit rowboat is east at
+    // ~(32.5, 2).
     private static readonly (Vector2 Position, Vector2 Size, string Message,
         bool Once)[] TutorialPrompts =
     {
-        // Right on top of the spawn point -- the first thing anyone reads.
-        (new Vector2(0f, -9f), new Vector2(13f, 7f),
+        // STAR ONE -- south shore, stretched WEST from the spawn point.
+        //
+        // Deliberately wide enough to still cover the spawn itself: a "how to
+        // move" hint the player has to walk to in order to read is no hint at
+        // all. TutorialPrompt2D.OnTriggerStay2D fires it the instant the crew
+        // lands, and it stays up for the first leg of the walk.
+        (new Vector2(-6f, -12f), new Vector2(20f, 8f),
             "WASD  /  Arrow Keys  to move", true),
 
-        // Between spawn and the first crabs at (-2,-3) and (5,-4).
-        (new Vector2(1f, -4.5f), new Vector2(16f, 6f),
+        // STAR TWO -- the west lobe, at the turn north. Taught here, well
+        // clear of anything hostile, because the only crabs on the island now
+        // wait at the dock; the walk teaches, the dock tests.
+        (new Vector2(-20f, 0f), new Vector2(12f, 14f),
             "Left Click to attack  -  you swing toward your cursor", true),
 
-        // The level's ONE chest: the guaranteed reward at the island centre.
-        // (The two prompts that used to sit on the old scattered loot spots
-        // outlived their chests when the Loot budget was zeroed, leaving
-        // "press E" hints over empty sand.)
-        (new Vector2(0f, 0f), new Vector2(6f, 5f),
+        // STAR THREE -- north shore, just west of the reward chest, so the
+        // hint is already on screen when the chest comes into view.
+        (new Vector2(-5f, 11f), new Vector2(13f, 7f),
             "Press  E  to open the chest  -  eat the food it drops to heal",
             false),
 
-        // The relocated exit rowboat.
-        (new Vector2(28f, 2.5f), new Vector2(9f, 9f),
-            "Step onto the rowboat to sail on", false),
+        // THE DOCK -- covers the two guard crabs AND the rowboat behind them,
+        // so the gate reads as a fight to win rather than a portal that
+        // silently refuses to work.
+        (new Vector2(28f, 3f), new Vector2(16f, 12f),
+            "Defeat the crabs, then step onto the rowboat to sail on", false),
     };
 
     private const string PromptParentName = "Level1_TutorialPrompts";
@@ -322,14 +343,15 @@ public static class TutorialIslandBuilder
     }
 
     /// <summary>
-    /// Leaves level one with exactly ONE chest: the guaranteed reward in the
-    /// middle of the island.
+    /// Leaves level one with exactly ONE chest: the guaranteed reward.
     ///
     /// The seeded generator draws chests from two budgets -- the Loot category
     /// (which scattered 2-3 around the loot markers) and the Reward category
-    /// (the single guaranteed chest at the island's centre). Zeroing the Loot
-    /// budget leaves the centre chest as the level's one prize, which reads
-    /// much clearer in a tutorial.
+    /// (the single guaranteed chest). Zeroing the Loot budget leaves that one
+    /// as the level's only prize, which reads much clearer in a tutorial.
+    ///
+    /// MoveChestOntoRoute then parks it on the shoreline walk; it is no longer
+    /// at the island centre, where the old west -> east march used to pass.
     /// </summary>
     [MenuItem(MenuRoot + "7. Single Centre Chest")]
     public static void UseSingleCentreChest()
@@ -433,6 +455,138 @@ public static class TutorialIslandBuilder
         Debug.Log("[Level One] Added the damage/death screen UI.");
     }
 
+    // Where the guard crabs stand: the last stretch of sand between the north
+    // shore and the dock, so the crew meets them on the way to the rowboat.
+    //
+    // Mirrors LevelOneEnemyMarkers in IslandStageBuilder. That array is what a
+    // full repaint produces; this is the in-place edit for the hand-authored
+    // scene, which a repaint would otherwise flatten.
+    private static readonly Vector2[] DockGuardCrabs =
+    {
+        new Vector2(24f, 5f),
+        new Vector2(28f, 2f),
+    };
+
+    /// <summary>
+    /// Moves level one's crabs to the dock and deletes the surplus.
+    ///
+    /// The island shipped with eight crab markers strewn from x=-9 to x=13.
+    /// The exit rowboat refuses to sail until every enemy is dead, so one crab
+    /// missed behind a palm sent players back across the whole beach with no
+    /// idea what the portal wanted. Two crabs, both standing between the
+    /// shoreline walk and the rowboat, make that gate self-evident.
+    ///
+    /// Both are guaranteed to show up: the generator clamps a category's
+    /// minimum to the number of markers that exist and then backfills up to it,
+    /// so trimming the roster to two also retires the 72% per-marker roll.
+    ///
+    /// ADDITIVE, like AddTutorialPrompts -- touches only the enemy markers.
+    /// </summary>
+    [MenuItem(MenuRoot + "9. Move The Crabs To The Dock")]
+    public static void MoveCrabsToDock()
+    {
+        if (!TryOpenLevelOne(out Scene scene))
+        {
+            return;
+        }
+
+        DeadmansTales.WorldGeneration.SeededSpawnMarker2D[] crabs = Object
+            .FindObjectsByType<
+                DeadmansTales.WorldGeneration.SeededSpawnMarker2D>(
+                FindObjectsSortMode.None)
+            .Where(marker => marker.Category
+                == DeadmansTales.WorldGeneration.SeededContentCategory.Enemy)
+            .OrderBy(marker => marker.name)
+            .ToArray();
+
+        if (crabs.Length == 0)
+        {
+            Debug.LogError("[Level One] No enemy markers found to move.");
+            return;
+        }
+
+        int moved = 0;
+        while (moved < crabs.Length && moved < DockGuardCrabs.Length)
+        {
+            crabs[moved].transform.position = new Vector3(
+                DockGuardCrabs[moved].x, DockGuardCrabs[moved].y, 0f);
+            EditorUtility.SetDirty(crabs[moved]);
+            moved++;
+        }
+
+        int removed = 0;
+        for (int i = DockGuardCrabs.Length; i < crabs.Length; i++)
+        {
+            Object.DestroyImmediate(crabs[i].gameObject);
+            removed++;
+        }
+
+        if (moved < DockGuardCrabs.Length)
+        {
+            Debug.LogWarning($"[Level One] Only {moved} enemy marker(s) "
+                + $"existed; the dock wants {DockGuardCrabs.Length}. Run "
+                + "\"0. Build Everything\" to repaint the full roster.");
+        }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log($"[Level One] {moved} crab(s) now guard the dock; "
+            + $"{removed} surplus marker(s) removed.");
+    }
+
+    // The chest's home on the new route: the north shore, a few metres east of
+    // the third hint, so "press E" is already on screen when it comes into
+    // view. Mirrors activeRewardPosition in IslandStageBuilder's level-one
+    // build, so an in-place fix and a full repaint agree.
+    private static readonly Vector2 ChestOnRoute = new Vector2(1f, 11f);
+
+    /// <summary>
+    /// Puts the level's one chest on the shoreline walk.
+    ///
+    /// It used to sit at the island centre, which the old straight west -> east
+    /// march crossed anyway. The shoreline loop does not cut through the
+    /// middle, so leaving the chest there would have stranded it -- and the
+    /// eat-to-heal lesson attached to it -- off the route entirely.
+    /// </summary>
+    [MenuItem(MenuRoot + "10. Put The Chest On The Walking Route")]
+    public static void MoveChestOntoRoute()
+    {
+        if (!TryOpenLevelOne(out Scene scene))
+        {
+            return;
+        }
+
+        int moved = 0;
+        foreach (DeadmansTales.WorldGeneration.SeededSpawnMarker2D marker
+            in Object.FindObjectsByType<
+                DeadmansTales.WorldGeneration.SeededSpawnMarker2D>(
+                FindObjectsSortMode.None))
+        {
+            if (marker.Category != DeadmansTales.WorldGeneration
+                .SeededContentCategory.Reward)
+            {
+                continue;
+            }
+
+            marker.transform.position = new Vector3(
+                ChestOnRoute.x, ChestOnRoute.y, 0f);
+            EditorUtility.SetDirty(marker);
+            moved++;
+        }
+
+        if (moved == 0)
+        {
+            Debug.LogError(
+                "[Level One] No reward marker found to move.");
+            return;
+        }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log($"[Level One] Reward chest moved to the north shore "
+            + $"({ChestOnRoute.x}, {ChestOnRoute.y}).");
+    }
+
     /// <summary>
     /// Gets level one open for editing. Uses the already-open scene when it is
     /// the right one, so a hand-authored level is never reloaded out from
@@ -464,17 +618,24 @@ public static class TutorialIslandBuilder
     public static void ApplyContentFromCommandLine()
     {
         MakeChestsDropFood();
-        AddTutorialPrompts();
         UseSingleCentreChest();
+        MoveChestOntoRoute();
+        MoveCrabsToDock();
+        AddTutorialPrompts();
         EnsureDeathScreenUi();
     }
 
     [MenuItem(MenuRoot + "0. Build Everything")]
     public static void BuildAllFromCommandLine()
     {
-        // Paint the island (its own silhouette, crab roster, chest markers)...
+        // Paint the island (silhouette, dock crabs, on-route reward chest,
+        // spawns, rowboats, camera)...
         IslandStageBuilder.BuildLevelOneIsland();
-        // ...then make sure the lobby stayed a lobby.
+        // ...then the content pass: chest food, single chest, tutorial
+        // prompts, damage UI. The two in-place movers are no-ops right after
+        // a repaint, but they repair a hand-edited scene the same way.
+        ApplyContentFromCommandLine();
+        // ...and make sure the lobby stayed a lobby.
         StripLobbyCombat();
         ReportLevelOne();
     }
