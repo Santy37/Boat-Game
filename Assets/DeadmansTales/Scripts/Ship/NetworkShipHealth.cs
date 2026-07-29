@@ -1,7 +1,7 @@
 using DeadmansTales.Networking;
 using Unity.Netcode;
 using UnityEngine;
-
+using System.Collections;
 namespace DeadmansTales.Ship
 {
     /// <summary>
@@ -22,6 +22,12 @@ namespace DeadmansTales.Ship
         [Min(1f)]
         private float maximumHealth = 500f;
 
+        [Header("Sinking")]
+        [SerializeField]
+        [Min(0f)]
+        private float destroyDelay = 1f;
+
+        private Coroutine destroyRoutine;
         [SerializeField]
         [Min(0f)]
         [Tooltip(
@@ -154,6 +160,7 @@ namespace DeadmansTales.Ship
         {
             if (previousValue > 0f && newValue <= 0f)
             {
+                // Gives every peer a chance to display ShipSunkUI.
                 ShipSunk?.Invoke();
 
                 if (!isPlayerShip)
@@ -164,12 +171,35 @@ namespace DeadmansTales.Ship
 
                 Debug.Log("[Ship Health] The ship has sunk. Run lost.", this);
 
-                if (IsServer && NetworkRunState.Instance != null)
+                if (IsServer)
                 {
-                    NetworkRunState.Instance.SetStatusServer(
-                        NetworkRunStatus.Failed
-                    );
+                    if (NetworkRunState.Instance != null)
+                    {
+                        NetworkRunState.Instance.SetStatusServer(
+                            NetworkRunStatus.Failed
+                        );
+                    }
+
+                    if (destroyRoutine == null)
+                    {
+                        destroyRoutine = StartCoroutine(
+                            DestroyPlayerShipAfterDelay()
+                        );
+                    }
                 }
+            }
+        }
+        private IEnumerator DestroyPlayerShipAfterDelay()
+        {
+            if (destroyDelay > 0f)
+            {
+                yield return new WaitForSeconds(destroyDelay);
+            }
+
+            if (NetworkObject != null && NetworkObject.IsSpawned)
+            {
+                // Server despawns and destroys the ship for every client.
+                NetworkObject.Despawn(true);
             }
         }
     }
