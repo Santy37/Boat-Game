@@ -44,6 +44,16 @@ namespace DeadmansTales.Ship
         private float maximumLaunchSpeed = 40f;
 
         [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip(
+            "Least damage fraction a hit can be scaled to, however far out " +
+            "along the bow or stern it lands. 0 restores the old behaviour, " +
+            "where a hit on either tip did literally no damage and the shot " +
+            "was wasted. 1 removes the aiming falloff entirely."
+        )]
+        private float minimumDirectness = 0.4f;
+
+        [SerializeField]
         [Min(0f)]
         [Tooltip(
             "Trigger hits are ignored for this long right after launch. " +
@@ -403,7 +413,18 @@ namespace DeadmansTales.Ship
                 ? localImpact.x - localCenter.x
                 : localImpact.y - localCenter.y;
 
-            return Mathf.Clamp01(1f - Mathf.Abs(longOffset) / longExtent);
+            float directness =
+                Mathf.Clamp01(1f - Mathf.Abs(longOffset) / longExtent);
+
+            // Floored, because the raw curve reaches exactly 0 at the bow and
+            // stern -- and ApplyCannonHitServer discards a hit whose scaled
+            // damage is <= 0. A shot landing on either end therefore did
+            // nothing at all while still being consumed, which reads as the
+            // cannon being broken rather than as a glancing blow. This is
+            // most obvious at close quarters, where the end facing you is
+            // often the only part you can hit. Amidships still does full
+            // damage, so aiming is still rewarded.
+            return Mathf.Max(minimumDirectness, directness);
         }
 
         /// <summary>
