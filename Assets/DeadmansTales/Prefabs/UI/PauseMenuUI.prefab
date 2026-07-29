@@ -1894,6 +1894,7 @@ GameObject:
   - component: {fileID: 5917225618352416923}
   - component: {fileID: 3572038205958408250}
   - component: {fileID: 383110905586621719}
+  - component: {fileID: 945792987994832062}
   m_Layer: 5
   m_Name: CoinHUD
   m_TagString: Untagged
@@ -1959,6 +1960,19 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &945792987994832062
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4622273155808010282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eaa8e67267d04d27b1b02fbb0db2b397, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CoinCounterHUD
+  coinCountText: {fileID: 8285628286661686519}
 --- !u!1 &4920745984550456624
 GameObject:
   m_ObjectHideFlags: 0

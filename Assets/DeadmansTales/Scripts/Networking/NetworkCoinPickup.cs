@@ -19,7 +19,7 @@ namespace DeadmansTales.Networking
     {
         [SerializeField]
         [Min(1)]
-        private int coinValue = 5;
+        private int coinValue = 1;
 
         [Tooltip("Gentle bob so loose coins read as pickups, not scenery.")]
         [SerializeField]

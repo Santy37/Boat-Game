@@ -185,11 +185,11 @@ MonoBehaviour:
   cannonballDamage: 10
   shipDamageOnHit: 15
   driftSpeed: 1.5
-  hullImpactClip: {fileID: 8300000, guid: 7b69beceabbd8f24e8bc62d77ac7ca1c, type: 3}
-  hullImpactVolume: 1
   maxLifetimeSeconds: 30
   healthBarSize: {x: 52, y: 8}
   healthBarWorldYOffset: 0.7
+  hullImpactClip: {fileID: 8300000, guid: 7b69beceabbd8f24e8bc62d77ac7ca1c, type: 3}
+  hullImpactVolume: 1
 --- !u!50 &5116907951467988425
 Rigidbody2D:
   serializedVersion: 5

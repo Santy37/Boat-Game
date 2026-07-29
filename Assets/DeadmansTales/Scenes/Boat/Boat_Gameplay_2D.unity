@@ -946,6 +946,7 @@ MonoBehaviour:
   facing: {x: 0, y: 1}
   muzzle: {fileID: 1809852439}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -1624,6 +1625,7 @@ MonoBehaviour:
   facing: {x: 0, y: 1}
   muzzle: {fileID: 22986013}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -4074,6 +4076,7 @@ MonoBehaviour:
   facing: {x: -1, y: 0}
   muzzle: {fileID: 1353640264}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -4675,6 +4678,87 @@ PolygonCollider2D:
       - {x: 0.58778536, y: 7.190983}
       - {x: 2.9510565, y: 7.309017}
   m_UseDelaunayMesh: 1
+--- !u!1001 &1406820300
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 4413148171017206993, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_Name
+      value: CoinSpawner
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.84
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 7.21
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5159996149328979429, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8705650862845239719, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_Size.x
+      value: 20.021126
+      objectReference: {fileID: 0}
+    - target: {fileID: 8705650862845239719, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_Size.y
+      value: 3.7790232
+      objectReference: {fileID: 0}
+    - target: {fileID: 8705650862845239719, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_Offset.x
+      value: 3.919241
+      objectReference: {fileID: 0}
+    - target: {fileID: 8705650862845239719, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: m_Offset.y
+      value: 6.184547
+      objectReference: {fileID: 0}
+    - target: {fileID: 8926861025508748503, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: maximumCoins
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 8926861025508748503, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
+      propertyPath: minimumCoins
+      value: 4
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c9938dcfedf90804f994fec56787c69d, type: 3}
 --- !u!1 &1413490305
 GameObject:
   m_ObjectHideFlags: 0
@@ -4897,6 +4981,7 @@ MonoBehaviour:
   facing: {x: 0, y: -1}
   muzzle: {fileID: 870088633}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -5050,6 +5135,7 @@ MonoBehaviour:
   facing: {x: 0, y: -1}
   muzzle: {fileID: 418975921}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -9589,3 +9675,4 @@ SceneRoots:
   - {fileID: 888781151}
   - {fileID: 1315678525}
   - {fileID: 433096606}
+  - {fileID: 1406820300}

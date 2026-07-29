@@ -1618,7 +1618,7 @@ public static class ShopIslandBuilder
             trigger.radius = 0.45f;
 
             NetworkCoinPickup coin = root.AddComponent<NetworkCoinPickup>();
-            SetSerializedInt(coin, "coinValue", 5);
+            SetSerializedInt(coin, "coinValue", 1);
 
             GameObject visual = new GameObject("Visual");
             visual.transform.SetParent(root.transform, false);
