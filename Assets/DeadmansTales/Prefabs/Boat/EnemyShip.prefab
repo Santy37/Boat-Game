@@ -3413,6 +3413,11 @@ MonoBehaviour:
   crew: []
   deckBoundsForCrew: {fileID: 7846736592703847091}
   shipHealth: {fileID: 0}
+  crewBoardsPlayerShip: 1
+  boardDelay: 2
+  maxBoarders: 0
+  boardingSpread: 1.5
+  boardedCrewScale: 1
 --- !u!114 &407928212063969815
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3860,6 +3865,8 @@ MonoBehaviour:
   steeringCameraZoom: 25
   zoomLerpSpeed: 5
   fallbackManKey: 101
+  pushOutOfEnemyHulls: 1
+  hullSeparationSkin: 0
 --- !u!61 &4023257145779488191
 BoxCollider2D:
   m_ObjectHideFlags: 0
