@@ -49,6 +49,9 @@ public sealed class PlayerAttack : NetworkBehaviour
     [SerializeField]
     private AudioClip swordSwingClip;
 
+    [SerializeField]
+    private AudioClip swordHitClip;
+
     private float nextLocalAttackTime;
     private float nextServerAttackTime;
     private float bufferedAttackUntil = float.NegativeInfinity;
@@ -187,6 +190,14 @@ public sealed class PlayerAttack : NetworkBehaviour
         audioSource.PlayOneShot(swordSwingClip);
     }
 
+    private void PlaySwordHitSound()
+    {
+        if (audioSource == null || swordHitClip == null)
+            return;
+
+        audioSource.PlayOneShot(swordHitClip);
+    }
+
     [Rpc(SendTo.Server)]
     private void RequestAttackRpc(
         Vector2 aimDirection,
@@ -242,6 +253,19 @@ public sealed class PlayerAttack : NetworkBehaviour
 
         PlayAttackAnimation(aimDirection);
         PlaySwordSwingSound();
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void PlaySwordHitSoundRpc(ulong attackingClientId)
+    {
+        // Only the attacking player hears the hit confirmation.
+        if (NetworkManager == null ||
+            NetworkManager.LocalClientId != attackingClientId)
+        {
+            return;
+        }
+
+        PlaySwordHitSound();
     }
 
     private void PlayAttackAnimation(Vector2 aimDirection)
@@ -311,6 +335,8 @@ public sealed class PlayerAttack : NetworkBehaviour
         HashSet<Enemy> hitEnemies = new HashSet<Enemy>();
         int maximumTargets = Mathf.Max(1, maximumTargetsPerSwing);
 
+        bool hitSomething = false;
+
         foreach (Collider2D overlap in overlaps)
         {
             Enemy enemy = overlap.GetComponentInParent<Enemy>();
@@ -325,11 +351,17 @@ public sealed class PlayerAttack : NetworkBehaviour
             }
 
             enemy.TakeDamage(totalDamage);
+            hitSomething = true;
 
             if (hitEnemies.Count >= maximumTargets)
             {
                 break;
             }
+        }
+
+        if (hitSomething)
+        {
+            PlaySwordHitSoundRpc(OwnerClientId);
         }
     }
 

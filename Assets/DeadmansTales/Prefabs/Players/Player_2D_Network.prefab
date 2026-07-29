@@ -734,6 +734,7 @@ MonoBehaviour:
   maximumTargetsPerSwing: 4
   audioSource: {fileID: 2651938207332921320}
   swordSwingClip: {fileID: 8300000, guid: 88b1cbe3caa3fee4b8b103b5edd7aba9, type: 3}
+  swordHitClip: {fileID: 8300000, guid: 7c47b20bb9874304a809dc5580d403ba, type: 3}
 --- !u!114 &7869521657022404248
 MonoBehaviour:
   m_ObjectHideFlags: 0
