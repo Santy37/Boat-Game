@@ -27,18 +27,6 @@ public class BoatLegProgress : MonoBehaviour
     [SerializeField] private Vector2 manningScreenPosition = new Vector2(0.32f, 0.42f);
     [Tooltip("Scale multiplier while a station is manned (2 = twice as big).")]
     [SerializeField] private float manningScale = 2f;
-    [Tooltip(
-        "Sorting order forced onto the bar's renderers while a station is " +
-        "manned. Manning moves the bar from empty sky down over the SHIP, " +
-        "and the hull's renderers out-sort the bar's own order 10-12, so it " +
-        "was being drawn behind the deck rather than moved off screen. High " +
-        "enough to sit over anything in the scene.")]
-    [SerializeField] private int manningSortingOrder = 500;
-    [Tooltip(
-        "Keeps the bar this far (viewport fraction) inside each screen edge " +
-        "while manned, so a big scale-up near an edge can't push it out of " +
-        "view.")]
-    [SerializeField, Range(0f, 0.5f)] private float manningScreenMargin = 0.12f;
 
     [Header("Progress Bar - Pieces (children of this object)")]
     [Tooltip("START island - placed on the RIGHT (the ship starts here).")]
@@ -151,99 +139,9 @@ public class BoatLegProgress : MonoBehaviour
     private readonly List<bool> eventIsEnemy = new List<bool>();
     private readonly List<bool> eventDone = new List<bool>();
 
-    // Every renderer under the bar, with the sorting order it shipped with, so
-    // the manning bump can be undone exactly rather than guessed at. Renderer
-    // rather than SpriteRenderer on purpose: the bar's pieces and the ship's
-    // hull are different renderer types, and sortingOrder lives on the base.
-    private Renderer[] barRenderers;
-    private int[] barSortingOrders;
-    private bool sortingBumped;
-
-    // The camera's size with nothing manned, sampled on the first frame, and the
-    // factor that cancels out any zoom away from it.
-    private float restingOrthographicSize = -1f;
-    private float zoomCompensation = 1f;
-
-    [Header("Progress Bar - Diagnostics")]
-    [Tooltip(
-        "Logs what the bar does the moment a station is manned or left: " +
-        "whether manning was detected, which camera is live, its zoom, and " +
-        "where the bar ended up in world space. Turn on for one run if the " +
-        "bar still is not visible while manning -- it says which half of the " +
-        "system is at fault instead of guessing.")]
-    [SerializeField] private bool logManningState = true;
-
-    private bool loggedManning;
-    private bool lastLoggedManning;
-
     private void Awake()
     {
         normalScale = transform.localScale;
-
-        barRenderers = GetComponentsInChildren<Renderer>(true);
-        barSortingOrders = new int[barRenderers.Length];
-
-        for (int i = 0; i < barRenderers.Length; i++)
-        {
-            barSortingOrders[i] = barRenderers[i].sortingOrder;
-        }
-    }
-
-    // Lift the whole bar above the scene while manned, and drop it back after.
-    // Without this the bar is not hidden or off screen -- it is behind the deck.
-    // One line per manned/left transition, so a single playtest pins down why
-    // the bar is not on screen: detection, camera, zoom, scale and position all
-    // in one place.
-    private void LogManningState(bool manning, Camera cam, Vector2 viewportPos)
-    {
-        if (!logManningState)
-        {
-            return;
-        }
-
-        if (loggedManning && manning == lastLoggedManning)
-        {
-            return;
-        }
-
-        loggedManning = true;
-        lastLoggedManning = manning;
-
-        Debug.Log(
-            $"[Boat Leg] manning={manning}, camera='{(cam != null ? cam.name : "none")}'" +
-            $", orthographic={(cam != null && cam.orthographic)}" +
-            $", size={(cam != null ? cam.orthographicSize : 0f):0.00}" +
-            $", resting={restingOrthographicSize:0.00}" +
-            $", zoomCompensation={zoomCompensation:0.00}" +
-            $", coopCam={(coopCam != null ? coopCam.name : "null")}" +
-            $", coopZoomOverride={(coopCam != null && coopCam.HasZoomOverride)}" +
-            $", viewport={viewportPos}" +
-            $", world={transform.position}" +
-            $", scale={transform.localScale}" +
-            $", renderers={(barRenderers != null ? barRenderers.Length : 0)}",
-            this);
-    }
-
-    private void ApplyManningSorting(bool manning)
-    {
-        if (barRenderers == null || manning == sortingBumped)
-        {
-            return;
-        }
-
-        for (int i = 0; i < barRenderers.Length; i++)
-        {
-            if (barRenderers[i] == null)
-            {
-                continue;
-            }
-
-            barRenderers[i].sortingOrder = manning
-                ? manningSortingOrder + barSortingOrders[i]
-                : barSortingOrders[i];
-        }
-
-        sortingBumped = manning;
     }
 
     private void Start()
@@ -490,30 +388,9 @@ public class BoatLegProgress : MonoBehaviour
     {
         if (coopCam == null)
         {
-            // Include inactive: the networked boat scene carries BOTH a
-            // LocalCoopCamera and a Camera2DFollow, and the unused one can be
-            // switched off -- in which case the default search returns null and
-            // manning was never detected at all.
-            coopCam = FindFirstObjectByType<LocalCoopCamera>(
-                FindObjectsInactive.Include);
+            coopCam = FindFirstObjectByType<LocalCoopCamera>();
         }
-
-        if (coopCam != null && coopCam.HasZoomOverride)
-        {
-            return true;
-        }
-
-        // Fallback that does not care WHICH controller owns the camera: a
-        // station is manned whenever the live camera is zoomed out past its
-        // resting size. ShipCannon only ever calls SetZoomOverride on the coop
-        // camera, so on the Camera2DFollow path the flag above stays false even
-        // though the view really did change.
-        Camera cam = targetCamera != null ? targetCamera : Camera.main;
-
-        return cam != null &&
-            cam.orthographic &&
-            restingOrthographicSize > 0f &&
-            cam.orthographicSize > restingOrthographicSize * 1.05f;
+        return coopCam != null && coopCam.HasZoomOverride;
     }
 
     // STEP 1: keep the whole bar pinned to the top-centre of the screen so the
@@ -527,42 +404,9 @@ public class BoatLegProgress : MonoBehaviour
             // normal the moment you leave.
             bool manning = IsManning();
             Vector2 pos = manning ? manningScreenPosition : screenPosition;
-
-            // Keep the manned spot inside the viewport, so a 2x scale-up near
-            // an edge cannot carry the bar out of view.
-            if (manning && manningScreenMargin > 0f)
-            {
-                pos.x = Mathf.Clamp(
-                    pos.x, manningScreenMargin, 1f - manningScreenMargin);
-                pos.y = Mathf.Clamp(
-                    pos.y, manningScreenMargin, 1f - manningScreenMargin);
-            }
-
             transform.position = cam.ViewportToWorldPoint(new Vector3(
                 pos.x, pos.y, distanceFromCamera));
-
-            // The bar is a WORLD-space object, so zooming the camera out shrinks
-            // it on screen: at the helm's size 25 against a resting 11.25 it
-            // renders at under half size, which is the most likely reason it
-            // "disappears" while a station is manned. Counter the zoom so its
-            // on-screen size is constant, then apply manningScale on top.
-            if (cam.orthographic)
-            {
-                if (restingOrthographicSize <= 0f)
-                {
-                    restingOrthographicSize = cam.orthographicSize;
-                }
-
-                zoomCompensation = restingOrthographicSize > 0f
-                    ? cam.orthographicSize / restingOrthographicSize
-                    : 1f;
-            }
-
-            transform.localScale = normalScale * zoomCompensation *
-                (manning ? manningScale : 1f);
-
-            ApplyManningSorting(manning);
-            LogManningState(manning, cam, pos);
+            transform.localScale = manning ? normalScale * manningScale : normalScale;
         }
 
         // Islands on the ends; ship slides from the right (start) to the left.

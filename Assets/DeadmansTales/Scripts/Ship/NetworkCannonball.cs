@@ -183,38 +183,6 @@ namespace DeadmansTales.Ship
             HandlePossibleHit(other);
         }
 
-        /// <summary>
-        /// Server-only: tells every peer that a reef rock broke.
-        ///
-        /// The broadcast rides this cannonball's NetworkObject because
-        /// ScrollingReef has none of its own -- it is a plain MonoBehaviour and
-        /// its rocks are pooled Transforms. Sending it from here keeps the reef
-        /// un-networked while still making a break authoritative, so a client
-        /// can never shoot away a rock the host still has.
-        /// </summary>
-        public void BreakReefRockServer(int gate, int rock, int generation)
-        {
-            if (!IsServer)
-            {
-                return;
-            }
-
-            BreakReefRockClientRpc(gate, rock, generation);
-        }
-
-        // The host receives its own ClientRpc, so server and clients apply the
-        // break through this one path rather than two that could disagree.
-        [ClientRpc]
-        private void BreakReefRockClientRpc(int gate, int rock, int generation)
-        {
-            ScrollingReef reef = FindFirstObjectByType<ScrollingReef>();
-
-            if (reef != null)
-            {
-                reef.ApplyRockBreak(gate, rock, generation);
-            }
-        }
-
         private void HandlePossibleHit(Collider2D other)
         {
             if (!IsServer || !launched || Time.time < armedTime)
@@ -354,36 +322,6 @@ namespace DeadmansTales.Ship
                 }
 
                 return ImpactSound.Explosion;
-            }
-
-            // Kraken arena reef: a ScrollingReef rock. Resolved HERE rather than
-            // on the rock, because this is the path that actually fires -- the
-            // ball's own trigger plus its overlap sweep. An OnTriggerEnter2D on
-            // the rock never ran, which is why cannonballs went straight
-            // through. The reef itself stays un-networked: its rocks are pooled
-            // Transforms named by (gate, rock), so there is nothing here for the
-            // networked checks below to find.
-            ReefRock reefRock = other.GetComponentInParent<ReefRock>();
-
-            if (reefRock != null)
-            {
-                ScrollingReef reef = reefRock.Reef;
-
-                // Server decides, then tells every peer, so a client can never
-                // shoot away a rock the host still has.
-                if (reef != null &&
-                    reef.RegisterCannonHitServer(
-                        reefRock.GateIndex, reefRock.RockIndex))
-                {
-                    BreakReefRockServer(
-                        reefRock.GateIndex,
-                        reefRock.RockIndex,
-                        reef.GenerationOf(reefRock.GateIndex));
-                }
-
-                // Solid rock, and the ball is spent either way -- a hit that
-                // only chipped the rock still must not fly on through it.
-                return ImpactSound.HeavyImpact;
             }
 
             // Water obstacles: destructible rocks/hazards the progress bar
