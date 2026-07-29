@@ -1,4 +1,5 @@
 using System.Collections;
+using DeadmansTales.Networking;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
@@ -169,10 +170,25 @@ public sealed class Enemy : NetworkBehaviour
 
         if (CurrentHealth.Value <= 0f && despawnCoroutine == null)
         {
+            DropCoins();
             despawnCoroutine = StartCoroutine(DespawnAfterDeath());
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Scatters 1-5 coins where the enemy died. Every current path that can
+    /// bring CurrentHealth to zero — melee (PlayerAttack), the gun
+    /// (PlayerGun), and ship cannonballs (NetworkCannonball) — is a player
+    /// action, so every kill this fires from is a player kill. Guarded by
+    /// the same despawnCoroutine == null check as the death coroutine
+    /// itself, so a dead enemy can never drop twice.
+    /// </summary>
+    private void DropCoins()
+    {
+        int coinCount = CoinDropUtility.RollDropCount();
+        CoinDropUtility.SpawnScattered(transform.position, coinCount);
     }
 
     private void HandleHealthChanged(float previousValue, float currentValue)
