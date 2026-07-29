@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -87,6 +88,44 @@ namespace DeadmansTales.Ship
         [Tooltip("Leave empty to find this ship's own NetworkShipHealth.")]
         private NetworkShipHealth shipHealth;
 
+        [Header("Boarding")]
+        [Tooltip(
+            "Once this ship has engaged, send its crew over onto the " +
+            "player's deck to fight there. Killing the boarders still counts " +
+            "as wiping this ship's crew, so a boarding action is also how the " +
+            "ship itself gets defeated."
+        )]
+        [SerializeField]
+        private bool crewBoardsPlayerShip = true;
+
+        [Tooltip(
+            "Seconds after engaging before the crew comes across, so the " +
+            "ships visibly pull alongside first."
+        )]
+        [SerializeField]
+        [Min(0f)]
+        private float boardDelay = 2f;
+
+        [Tooltip(
+            "How many of the crew board. 0 sends everyone; a lower number " +
+            "leaves the rest aboard to keep working the cannons."
+        )]
+        [SerializeField]
+        [Min(0)]
+        private int maxBoarders;
+
+        [Tooltip(
+            "Boarders land scattered within this radius of the player deck's " +
+            "centre, so they don't stack on one another."
+        )]
+        [SerializeField]
+        [Min(0f)]
+        private float boardingSpread = 1.5f;
+
+        private readonly HashSet<Enemy> boardedCrew = new HashSet<Enemy>();
+        private float engagedTime = -1f;
+        private bool boardingDone;
+
         public EnemyShipEngagementState State { get; private set; } =
             EnemyShipEngagementState.Approaching;
 
@@ -162,6 +201,11 @@ namespace DeadmansTales.Ship
             {
                 return;
             }
+
+            // Before the early returns below: every path that reaches them has
+            // already settled this frame's engagement state, and boarding only
+            // acts once that state is Engaged.
+            TickBoarding();
 
             if (IsDealtWith())
             {
@@ -275,6 +319,14 @@ namespace DeadmansTales.Ship
                     continue;
                 }
 
+                // Boarders ride the PLAYER's ship now (ShipBoarderCarrier);
+                // carrying them here as well would drag them back toward this
+                // ship every frame and fight the other carrier.
+                if (boardedCrew.Contains(pirate))
+                {
+                    continue;
+                }
+
                 Rigidbody2D pirateBody = pirate.GetComponent<Rigidbody2D>();
 
                 if (pirateBody != null)
@@ -289,6 +341,182 @@ namespace DeadmansTales.Ship
                 ShipEnemyAI pirateAi = pirate.GetComponent<ShipEnemyAI>();
                 pirateAi?.ApplyExternalDelta(frameMoveDelta);
             }
+        }
+
+        /// <summary>
+        /// Sends the crew over onto the player's deck once the ships have been
+        /// alongside for <c>boardDelay</c>.
+        ///
+        /// The crew are moved rather than respawned: they keep their health,
+        /// their NetworkObject and their place in <c>crew</c>, so killing the
+        /// boarders still satisfies <see cref="HasLivingCrew"/> and defeats the
+        /// ship itself. That also means the ship they came from keeps closing
+        /// and firing while its crew fights on the player's deck.
+        ///
+        /// Three things have to move together for a boarder to behave:
+        /// its body, its AI's cached home position, and its deck bounds. Miss
+        /// the last one and it walks straight off the side into the sea.
+        /// </summary>
+        private void TickBoarding()
+        {
+            if (
+                !crewBoardsPlayerShip ||
+                boardingDone ||
+                State != EnemyShipEngagementState.Engaged ||
+                crew == null
+            )
+            {
+                return;
+            }
+
+            if (engagedTime < 0f)
+            {
+                engagedTime = Time.time;
+            }
+
+            if (Time.time - engagedTime < boardDelay)
+            {
+                return;
+            }
+
+            PlayerShipMarker playerShip =
+                FindFirstObjectByType<PlayerShipMarker>();
+
+            if (playerShip == null)
+            {
+                return;
+            }
+
+            Collider2D playerDeck = playerShip.DeckBounds;
+
+            if (playerDeck == null)
+            {
+                // Already warned by PlayerShipMarker. Don't board at all rather
+                // than dump the crew into the sea with no bounds to hold them.
+                boardingDone = true;
+                return;
+            }
+
+            ShipBoarderCarrier carrier =
+                ShipBoarderCarrier.ResolveFor(playerShip);
+
+            Vector2 deckCentre = playerDeck.bounds.center;
+            int sent = 0;
+            int limit = maxBoarders > 0 ? maxBoarders : crew.Length;
+
+            foreach (Enemy pirate in crew)
+            {
+                if (sent >= limit)
+                {
+                    break;
+                }
+
+                if (
+                    pirate == null ||
+                    !pirate.IsAlive ||
+                    boardedCrew.Contains(pirate)
+                )
+                {
+                    continue;
+                }
+
+                if (SendBoarder(pirate, deckCentre, playerDeck, carrier))
+                {
+                    sent++;
+                }
+            }
+
+            boardingDone = true;
+
+            Debug.Log(
+                $"[Enemy Ship Approach] {name} sent {sent} boarder(s) onto " +
+                "the player's ship.",
+                this
+            );
+        }
+
+        private bool SendBoarder(
+            Enemy pirate,
+            Vector2 deckCentre,
+            Collider2D playerDeck,
+            ShipBoarderCarrier carrier
+        )
+        {
+            Rigidbody2D body = pirate.GetComponent<Rigidbody2D>();
+
+            Vector2 from = body != null
+                ? body.position
+                : (Vector2)pirate.transform.position;
+
+            Vector2 landing = FindLandingSpot(deckCentre, playerDeck);
+
+            if (body != null)
+            {
+                body.position = landing;
+            }
+
+            pirate.transform.position = landing;
+
+            ShipEnemyAI ai = pirate.GetComponent<ShipEnemyAI>();
+
+            if (ai != null)
+            {
+                // Carry the AI's cached absolute home/wander points across by
+                // the same jump, then re-fence it to the player's deck.
+                ai.ApplyExternalDelta(landing - from);
+                ai.SetDeckBoundsServer(playerDeck);
+            }
+
+            boardedCrew.Add(pirate);
+            carrier?.Add(pirate);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Picks a spot inside the player's deck, scattering boarders so they
+        /// don't all land on the same plank. Falls back to the centre if the
+        /// random samples miss -- the deck outline is not a rectangle, so a
+        /// sample can land outside it.
+        /// </summary>
+        private Vector2 FindLandingSpot(Vector2 deckCentre, Collider2D deck)
+        {
+            if (boardingSpread <= 0f)
+            {
+                return deckCentre;
+            }
+
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                Vector2 candidate =
+                    deckCentre + Random.insideUnitCircle * boardingSpread;
+
+                // EdgeCollider2D has no interior for OverlapPoint, so the deck
+                // fence is treated as its bounding box -- the same compromise
+                // ShipEnemyAI.IsInsideDeckBounds makes. Compared per-axis
+                // rather than with Bounds.Contains, whose zero-depth Z extent
+                // on a 2D collider makes it unreliable.
+                bool inside;
+
+                if (deck is EdgeCollider2D)
+                {
+                    Bounds box = deck.bounds;
+                    inside =
+                        candidate.x >= box.min.x && candidate.x <= box.max.x &&
+                        candidate.y >= box.min.y && candidate.y <= box.max.y;
+                }
+                else
+                {
+                    inside = deck.OverlapPoint(candidate);
+                }
+
+                if (inside)
+                {
+                    return candidate;
+                }
+            }
+
+            return deckCentre;
         }
 
         /// <summary>
