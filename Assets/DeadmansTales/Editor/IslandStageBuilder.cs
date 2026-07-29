@@ -143,6 +143,151 @@ internal static class IslandStageBuilder
         new Vector2Int(0, 5),
     };
 
+    // ---------------------------------------------------------------------
+    // Build target.
+    //
+    // The painter below (shoreline mask matching, prop stamping, collision)
+    // is island-agnostic; only the SHAPE, the marker layout, the arrival/exit
+    // points and the scene identity differ per island. Those live here so a
+    // second island -- level one's Crab Beach -- can reuse the whole painter
+    // instead of duplicating it.
+    //
+    // Every field is null by default and falls back to the post-Ocean values,
+    // so the original build is byte-for-byte unchanged unless a caller opts in
+    // via BuildLevelOneIsland.
+    // ---------------------------------------------------------------------
+    private static string activeScenePath;
+    private static string activeSceneName;
+    private static string activeRootPrefix;
+    private static Func<int, int, bool> activeShape;
+    private static Vector2Int[] activeEnemyMarkers;
+    private static Vector2Int[] activeLootMarkers;
+    private static Vector3? activeArrivalPosition;
+    private static Vector3? activeExitPosition;
+    private static RectInt? activeWaterBounds;
+    private static RectInt? activeLandBounds;
+    private static Vector2? activeCameraBoundsSize;
+    private static Vector2? activeCameraFocus;
+    private static Vector2[] activeSpawnPositions;
+    private static Vector2? activeRewardPosition;
+    private static Vector2Int? activePierAnchor;
+
+    private static string ActiveScenePath =>
+        activeScenePath ?? IslandScenePath;
+    private static string ActiveSceneName =>
+        activeSceneName ?? "Island_After_Ocean_01_2D";
+    private static string ActiveRootPrefix =>
+        activeRootPrefix ?? "Island_Stage_02";
+    private static Vector2Int[] ActiveEnemyMarkers =>
+        activeEnemyMarkers ?? EnemyMarkerPositions;
+    private static Vector2Int[] ActiveLootMarkers =>
+        activeLootMarkers ?? LootMarkerPositions;
+    private static Vector3 ActiveArrivalPosition =>
+        activeArrivalPosition ?? new Vector3(0f, -18f, 0f);
+    private static Vector3 ActiveExitPosition =>
+        activeExitPosition ?? new Vector3(29f, 2f, 0f);
+    // xMin/xMax/yMin/yMax of the painted water, inclusive.
+    private static RectInt ActiveWaterBounds =>
+        activeWaterBounds
+            ?? new RectInt(
+                WaterMinX,
+                WaterMinY,
+                WaterMaxX - WaterMinX,
+                WaterMaxY - WaterMinY);
+    private static Vector2 ActiveCameraBoundsSize =>
+        activeCameraBoundsSize ?? new Vector2(76f, 58f);
+    private static Vector2 ActiveCameraFocus =>
+        activeCameraFocus ?? new Vector2(0f, -9f);
+    private static Vector2[] ActiveSpawnPositions =>
+        activeSpawnPositions ?? DefaultSpawnPositions;
+    private static Vector2 ActiveRewardPosition =>
+        activeRewardPosition ?? new Vector2(0f, 14f);
+    // Cell rectangle the silhouette is rasterized over. An island larger than
+    // this gets silently CLIPPED at the edge, so a bigger profile must widen
+    // it along with the water bounds.
+    private static RectInt ActiveLandBounds =>
+        activeLandBounds ?? new RectInt(-28, -22, 56, 44);
+    // Bottom-left cell of the 8x3 pier stamp. The pier is the ONLY walkable
+    // path over water, so it has to bridge the shore to the exit rowboat --
+    // an anchor tuned for a smaller island lands inland and strands the boat
+    // behind the ocean collision wall.
+    private static Vector2Int ActivePierAnchor =>
+        activePierAnchor ?? new Vector2Int(20, 1);
+
+    private static readonly Vector2[] DefaultSpawnPositions =
+    {
+        new Vector2(-1.5f, -10f),
+        new Vector2(1.5f, -10f),
+        new Vector2(-1.5f, -8f),
+        new Vector2(1.5f, -8f),
+    };
+
+    private const string LevelOneScenePath =
+        "Assets/DeadmansTales/Scenes/Island/Level_1_Crab_Beach_2D.unity";
+
+    /// <summary>
+    /// Level one -- "Crab Beach". The crew lands on the southern shore and
+    /// walks the island anticlockwise -- south sand, west lobe, north sand --
+    /// picking up one hint per leg, before meeting the guard crabs at the
+    /// eastern dock.
+    ///
+    /// Sized UP from the first cut (46x24 -> 65x35 cells, roughly double the
+    /// area) so the sketch's shoreline loop reads as a real walk with open
+    /// sand between the teaching beats, instead of three hints firing within
+    /// the first twenty units. The rasterize rectangle, water fill, camera
+    /// bounds, spawns and the rowboats all scale with it via the
+    /// active-override fields.
+    /// </summary>
+    private static bool LevelOneShape(int x, int y)
+    {
+        // The south lobe sits at (2,-10) r14 rather than the "natural" (4,-10)
+        // r15: at the wider size its tip met the east lobe in a diagonal step
+        // (water mask 47 at (19,-11)) that the hand-authored lobby shoreline
+        // has no tile for, and ValidateTerrainMasks rejects the build. This
+        // was the closest silhouette, of 540 candidates checked against an
+        // offline replica of the mask validator, that produces only supported
+        // shore patterns.
+        bool island =
+            InsideEllipse(x, y, 0f, 0f, 28f, 14f) ||
+            InsideEllipse(x, y, -21f, 1f, 11f, 10f) ||
+            InsideEllipse(x, y, 21f, 0f, 11f, 10f) ||
+            InsideEllipse(x, y, -4f, 10f, 15f, 7f) ||
+            InsideEllipse(x, y, 2f, -10f, 14f, 7f);
+
+        bool cove =
+            InsideEllipse(x, y, -27f, -8f, 5f, 5f) ||
+            InsideEllipse(x, y, 27f, 10f, 5f, 4f);
+
+        return island && !cove;
+    }
+
+    // Crabs guard the DOCK, and nothing else.
+    //
+    // The shoreline walk is the tutorial now: the crew loops the island reading
+    // one hint per beat, so the sand stays peaceful and the fight lands at the
+    // end as the exam rather than as scenery they wade through.
+    //
+    // It also makes the exit portal's requireAllEnemiesDefeated gate legible.
+    // With crabs strewn from x=-9 to x=13, "defeat all enemies before setting
+    // sail" sent players back across the whole island hunting one they had
+    // walked past; both of these stand between the path and the rowboat.
+    private static readonly Vector2Int[] LevelOneEnemyMarkers =
+    {
+        new Vector2Int(24, 5),
+        new Vector2Int(28, 2),
+    };
+
+    // Loot markers exist for parity with the shared painter, but level one's
+    // content pass zeroes the Loot budget -- the guaranteed reward on the
+    // north-shore walk is the level's one chest.
+    private static readonly Vector2Int[] LevelOneLootMarkers =
+    {
+        new Vector2Int(-20, 4),
+        new Vector2Int(-1, 11),
+        new Vector2Int(8, -10),
+        new Vector2Int(21, 4),
+    };
+
     private const int ShoreReferenceRadius = 3;
 
     private const int WaterMinX = -38;
@@ -257,7 +402,9 @@ internal static class IslandStageBuilder
             maxHealth: 55f,
             chaseSpeed: 4.2f,
             wanderSpeed: 2.2f,
-            attackDamage: 6f,
+            // Raised 6 -> 24 after level-one playtesting: crab hits need to
+            // hurt enough that eating chest food to heal actually matters.
+            attackDamage: 24f,
             tint: new Color(1f, 0.58f, 0.45f, 1f),
             scale: 0.85f
         );
@@ -342,6 +489,224 @@ internal static class IslandStageBuilder
     public static void BuildAllFromCommandLine()
     {
         BuildAll();
+    }
+
+    /// <summary>
+    /// Builds LEVEL ONE ("Crab Beach") with the same painter as the post-Ocean
+    /// island but its own, wider silhouette and a crab-only enemy roster.
+    ///
+    /// Deliberately NOT BuildAll: that path also runs
+    /// ConfigureLobbyRuntimeEnemies, which would put the enemy spawner back
+    /// into the lobby -- and the lobby is meant to stay a lobby. It also skips
+    /// the prefab/networking configuration, which BuildAll already owns, so
+    /// this only paints a scene.
+    /// </summary>
+    [MenuItem("Deadman's Tales/Level One/Build Crab Beach Island")]
+    public static void BuildLevelOneIsland()
+    {
+        activeScenePath = LevelOneScenePath;
+        activeSceneName = "Level_1_Crab_Beach_2D";
+        activeRootPrefix = "Level_1_Crab_Beach";
+        activeShape = LevelOneShape;
+        activeEnemyMarkers = LevelOneEnemyMarkers;
+        activeLootMarkers = LevelOneLootMarkers;
+
+        // The crew lands on the south beach (arrival boat just off the sand,
+        // spawns just up from it) and leaves by the eastern dock. The exit
+        // boat sits close enough to shore that its 3x2 trigger overlaps the
+        // beach -- players must be able to reach it on foot.
+        activeArrivalPosition = new Vector3(0f, -17.4f, 0f);
+        activeExitPosition = new Vector3(32.5f, 2f, 0f);
+        activeSpawnPositions = new[]
+        {
+            new Vector2(-1.5f, -13f),
+            new Vector2(1.5f, -13f),
+            new Vector2(-1.5f, -11f),
+            new Vector2(1.5f, -11f),
+        };
+
+        // The one guaranteed chest, parked on the north-shore walk where the
+        // third teaching hint points at it. The default (0, 14) is open water
+        // on this silhouette.
+        activeRewardPosition = new Vector2(1f, 11f);
+
+        // The island grew to 65x35, so the rasterize rectangle, water fill
+        // and the camera's clamp rectangle grow with it (same margins as the
+        // post-Ocean island), and the camera wakes up over the new
+        // south-beach spawn.
+        activeLandBounds = new RectInt(-34, -19, 68, 38);
+        activeWaterBounds = new RectInt(-46, -34, 92, 69);
+        activeCameraBoundsSize = new Vector2(92f, 69f);
+        activeCameraFocus = new Vector2(0f, -12f);
+
+        // Run the pier out from the east shore (land ends at x=32) to under
+        // the exit rowboat, so the crew can actually board it.
+        activePierAnchor = new Vector2Int(33, 1);
+
+        try
+        {
+            GameObject crabPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                CrabSkitterPrefabPath
+            );
+            GameObject rewardChest = AssetDatabase.LoadAssetAtPath<GameObject>(
+                RewardChestPrefabPath
+            );
+            GameObject weaponChest = AssetDatabase.LoadAssetAtPath<GameObject>(
+                WeaponChestPrefabPath
+            );
+
+            if (crabPrefab == null || rewardChest == null)
+            {
+                throw new InvalidOperationException(
+                    "Level one needs the crab and reward-chest prefabs; run " +
+                    "the post-Ocean island build once first."
+                );
+            }
+
+            SourceIslandArt sourceArt = CaptureSourceIslandArt();
+            Tile waterCollisionTile = CreateGridCollisionTile(
+                WaterCollisionTilePath
+            );
+            Tile obstacleCollisionTile = CreateGridCollisionTile(
+                ObstacleCollisionTilePath
+            );
+
+            BuildIslandScene(
+                sourceArt,
+                new[] { crabPrefab },
+                weaponChest != null
+                    ? new[] { rewardChest, weaponChest }
+                    : new[] { rewardChest },
+                weaponChest != null ? weaponChest : rewardChest,
+                waterCollisionTile,
+                obstacleCollisionTile
+            );
+
+            EnsureBuildSettings();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            NetworkSceneIdentityRepair.RepairNow();
+            AssetDatabase.Refresh();
+
+            Debug.Log(
+                "[Island Builder] Level one 'Crab Beach' island painted at " +
+                LevelOneScenePath + "."
+            );
+        }
+        finally
+        {
+            // Always restore the default target so a later post-Ocean build in
+            // the same editor session is unaffected.
+            activeScenePath = null;
+            activeSceneName = null;
+            activeRootPrefix = null;
+            activeShape = null;
+            activeEnemyMarkers = null;
+            activeLootMarkers = null;
+            activeArrivalPosition = null;
+            activeExitPosition = null;
+            activeWaterBounds = null;
+            activeLandBounds = null;
+            activeCameraBoundsSize = null;
+            activeCameraFocus = null;
+            activeSpawnPositions = null;
+            activeRewardPosition = null;
+            activePierAnchor = null;
+        }
+    }
+
+    public static void BuildLevelOneIslandFromCommandLine()
+    {
+        BuildLevelOneIsland();
+    }
+
+    /// <summary>
+    /// Runs the exit pier out to wherever the rowboat currently sits, IN
+    /// PLACE, without repainting the island.
+    ///
+    /// The ocean is a solid collision wall everywhere outside the sand, and
+    /// the pier is the one sanctioned hole in it. Level one's boat was moved
+    /// out into open water, which left the exit portal's trigger stranded
+    /// several cells beyond the last reachable tile -- players could clear
+    /// both crabs and still never board. This rebuilds the walkway to reach
+    /// it.
+    ///
+    /// Additive on purpose: level one is hand-authored now, so a full repaint
+    /// would throw away the placement pass.
+    /// </summary>
+    [MenuItem("Deadman's Tales/Level One/11. Run The Pier Out To The Boat")]
+    public static void BuildLevelOneExitPier()
+    {
+        // Sampling the lobby art opens the LOBBY scene, so it has to happen
+        // before level one is opened or we would close the scene we edit.
+        SourceIslandArt sourceArt = CaptureSourceIslandArt();
+
+        if (!sourceArt.PropStamps.TryGetValue("Pier", out PropStamp pier))
+        {
+            Debug.LogError("[Level One] The lobby has no pier stamp to copy.");
+            return;
+        }
+
+        Scene scene = EditorSceneManager.OpenScene(
+            LevelOneScenePath, OpenSceneMode.Single);
+
+        Tilemap ground = FindTilemap(scene, "Tilemap_Ground");
+        Tilemap props = FindTilemap(scene, "Tilemap_Props");
+        Tilemap overhead = FindTilemap(scene, "Tilemap_Overhead");
+        Tilemap waterCollision = FindTilemap(
+            scene, "Tilemap_WaterCollision");
+
+        Transform boat = scene
+            .GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
+            .FirstOrDefault(t => t.name == "Island_Exit_Rowboat");
+
+        if (boat == null)
+        {
+            Debug.LogError("[Level One] No Island_Exit_Rowboat in the scene.");
+            return;
+        }
+
+        // Land the pier's far end under the boat, and keep its near end on the
+        // shore row so it joins the beach instead of floating.
+        int boatCell = Mathf.FloorToInt(boat.position.x);
+        int anchorY = 1;
+        int anchorX = boatCell - 7;
+
+        PaintCoastalPier(
+            pier,
+            new Vector3Int(anchorX, anchorY, 0),
+            props,
+            overhead,
+            waterCollision
+        );
+
+        // The stamp only clears the cells it covers. Punch the remaining water
+        // collision between the sand and the pier's near end too, otherwise
+        // the walkway starts one tile offshore and is still unreachable.
+        ground.CompressBounds();
+        int shoreX = ground.cellBounds.xMax;
+        int opened = 0;
+        for (int x = shoreX - 1; x < anchorX; x++)
+        {
+            for (int y = anchorY; y < anchorY + 3; y++)
+            {
+                Vector3Int cell = new Vector3Int(x, y, 0);
+                if (waterCollision.GetTile(cell) != null)
+                {
+                    waterCollision.SetTile(cell, null);
+                    opened++;
+                }
+            }
+        }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log(
+            $"[Level One] Pier runs x{anchorX}..{anchorX + 7} at y{anchorY}"
+            + $"..{anchorY + 2}, reaching the rowboat at x{boat.position.x:0.0}"
+            + $" ({opened} extra water cell(s) opened at the shore)."
+        );
     }
 
     public static void CapturePreviewFromCommandLine()
@@ -1350,7 +1715,7 @@ internal static class IslandStageBuilder
             NewSceneSetup.EmptyScene,
             NewSceneMode.Additive
         );
-        scene.name = "Island_After_Ocean_01_2D";
+        scene.name = ActiveSceneName;
 
         // Keep the source lobby scene loaded while painting. Several of its
         // TileBase references are scene-owned objects and become Unity-null if
@@ -1358,9 +1723,9 @@ internal static class IslandStageBuilder
         SceneManager.SetActiveScene(scene);
 
         GameObject environmentRoot = new GameObject(
-            "Island_Stage_02_Environment"
+            ActiveRootPrefix + "_Environment"
         );
-        GameObject gridObject = new GameObject("Grid_Island_Stage_02");
+        GameObject gridObject = new GameObject("Grid_" + ActiveRootPrefix);
         gridObject.transform.SetParent(environmentRoot.transform, false);
         Grid grid = gridObject.AddComponent<Grid>();
         grid.cellSize = new Vector3(1f, 1f, 0f);
@@ -1404,9 +1769,10 @@ internal static class IslandStageBuilder
             plainWaterTiles.Add(sourceArt.WaterTile);
         }
 
-        for (int x = WaterMinX; x <= WaterMaxX; x++)
+        RectInt waterBounds = ActiveWaterBounds;
+        for (int x = waterBounds.xMin; x <= waterBounds.xMax; x++)
         {
-            for (int y = WaterMinY; y <= WaterMaxY; y++)
+            for (int y = waterBounds.yMin; y <= waterBounds.yMax; y++)
             {
                 Vector3Int cell = new Vector3Int(x, y, 0);
                 if (landCells.Contains(cell))
@@ -1519,7 +1885,7 @@ internal static class IslandStageBuilder
         );
 
         GameObject gameplayRoot = new GameObject(
-            "Island_Stage_02_Gameplay"
+            ActiveRootPrefix + "_Gameplay"
         );
 
         CreatePlayerSpawns(gameplayRoot.transform);
@@ -1534,10 +1900,10 @@ internal static class IslandStageBuilder
         CreateCameraAndLighting();
 
         EditorSceneManager.MarkSceneDirty(scene);
-        if (!EditorSceneManager.SaveScene(scene, IslandScenePath))
+        if (!EditorSceneManager.SaveScene(scene, ActiveScenePath))
         {
             throw new InvalidOperationException(
-                $"Unity failed to save the island scene at {IslandScenePath}."
+                $"Unity failed to save the island scene at {ActiveScenePath}."
             );
         }
     }
@@ -1561,13 +1927,7 @@ internal static class IslandStageBuilder
         GameObject spawnRoot = new GameObject("PlayerSpawns");
         spawnRoot.transform.SetParent(gameplayRoot, false);
 
-        Vector2[] positions =
-        {
-            new Vector2(-1.5f, -10f),
-            new Vector2(1.5f, -10f),
-            new Vector2(-1.5f, -8f),
-            new Vector2(1.5f, -8f),
-        };
+        Vector2[] positions = ActiveSpawnPositions;
 
         for (int index = 0; index < positions.Length; index++)
         {
@@ -1631,12 +1991,12 @@ internal static class IslandStageBuilder
         GameObject enemyRoot = new GameObject("EnemyMarkers");
         enemyRoot.transform.SetParent(markerRoot.transform, false);
 
-        for (int index = 0; index < EnemyMarkerPositions.Length; index++)
+        for (int index = 0; index < ActiveEnemyMarkers.Length; index++)
         {
             CreateMarker(
                 enemyRoot.transform,
                 $"EnemyMarker_{index:D2}",
-                EnemyMarkerPositions[index],
+                ActiveEnemyMarkers[index],
                 SeededContentCategory.Enemy,
                 enemyPrefabs,
                 false,
@@ -1647,12 +2007,12 @@ internal static class IslandStageBuilder
         GameObject lootRoot = new GameObject("LootMarkers");
         lootRoot.transform.SetParent(markerRoot.transform, false);
 
-        for (int index = 0; index < LootMarkerPositions.Length; index++)
+        for (int index = 0; index < ActiveLootMarkers.Length; index++)
         {
             CreateMarker(
                 lootRoot.transform,
                 $"LootMarker_{index:D2}",
-                LootMarkerPositions[index],
+                ActiveLootMarkers[index],
                 SeededContentCategory.Loot,
                 lootChestPrefabs,
                 false,
@@ -1666,7 +2026,7 @@ internal static class IslandStageBuilder
         CreateMarker(
             rewardRoot.transform,
             "FinalReward",
-            new Vector2(0f, 14f),
+            ActiveRewardPosition,
             SeededContentCategory.Reward,
             new[] { guaranteedRewardPrefab },
             true,
@@ -1706,7 +2066,11 @@ internal static class IslandStageBuilder
 
         markerSerialized.FindProperty("alwaysSpawn").boolValue = alwaysSpawn;
         markerSerialized.FindProperty("spawnChance").floatValue = chance;
-        markerSerialized.FindProperty("minimumStage").intValue = 2;
+        // The post-Ocean island is stage two; level one is stage ONE. Stamping
+        // 2 on a level-one marker makes IsEligibleForStage reject it and the
+        // island generates empty.
+        markerSerialized.FindProperty("minimumStage").intValue =
+            activeShape != null ? 1 : 2;
         markerSerialized.FindProperty("maximumStage").intValue = 0;
         markerSerialized.ApplyModifiedPropertiesWithoutUndo();
     }
@@ -1715,12 +2079,12 @@ internal static class IslandStageBuilder
     {
         GameObject arrival = new GameObject("Arrival_Rowboat");
         arrival.transform.SetParent(gameplayRoot, false);
-        arrival.transform.position = new Vector3(0f, -18f, 0f);
+        arrival.transform.position = ActiveArrivalPosition;
         AddRowboatVisual(arrival, 12);
 
         GameObject exit = new GameObject("Island_Exit_Rowboat");
         exit.transform.SetParent(gameplayRoot, false);
-        exit.transform.position = new Vector3(29f, 2f, 0f);
+        exit.transform.position = ActiveExitPosition;
 
         exit.AddComponent<NetworkObject>();
         BoxCollider2D exitCollider = exit.AddComponent<BoxCollider2D>();
@@ -1745,7 +2109,7 @@ internal static class IslandStageBuilder
         GameObject boundsObject = new GameObject("CameraBounds");
         BoxCollider2D bounds = boundsObject.AddComponent<BoxCollider2D>();
         bounds.isTrigger = true;
-        bounds.size = new Vector2(76f, 58f);
+        bounds.size = ActiveCameraBoundsSize;
         boundsObject.transform.position = new Vector3(0f, 0.5f, 0f);
 
         GameObject cameraObject = new GameObject("Alpha_Main_Camera");
@@ -1758,15 +2122,16 @@ internal static class IslandStageBuilder
         cameraObject.AddComponent<UniversalAdditionalCameraData>();
         cameraObject.AddComponent<AudioListener>();
 
+        Vector2 focus = ActiveCameraFocus;
         Camera2DFollow follow = cameraObject.AddComponent<Camera2DFollow>();
         SetSerializedBool(follow, "followLocalPlayer", true);
-        SetSerializedVector2(follow, "islandCenter", new Vector2(0f, -9f));
+        SetSerializedVector2(follow, "islandCenter", focus);
         SetSerializedBool(follow, "clampToBounds", true);
         SetSerializedObject(follow, "movementBounds", bounds);
         SetSerializedFloat(follow, "orthographicSize", 8f);
         SetSerializedFloat(follow, "pixelsPerUnit", 32f);
 
-        cameraObject.transform.position = new Vector3(0f, -9f, -10f);
+        cameraObject.transform.position = new Vector3(focus.x, focus.y, -10f);
 
         GameObject lightObject = new GameObject("Directional Light");
         Light light = lightObject.AddComponent<Light>();
@@ -1854,9 +2219,9 @@ internal static class IslandStageBuilder
         List<EditorBuildSettingsScene> scenes =
             EditorBuildSettings.scenes.ToList();
 
-        if (!scenes.Any(scene => scene.path == IslandScenePath))
+        if (!scenes.Any(scene => scene.path == ActiveScenePath))
         {
-            scenes.Add(new EditorBuildSettingsScene(IslandScenePath, true));
+            scenes.Add(new EditorBuildSettingsScene(ActiveScenePath, true));
         }
 
         EditorBuildSettings.scenes = scenes.ToArray();
@@ -1869,10 +2234,21 @@ internal static class IslandStageBuilder
         // Five overlapping hand-placed beach masses create readable coves and
         // lobes instead of a single procedural ellipse. Small cuts on the west
         // and northeast break the silhouette around landmark zones.
-        for (int x = -28; x <= 28; x++)
+        RectInt landBounds = ActiveLandBounds;
+        for (int x = landBounds.xMin; x <= landBounds.xMax; x++)
         {
-            for (int y = -22; y <= 22; y++)
+            for (int y = landBounds.yMin; y <= landBounds.yMax; y++)
             {
+                // A profile may supply its own silhouette (level one does).
+                if (activeShape != null)
+                {
+                    if (activeShape(x, y))
+                    {
+                        land.Add(new Vector3Int(x, y, 0));
+                    }
+                    continue;
+                }
+
                 bool island =
                     InsideEllipse(x, y, 0f, 0f, 19f, 13f) ||
                     InsideEllipse(x, y, -15f, 1f, 9f, 9f) ||
@@ -1894,11 +2270,52 @@ internal static class IslandStageBuilder
         // This single contour notch avoids a diagonal-only water mask that is
         // absent from the hand-authored lobby shoreline. The neighboring A1
         // transition can therefore be copied exactly instead of guessed.
-        land.Remove(new Vector3Int(10, 12, 0));
+        if (activeShape == null)
+        {
+            land.Remove(new Vector3Int(10, 12, 0));
+        }
 
         HashSet<int> supportedGroundMasks = art.GroundShoreSamples
             .Select(sample => sample.ImmediateLandMask)
             .ToHashSet();
+
+        // Close coastline pinholes (custom silhouettes only, so the hand-tuned
+        // post-Ocean outline stays byte-identical).
+        //
+        // A cell with an unsupported mask but nearly all neighbours on land is
+        // a one-cell nick in the coast -- e.g. masks 191/253, where a single
+        // diagonal is water. The lobby art has no beach tile for that shape,
+        // and deleting the cell would only move the nick inward, so fill the
+        // missing neighbours and let it become plain interior instead.
+        if (activeShape != null)
+        {
+            for (int pass = 0; pass < 8; pass++)
+            {
+                Vector3Int[] pinholes = land
+                    .Where(cell =>
+                    {
+                        int mask = GetNeighborMask(land, cell);
+                        return
+                            mask != 255 &&
+                            !supportedGroundMasks.Contains(mask) &&
+                            CountBits(mask) >= 5;
+                    })
+                    .ToArray();
+
+                if (pinholes.Length == 0)
+                {
+                    break;
+                }
+
+                foreach (Vector3Int cell in pinholes)
+                {
+                    foreach (Vector3Int offset in NeighborOffsets)
+                    {
+                        land.Add(cell + offset);
+                    }
+                }
+            }
+        }
 
         // Remove only unsupported leaf tips. Removing their thicker neighbor at
         // the same time would recursively cut channels through the island.
@@ -1923,6 +2340,38 @@ internal static class IslandStageBuilder
             foreach (Vector3Int cell in unsupported)
             {
                 land.Remove(cell);
+            }
+        }
+
+        // Trimming tips can itself open a fresh nick, so settle the outline
+        // again for custom silhouettes.
+        if (activeShape != null)
+        {
+            for (int pass = 0; pass < 8; pass++)
+            {
+                Vector3Int[] pinholes = land
+                    .Where(cell =>
+                    {
+                        int mask = GetNeighborMask(land, cell);
+                        return
+                            mask != 255 &&
+                            !supportedGroundMasks.Contains(mask) &&
+                            CountBits(mask) >= 5;
+                    })
+                    .ToArray();
+
+                if (pinholes.Length == 0)
+                {
+                    break;
+                }
+
+                foreach (Vector3Int cell in pinholes)
+                {
+                    foreach (Vector3Int offset in NeighborOffsets)
+                    {
+                        land.Add(cell + offset);
+                    }
+                }
             }
         }
 
@@ -2270,7 +2719,7 @@ internal static class IslandStageBuilder
 
         PaintCoastalPier(
             stamps["Pier"],
-            new Vector3Int(20, 1, 0),
+            new Vector3Int(ActivePierAnchor.x, ActivePierAnchor.y, 0),
             props,
             overhead,
             waterCollision
@@ -2457,7 +2906,7 @@ internal static class IslandStageBuilder
             return true;
         }
 
-        foreach (Vector2Int marker in EnemyMarkerPositions)
+        foreach (Vector2Int marker in ActiveEnemyMarkers)
         {
             if (Vector2.Distance(position, marker) <= 1.8f)
             {
@@ -2465,7 +2914,7 @@ internal static class IslandStageBuilder
             }
         }
 
-        foreach (Vector2Int marker in LootMarkerPositions)
+        foreach (Vector2Int marker in ActiveLootMarkers)
         {
             if (Vector2.Distance(position, marker) <= 1.25f)
             {
@@ -2689,9 +3138,10 @@ internal static class IslandStageBuilder
             .ToHashSet();
         List<string> unsupportedWater = new List<string>();
 
-        for (int x = WaterMinX; x <= WaterMaxX; x++)
+        RectInt waterBounds = ActiveWaterBounds;
+        for (int x = waterBounds.xMin; x <= waterBounds.xMax; x++)
         {
-            for (int y = WaterMinY; y <= WaterMaxY; y++)
+            for (int y = waterBounds.yMin; y <= waterBounds.yMax; y++)
             {
                 Vector3Int cell = new Vector3Int(x, y, 0);
                 if (landCells.Contains(cell))

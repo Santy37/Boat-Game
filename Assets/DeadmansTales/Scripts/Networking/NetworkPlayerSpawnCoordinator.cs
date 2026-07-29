@@ -22,6 +22,7 @@ namespace DeadmansTales.Networking
             "Island_After_Ocean_01_2D";
         private const string ShopSceneName = "Island_Shop_2D";
         private const string KrakenArenaSceneName = "Kraken_Arena_2D";
+        private const string LevelOneSceneName = "Level_1_Crab_Beach_2D";
 
         /// <summary>
         /// Scenes this coordinator positions players in.
@@ -40,6 +41,7 @@ namespace DeadmansTales.Networking
             IslandStageSceneName,
             ShopSceneName,
             KrakenArenaSceneName,
+            LevelOneSceneName,
         };
 
         private readonly Dictionary<ulong, int> clientSlots =

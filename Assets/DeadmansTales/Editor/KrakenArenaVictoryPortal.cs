@@ -5,19 +5,21 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Turns the arena's leftover "PostOceanIslandPortal" -- a plain copy of the
-/// boat scene's ocean-loop portal, inherited from KrakenArenaBuilder's
-/// original Save-As -- into the boss arena's final gate. Right now it has NO
-/// gating at all and just continues the ocean loop into another island; this
-/// makes it require the kraken (and any enemy ships) to be defeated first,
-/// and completes the run instead of loading a next stage.
+/// Repair step for the arena's victory portal.
 ///
-/// It also currently has no visual whatsoever -- just an invisible
-/// BoxCollider2D trigger -- so this gives it one by repurposing the kraken
-/// attack's own Whirlpool prefab (recolored gold) as a child. The portal's
-/// EXISTING collider stays the interaction trigger; only a visual is added
-/// alongside it, so it stays exactly as gated as before, just visible now
-/// and paired with a proper win condition.
+/// The portal started life as "PostOceanIslandPortal" -- a plain copy of the
+/// boat scene's ocean-loop portal inherited from KrakenArenaBuilder's original
+/// Save-As, with no gating and no visual, looping straight back out to another
+/// island. Kraken_Arena_2D.unity now ships with it already renamed, gated on
+/// the kraken (and any enemy ships) being defeated, and set to complete the
+/// run instead of loading a next stage, so nobody has to run this by hand.
+///
+/// Keep it for when that scene wiring gets clobbered -- a bad merge, someone
+/// dragging the object around, a Save-As into a new arena variant. It rebuilds
+/// the same configuration and re-attaches a gold-tinted copy of the kraken
+/// attack's own Whirlpool prefab as the visual. The portal's EXISTING
+/// BoxCollider2D always stays the interaction trigger; only a visual child is
+/// added alongside it.
 ///
 /// Same idempotent-editor-step spirit as KrakenArenaBuilder /
 /// KrakenArenaShipHealthWiring: safe to re-run.

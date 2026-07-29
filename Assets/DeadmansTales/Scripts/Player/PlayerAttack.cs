@@ -21,7 +21,7 @@ public sealed class PlayerAttack : NetworkBehaviour
     [SerializeField]
     [Min(0.05f)]
     [FormerlySerializedAs("meleeSpeed")]
-    private float attackCooldown = 0.4f;
+    private float attackCooldown = 1.5f;
 
     [SerializeField]
     [Min(0f)]
@@ -58,7 +58,21 @@ public sealed class PlayerAttack : NetworkBehaviour
 
         loadout = GetComponent<NetworkPlayerLoadout>();
     }
+    public float CooldownRemainingNormalized
+    {
+        get
+        {
+            float cooldown = Mathf.Max(
+                0.05f,
+                attackCooldown
+            );
 
+            return Mathf.Clamp01(
+                (nextLocalAttackTime - Time.unscaledTime) /
+                cooldown
+            );
+        }
+    }
     private void Update()
     {
         if (!IsSpawned || !IsOwner || PauseMenu.InputBlocked)
@@ -78,6 +92,11 @@ public sealed class PlayerAttack : NetworkBehaviour
         // invisible to it, so without this a click on the shop's Buy button
         // also swung the sword.
         if (DeadmansTales.UI.ShopScreenHUD.PointerOverPanel)
+        {
+            return;
+        }
+
+        if (!HotbarUI.IsSelected(1))
         {
             return;
         }

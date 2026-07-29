@@ -30,6 +30,23 @@ namespace DeadmansTales.Networking
         [SerializeField]
         private GameObject openedVisual;
 
+        [Header("Food spill")]
+        [Tooltip("Food pickups scattered around the chest when it opens. Each "
+            + "prefab needs a NetworkObject and must be registered in the "
+            + "NetworkManager prefab list. Leave empty for no food.")]
+        [SerializeField]
+        private GameObject[] foodRewardPrefabs;
+
+        [Tooltip("How many food pickups to spill. 0 disables the spill.")]
+        [SerializeField]
+        [Min(0)]
+        private int foodRewardCount;
+
+        [Tooltip("How far from the chest the food lands.")]
+        [SerializeField]
+        [Min(0f)]
+        private float foodScatterRadius = 1.1f;
+
         public readonly NetworkVariable<bool> Opened =
             new NetworkVariable<bool>(
                 false,
@@ -47,7 +64,7 @@ namespace DeadmansTales.Networking
         public override string InteractionPrompt =>
             Opened.Value
                 ? "Chest Opened"
-                : "Press E to Open Chest";
+                : "PRESS E TO OPEN";
 
         public override void OnNetworkSpawn()
         {
@@ -117,6 +134,8 @@ namespace DeadmansTales.Networking
                 }
             }
 
+            SpillFoodServer();
+
             Opened.Value = true;
 
             Debug.Log(
@@ -124,6 +143,87 @@ namespace DeadmansTales.Networking
                 $"{rewardKind} from {name}.",
                 this
             );
+        }
+
+        /// <summary>
+        /// Scatters food pickups around the chest so opening one leaves
+        /// something on the ground to eat, rather than only applying an
+        /// invisible effect. Server-only: each pickup is a NetworkObject the
+        /// server spawns for everyone.
+        /// </summary>
+        private void SpillFoodServer()
+        {
+            if (
+                foodRewardCount <= 0 ||
+                foodRewardPrefabs == null ||
+                foodRewardPrefabs.Length == 0
+            )
+            {
+                return;
+            }
+
+            // Deterministic per chest, so every client's debug view agrees and
+            // re-running a seeded stage lays the food out the same way.
+            System.Random random = new System.Random(
+                unchecked((int)NetworkObjectId * 397)
+            );
+
+            int spawned = 0;
+            for (int index = 0; index < foodRewardCount; index++)
+            {
+                GameObject prefab = foodRewardPrefabs[
+                    random.Next(foodRewardPrefabs.Length)
+                ];
+
+                if (prefab == null)
+                {
+                    continue;
+                }
+
+                // Ring the chest so multiple pickups never stack on one spot.
+                double angle =
+                    (index / (double)foodRewardCount) * System.Math.PI * 2d +
+                    random.NextDouble() * 0.6d;
+                float distance = foodScatterRadius *
+                    (0.7f + 0.3f * (float)random.NextDouble());
+
+                Vector3 offset = new Vector3(
+                    (float)System.Math.Cos(angle) * distance,
+                    (float)System.Math.Sin(angle) * distance,
+                    0f
+                );
+
+                GameObject food = Instantiate(
+                    prefab,
+                    transform.position + offset,
+                    Quaternion.identity
+                );
+
+                NetworkObject foodNetworkObject =
+                    food.GetComponent<NetworkObject>();
+
+                if (foodNetworkObject == null)
+                {
+                    Debug.LogError(
+                        $"[Reward Chest] '{prefab.name}' has no NetworkObject; " +
+                        "it cannot be spawned as food.",
+                        this
+                    );
+                    Destroy(food);
+                    continue;
+                }
+
+                foodNetworkObject.Spawn();
+                spawned++;
+            }
+
+            if (spawned > 0)
+            {
+                Debug.Log(
+                    $"[Reward Chest] {name} spilled {spawned} food pickup(s).",
+                    this
+                );
+            }
         }
 
         private void HandleOpenedChanged(bool previousValue, bool currentValue)

@@ -51,10 +51,25 @@ namespace DeadmansTales.Networking
             if (!IsSpawned || !IsOwner || PauseMenu.InputBlocked)
             {
                 currentTarget = null;
+                InteractionPromptHUD.Instance?.Hide();
                 return;
             }
 
             currentTarget = FindNearestTarget();
+
+            if (
+                currentTarget != null &&
+                !currentTarget.DrawsOwnScreen
+            )
+            {
+                InteractionPromptHUD.Instance?.Show(
+                    currentTarget.InteractionPrompt
+                );
+            }
+            else
+            {
+                InteractionPromptHUD.Instance?.Hide();
+            }
 
             if (
                 currentTarget != null &&
@@ -113,29 +128,10 @@ namespace DeadmansTales.Networking
 
             return bestTarget;
         }
-
-        private void OnGUI()
+        private void OnDisable()
         {
-            if (
-                !IsSpawned ||
-                !IsOwner ||
-                currentTarget == null ||
-                currentTarget.DrawsOwnScreen
-            )
-            {
-                return;
-            }
-
-            const float width = 360f;
-            const float height = 46f;
-            Rect promptRect = new Rect(
-                (Screen.width - width) * 0.5f,
-                Screen.height - 100f,
-                width,
-                height
-            );
-
-            GUI.Box(promptRect, currentTarget.InteractionPrompt);
+            InteractionPromptHUD.Instance?.Hide();
         }
+
     }
 }

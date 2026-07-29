@@ -25,6 +25,8 @@ internal sealed class NetworkingArchitectureTests
         "Assets/DeadmansTales/Scenes/Boat/Boat_Gameplay_2D.unity";
     private const string IslandScenePath =
         "Assets/DeadmansTales/Scenes/Island/Island_After_Ocean_01_2D.unity";
+    private const string LevelOneScenePath =
+        "Assets/DeadmansTales/Scenes/Island/Level_1_Crab_Beach_2D.unity";
     private const string EnemyPrefabPath =
         "Assets/DeadmansTales/Prefabs/basicenemy.prefab";
     private const string PlayerPrefabPath =
@@ -136,6 +138,7 @@ internal sealed class NetworkingArchitectureTests
     [TestCase(LobbyScenePath)]
     [TestCase(BoatScenePath)]
     [TestCase(IslandScenePath)]
+    [TestCase(LevelOneScenePath)]
     public void GameplaySceneHasFourExplicitSpawnMarkers(string scenePath)
     {
         IReadOnlyList<string> markerNames = ReadSceneComponents<
@@ -162,6 +165,7 @@ internal sealed class NetworkingArchitectureTests
     [TestCase(LobbyScenePath)]
     [TestCase(BoatScenePath)]
     [TestCase(IslandScenePath)]
+    [TestCase(LevelOneScenePath)]
     public void GameplaySceneNetworkObjectsHaveUniqueNonzeroIdentities(
         string scenePath
     )
@@ -288,8 +292,13 @@ internal sealed class NetworkingArchitectureTests
         Assert.That(networkRigidbody.AutoUpdateKinematicState, Is.True);
     }
 
+    /// <summary>
+    /// The lobby is a LOBBY: no combat at all. It used to run its own enemy
+    /// spawner, but fighting now belongs to level one (Crab Beach), so the
+    /// lobby must contain neither scene-placed enemies nor a spawner.
+    /// </summary>
     [Test]
-    public void LobbyEnemiesAreServerSpawnedRuntimePrefabs()
+    public void LobbyIsFreeOfCombat()
     {
         ReadSceneComponents<Component, bool>(
             LobbyScenePath,
@@ -309,18 +318,58 @@ internal sealed class NetworkingArchitectureTests
                 Assert.That(
                     authoredEnemies,
                     Is.Empty,
-                    "Lobby enemies must not remain scene-placed NetworkObjects."
+                    "The lobby must not contain scene-placed enemies."
                 );
-                Assert.That(spawners.Length, Is.EqualTo(1));
-                Assert.That(spawners[0].SpawnPositionCount, Is.EqualTo(3));
-
-                SerializedObject serializedSpawner =
-                    new SerializedObject(spawners[0]);
                 Assert.That(
-                    serializedSpawner.FindProperty("enemyPrefab")
-                        .objectReferenceValue,
-                    Is.EqualTo(AssetDatabase.LoadAssetAtPath<GameObject>(
-                        EnemyPrefabPath))
+                    spawners,
+                    Is.Empty,
+                    "The lobby must not spawn enemies -- combat starts in "
+                        + "level one."
+                );
+
+                return true;
+            }
+        );
+    }
+
+    /// <summary>
+    /// Level one is a painted island like the post-Ocean stage: enemies and
+    /// loot arrive through seeded content markers, never as scene-placed
+    /// NetworkObjects, and it must actually contain some of each.
+    /// </summary>
+    [Test]
+    public void LevelOneUsesSeededContentMarkers()
+    {
+        ReadSceneComponents<Component, bool>(
+            LevelOneScenePath,
+            _ =>
+            {
+                Scene scene = SceneManager.GetSceneByPath(LevelOneScenePath);
+                GameObject[] roots = scene.GetRootGameObjects();
+
+                Enemy[] authoredEnemies = roots
+                    .SelectMany(root => root.GetComponentsInChildren<Enemy>(true))
+                    .ToArray();
+                Assert.That(
+                    authoredEnemies,
+                    Is.Empty,
+                    "Level one enemies must not be scene-placed NetworkObjects."
+                );
+
+                Transform[] transforms = roots
+                    .SelectMany(root =>
+                        root.GetComponentsInChildren<Transform>(true))
+                    .ToArray();
+
+                Assert.That(
+                    transforms.Count(t => t.name.StartsWith("EnemyMarker")),
+                    Is.GreaterThan(0),
+                    "Level one must place crab markers to fight."
+                );
+                Assert.That(
+                    transforms.Count(t => t.name.StartsWith("LootMarker")),
+                    Is.GreaterThan(0),
+                    "Level one must place chests to teach interacting."
                 );
 
                 return true;

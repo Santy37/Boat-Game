@@ -30,7 +30,9 @@ public static class KrakenArenaShipHealthWiring
 
     private const float ShipMaximumHealth = 500f;
     private const float ShipHealthRestoredPerStageAdvance = 200f;
-    private const float ShipMaximumSinkLevel = 150f;
+    // Keep in sync with NetworkShipSinkMeter's own default, or re-running
+    // this step would quietly walk the player ship's sink meter back down.
+    private const float ShipMaximumSinkLevel = 300f;
     private const float ShipMaximumHealthDrainPerSecond = 8f;
 
     [MenuItem("Deadman's Tales/Kraken Arena/4. Fix Boat Stage-Advance Heal Value")]

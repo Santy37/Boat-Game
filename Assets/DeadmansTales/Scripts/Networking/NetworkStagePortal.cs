@@ -53,6 +53,14 @@ namespace DeadmansTales.Networking
         [SerializeField]
         private bool completesRun;
 
+        /// <summary>
+        /// Raised locally on every peer the moment a Completes Run portal is
+        /// used, so end-of-run UI does not have to poll. Subscribers must
+        /// unsubscribe when they are destroyed -- this is static and outlives
+        /// any single scene.
+        /// </summary>
+        public static event System.Action RunCompleted;
+
         private const float EnemyCountRefreshSeconds = 0.25f;
 
         private bool sceneLoadRequested;
@@ -123,8 +131,8 @@ namespace DeadmansTales.Networking
                 }
 
                 return completesRun
-                    ? "Press E to Complete the Voyage"
-                    : "Press E to Continue the Voyage";
+                    ? "PRESS E TO CLAIM VICTORY"
+                    : "PRESS E TO CONTINUE VOYAGE";
             }
         }
 
@@ -173,15 +181,15 @@ namespace DeadmansTales.Networking
                     completionRunState.SetStatusServer(NetworkRunStatus.Completed);
                 }
 
-                // TODO: once a real win screen/scene exists, load it here,
-                // the same way the branch below loads destinationSceneName.
-                // For now NetworkRunStatus.Completed is the hook -- build a
-                // WinScreenUI that reacts to it, mirroring how
-                // SinglePlayerDeathScreenUI reacts to Failed.
+                // The win screen lives in the arena scene, so there is no
+                // scene to load here -- every peer just needs to be told the
+                // run is over. NetworkRunState.Status is the durable record
+                // (a late joiner can still read Completed from it); this RPC
+                // is the immediate nudge that BossDefeatedUI listens for.
+                NotifyRunCompletedClientRpc();
+
                 Debug.Log(
-                    "[Stage Portal] Run completed. No win screen wired up " +
-                    "yet -- NetworkRunState.Status is Completed for a " +
-                    "future UI to react to.",
+                    "[Stage Portal] Run completed through the victory portal.",
                     this
                 );
                 return;
@@ -246,6 +254,12 @@ namespace DeadmansTales.Networking
                     this
                 );
             }
+        }
+
+        [ClientRpc]
+        private void NotifyRunCompletedClientRpc()
+        {
+            RunCompleted?.Invoke();
         }
 
         private static int CountRemainingEnemies()
