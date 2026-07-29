@@ -71,6 +71,13 @@ public class DestructibleObstacle : NetworkBehaviour
     private Collider2D shipHitbox;
     private bool shipSearched;
 
+    [Tooltip("Played on every peer when this rock breaks on the ship's hull.")]
+    [SerializeField] private AudioClip hullImpactClip;
+
+    [SerializeField]
+    [Range(0f, 1f)]
+    private float hullImpactVolume = 1f;
+
     // Set the instant this obstacle hits the ship, so the damage + despawn
     // fire exactly once even if both detection paths notice in the same step.
     private bool hitShip;
@@ -260,7 +267,26 @@ public class DestructibleObstacle : NetworkBehaviour
 
         hitShip = true;
         DamageShip();
+
+        // Told to every peer before the despawn, so the crack of the rock on
+        // the hull is heard by the whole crew and not just the server.
+        PlayHullImpactClientRpc(transform.position);
+
         DespawnSelf();
+    }
+
+    [ClientRpc]
+    private void PlayHullImpactClientRpc(Vector3 position)
+    {
+        if (hullImpactClip == null)
+        {
+            return;
+        }
+
+        // PlayClipAtPoint, not an AudioSource on this obstacle: it despawns
+        // the instant it lands, which would cut its own impact off.
+        AudioSource.PlayClipAtPoint(
+            hullImpactClip, position, hullImpactVolume);
     }
 
     // True once this obstacle's hull overlaps the player ship's hull collider.

@@ -415,6 +415,9 @@ MonoBehaviour:
   hitRadius: 2.5
   oilDamage: 30
   sortingOrder: 7
+  oilFireClip: {fileID: 8300000, guid: bb2e2714f962491428dcb0b38598b251, type: 3}
+  oilImpactClip: {fileID: 8300000, guid: 1fd31868d68903d4f9e2c4a3b7ef98f3, type: 3}
+  oilVolume: 1
 --- !u!114 &102312513
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -445,6 +448,8 @@ MonoBehaviour:
   shipHitbox: {fileID: 1361659284}
   strikeRadius: 4.5
   sinkMeterDamage: 50
+  tentacleAttackClip: {fileID: 8300000, guid: ac6034ade498bb94b87620cdf6eac48b, type: 3}
+  tentacleAttackVolume: 1
   firstDelay: 5
   attackInterval: 5
   telegraphTime: 4
@@ -3457,7 +3462,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 1
+  m_SortingOrder: 12
   m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: b203d69405bfba441bc9a42445c407d9, type: 3}
   m_Color: {r: 1, g: 0.83, b: 0.35, a: 0.9}
@@ -4090,8 +4095,10 @@ MonoBehaviour:
   scrollSpeed: 4
   seed: 20260724
   shipHitbox: {fileID: 1361659284}
-  hitHalfSize: {x: 6, y: 3}
+  hitHalfSize: {x: 6, y: 5}
   rockDamage: 5
+  rockImpactClip: {fileID: 8300000, guid: 7b69beceabbd8f24e8bc62d77ac7ca1c, type: 3}
+  rockImpactVolume: 1
 --- !u!4 &965073997
 Transform:
   m_ObjectHideFlags: 0

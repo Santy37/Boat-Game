@@ -44,6 +44,16 @@ namespace DeadmansTales.Ship
         private float maximumLaunchSpeed = 40f;
 
         [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip(
+            "Least damage fraction a hit can be scaled to, however far out " +
+            "along the bow or stern it lands. 0 restores the old behaviour, " +
+            "where a hit on either tip did literally no damage and the shot " +
+            "was wasted. 1 removes the aiming falloff entirely."
+        )]
+        private float minimumDirectness = 0.4f;
+
+        [SerializeField]
         [Min(0f)]
         [Tooltip(
             "Trigger hits are ignored for this long right after launch. " +
@@ -53,6 +63,44 @@ namespace DeadmansTales.Ship
             "and despawn itself before it has moved at all."
         )]
         private float spawnGracePeriod = 0.08f;
+
+        [Header("Audio")]
+        [SerializeField]
+        [Tooltip(
+            "Played on every peer the moment the ball spawns -- the ball " +
+            "existing IS the shot, so this needs no RPC and cannot be " +
+            "missed by a client that joined the shot late."
+        )]
+        private AudioClip shotClip;
+
+        [SerializeField]
+        [Tooltip(
+            "Played when the ball hits something that bleeds or burns: a " +
+            "ship, the kraken, or a pirate."
+        )]
+        private AudioClip explosionClip;
+
+        [SerializeField]
+        [Tooltip(
+            "Played when the ball hits something solid instead -- a " +
+            "destructible rock."
+        )]
+        private AudioClip heavyImpactClip;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        private float audioVolume = 1f;
+
+        /// <summary>
+        /// Which impact sound a hit earns. Decided by what was actually hit,
+        /// so a rock thuds and a ship blows up.
+        /// </summary>
+        private enum ImpactSound : byte
+        {
+            None,
+            Explosion,
+            HeavyImpact
+        }
 
         private Vector2 velocity;
         private float despawnTime;
@@ -169,11 +217,64 @@ namespace DeadmansTales.Ship
             // trigger contact ends the shot. The only new behavior is
             // applying damage first, when the thing hit has health to take
             // it.
-            ApplyDamageIfDamageable(other, hitSinkMeter);
+            ImpactSound impact =
+                ApplyDamageIfDamageable(other, hitSinkMeter);
+
+            // Sent before the despawn so clients still have this object to
+            // receive it. PlayClipAtPoint outlives the ball either way.
+            PlayImpactClientRpc(impact, transform.position);
+
             DespawnSelf();
         }
 
-        private void ApplyDamageIfDamageable(
+        /// <summary>
+        /// The shot itself. Every peer that sees the ball spawn plays this,
+        /// which is simpler and more reliable than an RPC fired in the same
+        /// frame as the spawn -- a client that has not yet been told about
+        /// the object cannot miss a callback that runs when it is told.
+        /// </summary>
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            PlayAt(shotClip, transform.position);
+        }
+
+        [ClientRpc]
+        private void PlayImpactClientRpc(ImpactSound impact, Vector3 position)
+        {
+            switch (impact)
+            {
+                case ImpactSound.Explosion:
+                    PlayAt(explosionClip, position);
+                    break;
+
+                case ImpactSound.HeavyImpact:
+                    PlayAt(heavyImpactClip, position);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// PlayClipAtPoint rather than an AudioSource on this object: the
+        /// ball despawns the instant it lands, which would cut its own
+        /// impact sound off mid-play. This spawns a short-lived emitter that
+        /// finishes on its own.
+        /// </summary>
+        private void PlayAt(AudioClip clip, Vector3 position)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+            AudioSource.PlayClipAtPoint(clip, position, audioVolume);
+        }
+
+        /// <summary>
+        /// Applies the hit and reports which impact sound it earned, so the
+        /// caller can tell every peer without re-deriving what was hit.
+        /// </summary>
+        private ImpactSound ApplyDamageIfDamageable(
             Collider2D other,
             NetworkShipSinkMeter sinkMeter
         )
@@ -202,7 +303,7 @@ namespace DeadmansTales.Ship
                     this
                 );
 
-                return;
+                return ImpactSound.Explosion;
             }
 
             // The kraken boss isn't a ship and isn't an Enemy -- its own
@@ -220,7 +321,7 @@ namespace DeadmansTales.Ship
                     kraken.TakeHitServer(krakenDamage);
                 }
 
-                return;
+                return ImpactSound.Explosion;
             }
 
             // Water obstacles: destructible rocks/hazards the progress bar
@@ -232,7 +333,9 @@ namespace DeadmansTales.Ship
             if (obstacle != null)
             {
                 obstacle.ApplyCannonHitServer();
-                return;
+
+                // Solid rock, not something that burns.
+                return ImpactSound.HeavyImpact;
             }
 
             Enemy enemy = other.GetComponentInParent<Enemy>();
@@ -240,7 +343,7 @@ namespace DeadmansTales.Ship
             if (enemy != null)
             {
                 enemy.TakeDamage(damage);
-                return;
+                return ImpactSound.Explosion;
             }
 
             Debug.Log(
@@ -249,6 +352,10 @@ namespace DeadmansTales.Ship
                 "parent chain -- shot consumed with no damage applied.",
                 this
             );
+
+            // Hit scenery. The shot is still consumed, but nothing took
+            // damage, so it gets no impact sound either.
+            return ImpactSound.None;
         }
 
         /// <summary>
@@ -306,7 +413,18 @@ namespace DeadmansTales.Ship
                 ? localImpact.x - localCenter.x
                 : localImpact.y - localCenter.y;
 
-            return Mathf.Clamp01(1f - Mathf.Abs(longOffset) / longExtent);
+            float directness =
+                Mathf.Clamp01(1f - Mathf.Abs(longOffset) / longExtent);
+
+            // Floored, because the raw curve reaches exactly 0 at the bow and
+            // stern -- and ApplyCannonHitServer discards a hit whose scaled
+            // damage is <= 0. A shot landing on either end therefore did
+            // nothing at all while still being consumed, which reads as the
+            // cannon being broken rather than as a glancing blow. This is
+            // most obvious at close quarters, where the end facing you is
+            // often the only part you can hit. Amidships still does full
+            // damage, so aiming is still rewarded.
+            return Mathf.Max(minimumDirectness, directness);
         }
 
         /// <summary>

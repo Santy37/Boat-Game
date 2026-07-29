@@ -27,6 +27,12 @@ public sealed class PlayerGun : NetworkBehaviour
     [SerializeField]
     private LayerMask hitMask;
 
+    [SerializeField]
+    private AudioSource audioSource;
+
+    [SerializeField]
+    private AudioClip gunShotClip;
+
     private float nextLocalFireTime;
     private float nextServerFireTime;
 
@@ -112,6 +118,7 @@ public sealed class PlayerGun : NetworkBehaviour
         Vector2 aim = GetOwnerAimDirection();
 
         PlayShootAnimation(aim);
+        PlayGunSound();
 
         RequestShootRpc(aim);
 
@@ -135,6 +142,15 @@ public sealed class PlayerGun : NetworkBehaviour
         }
 
         return lastAimDirection;
+    }
+
+    public void PlayGunSound()
+    {
+        Debug.Log("PlayGunSound called");
+        if (audioSource == null || gunShotClip == null)
+            return;
+
+        audioSource.PlayOneShot(gunShotClip);
     }
 
     [Rpc(SendTo.Server)]
@@ -210,6 +226,7 @@ public sealed class PlayerGun : NetworkBehaviour
         }
 
         PlayShootAnimation(aimDirection);
+        PlayGunSound();
     }
 
     private void PlayShootAnimation(Vector2 aimDirection)

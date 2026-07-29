@@ -23,16 +23,25 @@ public class OilShot : MonoBehaviour
     private float hitRadius;
     private float spin;
     private bool spent;
+    private AudioClip impactClip;
+    private float impactVolume = 1f;
 
     public void Launch(
         Vector2 velocity, float life, float damage,
-        Collider2D shipHitbox, float hitRadius)
+        Collider2D shipHitbox, float hitRadius,
+        AudioClip impactClip = null, float impactVolume = 1f)
     {
         this.velocity = velocity;
         this.life = life;
         this.damage = damage;
         this.shipHitbox = shipHitbox;
         this.hitRadius = hitRadius;
+
+        // Handed down by KrakenOilAttack rather than serialized on the oil
+        // prefab, so both oil sounds live on the one component in the scene.
+        this.impactClip = impactClip;
+        this.impactVolume = impactVolume;
+
         spin = Random.Range(-120f, 120f);
 
         if (shipHitbox != null)
@@ -75,6 +84,15 @@ public class OilShot : MonoBehaviour
             {
                 sinkMeter.ApplyCannonHitServer(damage, 1f);
             }
+
+            // PlayClipAtPoint because this object is destroyed on the next
+            // line -- an AudioSource on it would be cut off instantly.
+            if (impactClip != null)
+            {
+                AudioSource.PlayClipAtPoint(
+                    impactClip, transform.position, impactVolume);
+            }
+
             spent = true;
             Destroy(gameObject);
         }

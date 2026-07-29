@@ -40,6 +40,16 @@ public class ScrollingReef : MonoBehaviour
     [SerializeField] private Vector2 hitHalfSize = new Vector2(6f, 3f);
     [SerializeField] private int rockDamage = 5;
 
+    [Tooltip(
+        "Played where the rock breaks on the hull. Runs on every peer: the "
+        + "reef is deterministic and each client detects its own contact, so "
+        + "this needs no RPC.")]
+    [SerializeField] private AudioClip rockImpactClip;
+
+    [SerializeField]
+    [Range(0f, 1f)]
+    private float rockImpactVolume = 1f;
+
     private sealed class Gate
     {
         public float x;
@@ -230,6 +240,13 @@ public class ScrollingReef : MonoBehaviour
                     // rock actually breaking on the hull. LayoutGate switches
                     // it back on when the gate is reused.
                     g.hitConsumed[r] = true;
+
+                    if (rockImpactClip != null)
+                    {
+                        AudioSource.PlayClipAtPoint(
+                            rockImpactClip, t.position, rockImpactVolume);
+                    }
+
                     t.gameObject.SetActive(false);
                 }
             }
