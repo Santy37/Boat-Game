@@ -139,6 +139,14 @@ public static class ShipSkeletonCrewBuilder
         {
             ApplySkeletonLook(root, look);
 
+            // Keep the SHIP crew's scale, not the donor skeleton's.
+            // ship_basicenemy is deliberately 0.5 to suit the enemy ship's
+            // deck; copying the skeleton's 1.0 over it made the boarders
+            // tower over the player. Boarders are scaled back up to full
+            // size when they come aboard -- see EnemyShipApproach's
+            // Boarded Crew Scale.
+            root.transform.localScale = source.transform.localScale;
+
             PrefabUtility.SaveAsPrefabAsset(root, ShipSkeletonCrewPrefabPath);
         }
         finally
@@ -301,7 +309,6 @@ public static class ShipSkeletonCrewBuilder
         public float Damage;
         public float ChaseSpeed;
         public float WanderSpeed;
-        public Vector3 LocalScale;
     }
 
     private static SkeletonLook ReadSkeletonLook(GameObject skeleton)
@@ -311,8 +318,7 @@ public static class ShipSkeletonCrewBuilder
             MaxHealth = 120f,
             Damage = 12f,
             ChaseSpeed = 2.6f,
-            WanderSpeed = 1.3f,
-            LocalScale = skeleton.transform.localScale
+            WanderSpeed = 1.3f
         };
 
         Transform gfx = FindDeepChild(skeleton.transform, "GFX");
@@ -397,7 +403,34 @@ public static class ShipSkeletonCrewBuilder
             renderer;
         serializedMotion.ApplyModifiedPropertiesWithoutUndo();
 
-        root.transform.localScale = look.LocalScale;
+        // basicenemy and everything copied from it carries a SECOND
+        // SpriteRenderer on the root holding the old tinted pirate body, on top
+        // of the real art on GFX. Enemy_SkeletonWarrior disables that one; this
+        // did not, so the pirate drew underneath the skeleton and the two read
+        // as one merged sprite in game. Anything that is not the GFX renderer
+        // is legacy placeholder art.
+        int silenced = 0;
+
+        foreach (SpriteRenderer stray in
+            root.GetComponentsInChildren<SpriteRenderer>(true))
+        {
+            if (stray == null || stray == renderer)
+            {
+                continue;
+            }
+
+            stray.sprite = null;
+            stray.enabled = false;
+            silenced++;
+        }
+
+        if (silenced > 0)
+        {
+            Debug.Log(
+                $"[Skeleton Crew Builder] Disabled {silenced} leftover " +
+                "placeholder SpriteRenderer(s) so only the skeleton draws."
+            );
+        }
 
         WriteFloat(root.GetComponent<Enemy>(), "maxHealth", look.MaxHealth);
         WriteFloat(

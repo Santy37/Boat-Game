@@ -122,6 +122,16 @@ namespace DeadmansTales.Ship
         [Min(0f)]
         private float boardingSpread = 1.5f;
 
+        [Tooltip(
+            "Uniform scale a boarder is set to once it is on the player's " +
+            "deck. The crew prefab is deliberately smaller than full size to " +
+            "suit the enemy ship's deck, so without this a boarder stays " +
+            "shrunken on the player's ship. Set to 0 to leave scale alone."
+        )]
+        [SerializeField]
+        [Min(0f)]
+        private float boardedCrewScale = 1f;
+
         private readonly HashSet<Enemy> boardedCrew = new HashSet<Enemy>();
         private float engagedTime = -1f;
         private bool boardingDone;
@@ -456,6 +466,14 @@ namespace DeadmansTales.Ship
             }
 
             pirate.transform.position = landing;
+
+            // Back up to full size: the crew prefab is scaled down to sit
+            // right on the enemy ship's smaller deck, which would leave a
+            // boarder looking like a doll on the player's ship.
+            if (boardedCrewScale > 0f)
+            {
+                pirate.transform.localScale = Vector3.one * boardedCrewScale;
+            }
 
             ShipEnemyAI ai = pirate.GetComponent<ShipEnemyAI>();
 
