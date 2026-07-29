@@ -27,6 +27,18 @@ public class BoatLegProgress : MonoBehaviour
     [SerializeField] private Vector2 manningScreenPosition = new Vector2(0.32f, 0.42f);
     [Tooltip("Scale multiplier while a station is manned (2 = twice as big).")]
     [SerializeField] private float manningScale = 2f;
+    [Tooltip(
+        "Sorting order forced onto the bar's renderers while a station is " +
+        "manned. Manning moves the bar from empty sky down over the SHIP, " +
+        "and the hull's renderers out-sort the bar's own order 10-12, so it " +
+        "was being drawn behind the deck rather than moved off screen. High " +
+        "enough to sit over anything in the scene.")]
+    [SerializeField] private int manningSortingOrder = 500;
+    [Tooltip(
+        "Keeps the bar this far (viewport fraction) inside each screen edge " +
+        "while manned, so a big scale-up near an edge can't push it out of " +
+        "view.")]
+    [SerializeField, Range(0f, 0.5f)] private float manningScreenMargin = 0.12f;
 
     [Header("Progress Bar - Pieces (children of this object)")]
     [Tooltip("START island - placed on the RIGHT (the ship starts here).")]
@@ -139,9 +151,49 @@ public class BoatLegProgress : MonoBehaviour
     private readonly List<bool> eventIsEnemy = new List<bool>();
     private readonly List<bool> eventDone = new List<bool>();
 
+    // Every renderer under the bar, with the sorting order it shipped with, so
+    // the manning bump can be undone exactly rather than guessed at. Renderer
+    // rather than SpriteRenderer on purpose: the bar's pieces and the ship's
+    // hull are different renderer types, and sortingOrder lives on the base.
+    private Renderer[] barRenderers;
+    private int[] barSortingOrders;
+    private bool sortingBumped;
+
     private void Awake()
     {
         normalScale = transform.localScale;
+
+        barRenderers = GetComponentsInChildren<Renderer>(true);
+        barSortingOrders = new int[barRenderers.Length];
+
+        for (int i = 0; i < barRenderers.Length; i++)
+        {
+            barSortingOrders[i] = barRenderers[i].sortingOrder;
+        }
+    }
+
+    // Lift the whole bar above the scene while manned, and drop it back after.
+    // Without this the bar is not hidden or off screen -- it is behind the deck.
+    private void ApplyManningSorting(bool manning)
+    {
+        if (barRenderers == null || manning == sortingBumped)
+        {
+            return;
+        }
+
+        for (int i = 0; i < barRenderers.Length; i++)
+        {
+            if (barRenderers[i] == null)
+            {
+                continue;
+            }
+
+            barRenderers[i].sortingOrder = manning
+                ? manningSortingOrder + barSortingOrders[i]
+                : barSortingOrders[i];
+        }
+
+        sortingBumped = manning;
     }
 
     private void Start()
@@ -404,9 +456,22 @@ public class BoatLegProgress : MonoBehaviour
             // normal the moment you leave.
             bool manning = IsManning();
             Vector2 pos = manning ? manningScreenPosition : screenPosition;
+
+            // Keep the manned spot inside the viewport, so a 2x scale-up near
+            // an edge cannot carry the bar out of view.
+            if (manning && manningScreenMargin > 0f)
+            {
+                pos.x = Mathf.Clamp(
+                    pos.x, manningScreenMargin, 1f - manningScreenMargin);
+                pos.y = Mathf.Clamp(
+                    pos.y, manningScreenMargin, 1f - manningScreenMargin);
+            }
+
             transform.position = cam.ViewportToWorldPoint(new Vector3(
                 pos.x, pos.y, distanceFromCamera));
             transform.localScale = manning ? normalScale * manningScale : normalScale;
+
+            ApplyManningSorting(manning);
         }
 
         // Islands on the ends; ship slides from the right (start) to the left.
