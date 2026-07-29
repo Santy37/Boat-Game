@@ -60,16 +60,18 @@ public static class KrakenFrontCannonBuilder
             return;
         }
 
-        // Already built.
+        // An existing bow cannon is REPOSITIONED rather than left alone: the
+        // first build placed it by copying the boat level's local position,
+        // which is off this ship's deck entirely.
+        ShipCannon current = null;
+
         foreach (ShipCannon existing in
             shipRoot.GetComponentsInChildren<ShipCannon>(true))
         {
             if (existing.name == FrontCannonName)
             {
-                Debug.Log(
-                    "[Kraken Front Cannon] " + FrontCannonName + " is already " +
-                    "on the arena ship; nothing to do.");
-                return;
+                current = existing;
+                break;
             }
         }
 
@@ -83,22 +85,53 @@ public static class KrakenFrontCannonBuilder
             return;
         }
 
-        GameObject copy = Object.Instantiate(
-            template.gameObject, template.transform.parent);
+        if (!TryFindBowSpot(shipRoot, template, out Vector3 bowLocal,
+                out Vector2 bowFacing, out string how))
+        {
+            Debug.LogError(
+                "[Kraken Front Cannon] Could not work out where this ship's " +
+                "bow is, so nothing was placed. " + how);
+            return;
+        }
 
-        copy.name = FrontCannonName;
-        copy.transform.localPosition = FrontCannonLocalPosition;
-        copy.transform.localRotation = template.transform.localRotation;
-        copy.transform.localScale = template.transform.localScale;
+        GameObject cannon;
 
-        EditorUtility.SetDirty(copy);
+        if (current != null)
+        {
+            cannon = current.gameObject;
+        }
+        else
+        {
+            cannon = Object.Instantiate(
+                template.gameObject, template.transform.parent);
+            cannon.name = FrontCannonName;
+            cannon.transform.localRotation = template.transform.localRotation;
+            cannon.transform.localScale = template.transform.localScale;
+        }
+
+        cannon.transform.localPosition = bowLocal;
+
+        // Point it along the hull instead of broadside. The template is a
+        // side-firing cannon, so an unedited copy faces UP -- which is what
+        // made the bow cannon aim off the ship.
+        SerializedObject serialized =
+            new SerializedObject(cannon.GetComponent<ShipCannon>());
+        SerializedProperty facing = serialized.FindProperty("facing");
+
+        if (facing != null)
+        {
+            facing.vector2Value = bowFacing;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        EditorUtility.SetDirty(cannon);
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
 
         Debug.Log(
-            $"[Kraken Front Cannon] Added {FrontCannonName} at local " +
-            $"{FrontCannonLocalPosition} by duplicating '{template.name}'. " +
-            $"The arena ship now has " +
+            $"[Kraken Front Cannon] {(current != null ? "Moved" : "Added")} " +
+            $"{FrontCannonName} to local {bowLocal} facing {bowFacing}. " +
+            how + " The arena ship now has " +
             $"{shipRoot.GetComponentsInChildren<ShipCannon>(true).Length} " +
             "cannons.");
     }
@@ -106,6 +139,119 @@ public static class KrakenFrontCannonBuilder
     public static void BuildAllFromCommandLine()
     {
         BuildAll();
+    }
+
+    /// <summary>
+    /// Works out where THIS ship's bow is by measuring its own deck, instead of
+    /// reusing the boat level's local position.
+    ///
+    /// The first attempt copied that position across and put the cannon off the
+    /// deck: the two ships are not the same size, and the sign of x does not
+    /// tell you which end is the bow. The deck fence (the EdgeCollider2D the
+    /// boarding code also uses) is the ship's real walkable extent, and the bow
+    /// is whichever end of it the existing broadside cannons are NOT clustered
+    /// at -- they sit amidships, so the longer run of empty deck is the bow.
+    /// </summary>
+    private static bool TryFindBowSpot(
+        Transform shipRoot,
+        ShipCannon template,
+        out Vector3 bowLocal,
+        out Vector2 bowFacing,
+        out string how)
+    {
+        bowLocal = Vector3.zero;
+        bowFacing = Vector2.right;
+
+        EdgeCollider2D deck = shipRoot.GetComponentInChildren<EdgeCollider2D>(true);
+
+        if (deck == null)
+        {
+            how = "No EdgeCollider2D deck fence under the ship.";
+            return false;
+        }
+
+        Bounds world = deck.bounds;
+
+        // Deck extent in the ship's own space, which is what localPosition uses.
+        Vector3 minLocal = shipRoot.InverseTransformPoint(
+            new Vector3(world.min.x, world.min.y, 0f));
+        Vector3 maxLocal = shipRoot.InverseTransformPoint(
+            new Vector3(world.max.x, world.max.y, 0f));
+
+        float deckMinX = Mathf.Min(minLocal.x, maxLocal.x);
+        float deckMaxX = Mathf.Max(minLocal.x, maxLocal.x);
+
+        // Where the existing cannons sit, so the bow end is the far one.
+        float cannonMinX = float.PositiveInfinity;
+        float cannonMaxX = float.NegativeInfinity;
+
+        foreach (ShipCannon cannon in
+            shipRoot.GetComponentsInChildren<ShipCannon>(true))
+        {
+            if (cannon.name == FrontCannonName)
+            {
+                continue;
+            }
+
+            float x = cannon.transform.localPosition.x;
+            cannonMinX = Mathf.Min(cannonMinX, x);
+            cannonMaxX = Mathf.Max(cannonMaxX, x);
+        }
+
+        if (float.IsInfinity(cannonMinX))
+        {
+            how = "No existing cannons to locate amidships from.";
+            return false;
+        }
+
+        float roomAhead = deckMaxX - cannonMaxX;
+        float roomBehind = cannonMinX - deckMinX;
+        bool bowIsPositiveX = roomAhead >= roomBehind;
+
+        // Sit inside the fence rather than on it, so the stand point stays on
+        // the deck and taking the cannon cannot clip the player overboard.
+        float inset = Mathf.Max(1f, (deckMaxX - deckMinX) * 0.06f);
+
+        float bowX = bowIsPositiveX
+            ? deckMaxX - inset
+            : deckMinX + inset;
+
+        // Sit on the CENTRELINE, not on a broadside row. The hull tapers to a
+        // point at the bow, so the far end of an upper or lower row hangs off
+        // the ship -- the widest deck there is the middle. The boat level's own
+        // bow cannon says the same thing: its rows are at y 16.0 and 9.5 and it
+        // sits at 12.6, between them.
+        float rowSum = 0f;
+        int rowCount = 0;
+
+        foreach (ShipCannon cannon in
+            shipRoot.GetComponentsInChildren<ShipCannon>(true))
+        {
+            if (cannon.name == FrontCannonName)
+            {
+                continue;
+            }
+
+            rowSum += cannon.transform.localPosition.y;
+            rowCount++;
+        }
+
+        float bowY = rowCount > 0
+            ? rowSum / rowCount
+            : template.transform.localPosition.y;
+
+        bowLocal = new Vector3(
+            bowX, bowY, template.transform.localPosition.z);
+
+        bowFacing = bowIsPositiveX ? Vector2.right : Vector2.left;
+
+        how =
+            $"Deck x spans {deckMinX:0.00}..{deckMaxX:0.00}, cannons occupy " +
+            $"{cannonMinX:0.00}..{cannonMaxX:0.00}, so room ahead=" +
+            $"{roomAhead:0.00} vs behind={roomBehind:0.00} puts the bow at " +
+            $"{(bowIsPositiveX ? "+x" : "-x")}.";
+
+        return true;
     }
 
     private static Transform FindShipRoot(Scene scene)
