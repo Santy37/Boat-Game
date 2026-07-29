@@ -395,7 +395,13 @@ internal sealed class NetworkingArchitectureTests
             .FindProperty("inputBufferSeconds")
             .floatValue;
 
-        Assert.That(cooldown, Is.InRange(0.25f, 0.5f));
+        // The ceiling was 0.5s until the sword attack was deliberately slowed
+        // to a full second in 20a3506 ("increased cooldown on attack"), which
+        // left this test red on every branch. 1s is now the accepted ceiling
+        // rather than the target: this guards against an unset or runaway
+        // value, so raising the swing further should fail here and be a
+        // conscious decision rather than a silent drift.
+        Assert.That(cooldown, Is.InRange(0.25f, 1f));
         Assert.That(inputBuffer, Is.InRange(0.08f, 0.2f));
     }
 

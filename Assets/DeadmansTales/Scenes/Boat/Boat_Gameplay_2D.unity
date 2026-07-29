@@ -277,7 +277,7 @@ MonoBehaviour:
   shipSpeed: 2.5
   randomSpawnPoint: 1
   chosenSpawnPoint: 0
-  crewPrefab: {fileID: 4707447174414615646, guid: 0fde4599e85ed8842a2ac6019fbcf4d4, type: 3}
+  crewPrefab: {fileID: 8918378950335595603, guid: 9fdb35f3310529b4ab48fdc3a0b8d991, type: 3}
   crewPerShip: 2
   crewLocalOffsets:
   - {x: -2, y: 0.3}
@@ -757,6 +757,7 @@ MonoBehaviour:
   level3Events: 3
   defaultLevel: 3
   enemyShipChance: 0.5
+  guaranteeBothEventTypes: 1
   obstacleIcon: {fileID: 1077131482}
   pirateShipIcon: {fileID: 2111329722}
   eventOffset: {x: 0, y: -1}
@@ -1456,6 +1457,8 @@ MonoBehaviour:
   steeringCameraZoom: 25
   zoomLerpSpeed: 5
   fallbackManKey: 101
+  pushOutOfEnemyHulls: 1
+  hullSeparationSkin: 0
 --- !u!61 &497979626
 BoxCollider2D:
   m_ObjectHideFlags: 0

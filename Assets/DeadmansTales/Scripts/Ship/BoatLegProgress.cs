@@ -62,7 +62,14 @@ public class BoatLegProgress : MonoBehaviour
     [Tooltip(
         "Chance each event is a PIRATE SHIP rather than an obstacle (0 = all " +
         "rocks, 1 = all ships).")]
-    [SerializeField, Range(0f, 1f)] private float enemyShipChance = 0.5f;
+    [SerializeField, Range(0f, 1f)] private float enemyShipChance = 0.6f;
+
+    [Tooltip(
+        "With room for two or more events, place at least one pirate ship "
+        + "AND at least one obstacle before filling the rest by chance. Stops "
+        + "a leg coming up all rocks or all ships. Turn off to roll every "
+        + "event independently.")]
+    [SerializeField] private bool guaranteeBothEventTypes = true;
     [Tooltip("Obstacle icon - hidden at start, cloned onto the line.")]
     [SerializeField] private Transform obstacleIcon;
     [Tooltip("Pirate ship icon - hidden at start, cloned onto the line.")]
@@ -179,11 +186,37 @@ public class BoatLegProgress : MonoBehaviour
         int count = EventCountForLevel(ResolveLevel());
 
         List<Transform> chosen = new List<Transform>();
-        for (int i = 0; i < count; i++)
+
+        // Rolling each event independently meant a whole leg could come up
+        // all rocks or all ships -- at three events and an even chance that
+        // is one leg in eight each way, which is exactly often enough to feel
+        // broken ("we just get rocks, no ships"). With room for both, one of
+        // each is placed up front and only the remainder is left to chance.
+        int remaining = count;
+
+        if (guaranteeBothEventTypes &&
+            count >= 2 &&
+            pirateShipIcon != null &&
+            obstacleIcon != null)
+        {
+            chosen.Add(pirateShipIcon);
+            chosen.Add(obstacleIcon);
+            remaining -= 2;
+        }
+
+        for (int i = 0; i < remaining; i++)
         {
             chosen.Add(Random.value < enemyShipChance
                 ? pirateShipIcon
                 : obstacleIcon);
+        }
+
+        // Shuffle, or the guaranteed ship would always be the first thing the
+        // leg throws at you and the guaranteed rock always the second.
+        for (int i = chosen.Count - 1; i > 0; i--)
+        {
+            int swap = Random.Range(0, i + 1);
+            (chosen[i], chosen[swap]) = (chosen[swap], chosen[i]);
         }
 
         for (int i = 0; i < chosen.Count; i++)

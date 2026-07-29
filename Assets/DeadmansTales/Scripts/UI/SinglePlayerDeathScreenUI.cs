@@ -14,8 +14,6 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
 
     private Coroutine showDeathScreenCoroutine;
     private PlayerHealth localPlayerHealth;
-    private DeadmansTales.Ship.NetworkShipHealth playerShipHealth;
-    private bool shipHasSunk;
     private PauseMenu pauseMenu;
     private bool deathScreenIsBlocking;
 
@@ -27,63 +25,9 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Losing the ship is the run's other lose state, and NetworkShipHealth
-    /// already flips the run to Failed when it happens -- but nothing was
-    /// listening, so the crew's ship could go down with no screen at all.
-    /// Same panel as dying: the run is over either way.
-    ///
-    /// Resolved through PlayerShipMarker rather than a bare
-    /// NetworkShipHealth search, because enemy ships carry that same
-    /// component and sinking one of those must not end the player's run.
-    /// Polled on an interval, since the ship spawns after this UI does and
-    /// scenes with no ship at all (the islands) would otherwise run a
-    /// FindFirstObjectByType every frame forever.
-    /// </summary>
-    private IEnumerator FindPlayerShip()
-    {
-        WaitForSecondsRealtime pollInterval =
-            new WaitForSecondsRealtime(0.5f);
-
-        while (playerShipHealth == null)
-        {
-            DeadmansTales.Ship.PlayerShipMarker marker =
-                FindFirstObjectByType<DeadmansTales.Ship.PlayerShipMarker>();
-
-            if (marker != null)
-            {
-                playerShipHealth =
-                    marker.GetComponent<DeadmansTales.Ship.NetworkShipHealth>();
-            }
-
-            if (playerShipHealth == null)
-            {
-                yield return pollInterval;
-            }
-        }
-
-        playerShipHealth.ShipSunk += HandleShipSunk;
-
-        // It may already have gone down before this resolved.
-        if (playerShipHealth.IsSunk)
-        {
-            HandleShipSunk();
-        }
-    }
-
-    private void HandleShipSunk()
-    {
-        shipHasSunk = true;
-        UpdateDeathScreen(
-            localPlayerHealth != null
-                ? localPlayerHealth.CurrentHealth.Value
-                : 0f);
-    }
-
     private void Start()
     {
         StartCoroutine(FindLocalPlayer());
-        StartCoroutine(FindPlayerShip());
     }
 
     private IEnumerator FindLocalPlayer()
@@ -127,13 +71,12 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
             OnlineLobbyService.Instance != null &&
             OnlineLobbyService.Instance.IsInSession;
 
-        // The two lose states are not equally personal. One player going down
-        // in co-op is that player's problem and the crew fights on, so their
-        // death screen stays solo-only. Losing the SHIP ends the run for
-        // everybody aboard and never recovers, so that one shows in an online
-        // session too, where it used to show nothing at all.
-        bool playerDied =
-    !isOnlineMultiplayer && health <= 0f;
+        // This panel is for the player's OWN death only, and only outside an
+        // online session: one player going down in co-op is that player's
+        // problem and the crew fights on. Losing the SHIP is the run's other
+        // lose state and is handled entirely by ShipSunkUI, which has its own
+        // panel -- watching for it here as well would pop two panels at once.
+        bool playerDied = !isOnlineMultiplayer && health <= 0f;
 
         if (!playerDied)
         {
@@ -232,11 +175,6 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
         {
             localPlayerHealth.CurrentHealth.OnValueChanged -=
                 HandleHealthChanged;
-        }
-
-        if (playerShipHealth != null)
-        {
-            playerShipHealth.ShipSunk -= HandleShipSunk;
         }
     }
 }
