@@ -59,8 +59,8 @@ public class DestructibleObstacle : NetworkBehaviour
 
     private Collider2D hitbox;
 
-    // Locked at spawn: a straight line toward where the ship was. It does NOT
-    // re-track the ship, so steering the ship away dodges it.
+    // Locked at spawn by SetCourseServer: a straight line toward where the ship
+    // was. It does NOT re-track the ship, so steering away dodges it.
     private Vector2 driftDirection = Vector2.left;
 
     // Server clock time at which this obstacle safety-despawns if it hasn't
@@ -98,17 +98,51 @@ public class DestructibleObstacle : NetworkBehaviour
         health.Value = Mathf.Max(1, maxHealth);
         despawnTime = Time.time + Mathf.Max(1f, maxLifetimeSeconds);
 
-        // Aim at the ship's current position and keep that heading for good.
-        PlayerShipMarker ship = FindFirstObjectByType<PlayerShipMarker>();
-        if (ship != null)
+        // The heading is handed to us by BoatObstacleGenerator via
+        // SetCourseServer right after spawn -- we never aim ourselves.
+    }
+
+    /// <summary>
+    /// Server-only: locks this obstacle onto a fixed straight-line heading,
+    /// set once by the spawner at spawn time. The obstacle drifts along it
+    /// forever and never re-aims, so it does not follow the ship -- the line
+    /// stays exactly where it was drawn.
+    /// </summary>
+    public void SetCourseServer(Vector2 direction)
+    {
+        if (!IsServer)
         {
-            Vector2 toShip =
-                (Vector2)(ship.transform.position - transform.position);
-            if (toShip.sqrMagnitude > 0.0001f)
-            {
-                driftDirection = toShip.normalized;
-            }
+            return;
         }
+
+        if (direction.sqrMagnitude > 0.0001f)
+        {
+            driftDirection = direction.normalized;
+        }
+    }
+
+    /// <summary>
+    /// Server-only: applies one cannon hit's worth of damage (this obstacle's
+    /// own Cannonball Damage) and despawns it if that brings health to 0.
+    /// Called both by the local Cannonball hit-test below and by
+    /// NetworkCannonball in multiplayer. Returns true if the hit destroyed it.
+    /// </summary>
+    public bool ApplyCannonHitServer()
+    {
+        if (!IsServer || !destructible)
+        {
+            return false;
+        }
+
+        health.Value -= cannonballDamage;
+
+        if (health.Value <= 0)
+        {
+            DespawnSelf();
+            return true;
+        }
+
+        return false;
     }
 
     private void FixedUpdate()
@@ -154,11 +188,9 @@ public class DestructibleObstacle : NetworkBehaviour
             }
 
             Destroy(ball.gameObject);   // spend the ball
-            health.Value -= cannonballDamage;
 
-            if (health.Value <= 0)
+            if (ApplyCannonHitServer())
             {
-                DespawnSelf();
                 return;
             }
         }
@@ -223,10 +255,9 @@ public class DestructibleObstacle : NetworkBehaviour
             return;
         }
 
-        // Only show the bar once it has actually been hit: hidden at full
-        // health (and before health is initialized), hidden again once it is
-        // destroyed.
-        if (health.Value <= 0 || health.Value >= maxHealth)
+        // Show the bar the whole time the obstacle is alive. Hidden only
+        // before its health is initialized (0) or once it is destroyed.
+        if (health.Value <= 0)
         {
             return;
         }

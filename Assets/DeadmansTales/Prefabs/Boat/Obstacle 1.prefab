@@ -185,6 +185,7 @@ MonoBehaviour:
   cannonballDamage: 50
   shipDamageOnHit: 15
   driftSpeed: 1.5
+  maxLifetimeSeconds: 30
   healthBarSize: {x: 52, y: 8}
   healthBarWorldYOffset: 0.7
 --- !u!50 &5116907951467988425

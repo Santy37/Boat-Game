@@ -193,6 +193,18 @@ namespace DeadmansTales.Ship
                 return;
             }
 
+            // Water obstacles: destructible rocks/hazards the progress bar
+            // spawns. They carry their own per-hit damage, so we don't pass
+            // this ball's damage -- just tell it it was hit.
+            DestructibleObstacle obstacle =
+                other.GetComponentInParent<DestructibleObstacle>();
+
+            if (obstacle != null)
+            {
+                obstacle.ApplyCannonHitServer();
+                return;
+            }
+
             Enemy enemy = other.GetComponentInParent<Enemy>();
 
             if (enemy != null)

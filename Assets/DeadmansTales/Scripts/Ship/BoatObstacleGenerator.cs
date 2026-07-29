@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using DeadmansTales.Ship;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -59,6 +60,7 @@ public class BoatObstacleGenerator : MonoBehaviour
 
     private System.Random rng;
     private bool initialized;
+    private PlayerShipMarker playerShip;
 
     // The obstacles spawned by the current trigger. Pruned of destroyed entries
     // by IsResolving; the progress bar waits on this to empty out.
@@ -280,6 +282,21 @@ public class BoatObstacleGenerator : MonoBehaviour
 
         networkObject.Spawn();
 
+        // Lock the obstacle onto a straight line from its spawn point to where
+        // the ship is right now. It never re-aims, so it does not follow the
+        // ship and the line stays exactly where it was drawn at spawn.
+        PlayerShipMarker ship = ResolvePlayerShip();
+        if (ship != null)
+        {
+            Vector2 course = ship.AimPoint - (Vector2)point.position;
+            DestructibleObstacle obstacle =
+                spawned.GetComponent<DestructibleObstacle>();
+            if (obstacle != null)
+            {
+                obstacle.SetCourseServer(course);
+            }
+        }
+
         if (logGeneratedObstacles)
         {
             Debug.Log(
@@ -290,6 +307,19 @@ public class BoatObstacleGenerator : MonoBehaviour
         }
 
         return spawned;
+    }
+
+    // The player ship, cached. Its position is read fresh each spawn (so each
+    // obstacle aims at where the ship is at that moment), but the reference
+    // itself only needs resolving once.
+    private PlayerShipMarker ResolvePlayerShip()
+    {
+        if (playerShip == null)
+        {
+            playerShip = FindFirstObjectByType<PlayerShipMarker>();
+        }
+
+        return playerShip;
     }
 
 }
