@@ -105,6 +105,26 @@ namespace DeadmansTales.Networking
             cachedRemainingEnemyShips = CountRemainingEnemyShips();
         }
 
+        /// <summary>
+        /// The run is over once the crew's own ship goes down --
+        /// NetworkShipHealth sets the run Failed. Nothing was consulting
+        /// that, so a sunk ship still let anyone press E on the door and
+        /// carry on. Checked against the shared run state so it holds for
+        /// every portal in every scene, not just the one on the boat.
+        /// </summary>
+        private static bool RunIsLost
+        {
+            get
+            {
+                NetworkRunState runState = NetworkRunState.Instance;
+
+                return
+                    runState != null &&
+                    runState.IsSpawned &&
+                    runState.RunStatus == NetworkRunStatus.Failed;
+            }
+        }
+
         public override string InteractionPrompt
         {
             get
@@ -112,6 +132,11 @@ namespace DeadmansTales.Networking
                 if (sceneLoadRequested)
                 {
                     return "Loading Next Stage...";
+                }
+
+                if (RunIsLost)
+                {
+                    return "THE SHIP IS LOST";
                 }
 
                 if (requireKrakenDefeated && FindFirstObjectByType<KrakenHealth>() != null)
@@ -147,7 +172,7 @@ namespace DeadmansTales.Networking
             NetworkInteractionController2D interactor
         )
         {
-            if (sceneLoadRequested)
+            if (sceneLoadRequested || RunIsLost)
             {
                 return false;
             }

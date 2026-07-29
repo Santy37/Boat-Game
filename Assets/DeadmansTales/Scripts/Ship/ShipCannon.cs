@@ -19,6 +19,14 @@ public class ShipCannon : MonoBehaviour
     [SerializeField] private Transform muzzle;
     [Tooltip("The target/reticle sprite. Hidden until the cannon is manned.")]
     [SerializeField] private Transform target;
+
+    [Tooltip(
+        "Sorting order forced onto the reticle at startup. It was authored "
+        + "at 4, which draws BEHIND the kraken (10) and its tentacle (6), so "
+        + "aiming at the boss hid your own crosshair underneath it. Set in "
+        + "code rather than per scene so every cannon in every scene agrees, "
+        + "and high enough to clear the victory portal (12) too.")]
+    [SerializeField] private int targetSortingOrder = 20;
     [SerializeField] private Cannonball cannonballPrefab;
     [SerializeField] private float ballSpeed = 12f;
     [SerializeField] private float cooldown = 1f;
@@ -57,6 +65,15 @@ public class ShipCannon : MonoBehaviour
         // trigger that was sitting right beside it -- and four of those on
         // scene load will pause play mode outright if the console has Error
         // Pause on, which reads as the game refusing to start.
+        if (target != null)
+        {
+            foreach (SpriteRenderer reticle in
+                target.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                reticle.sortingOrder = targetSortingOrder;
+            }
+        }
+
         bool hasTriggerArea = false;
 
         foreach (Collider2D area in GetComponents<Collider2D>())

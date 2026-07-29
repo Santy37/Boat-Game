@@ -75,6 +75,9 @@ public class KrakenAttack : MonoBehaviour
     [SerializeField] private float fadeTime = 0.5f;
 
     private NetworkShipSinkMeter sinkMeter;
+    private KrakenHealth boundKraken;
+    private GameObject activeWhirl;
+    private GameObject activeTentacle;
 
     private void Start()
     {
@@ -87,6 +90,51 @@ public class KrakenAttack : MonoBehaviour
             return;
         }
         StartCoroutine(AttackLoop());
+
+        // Stop attacking the moment the boss dies. Without this a kraken
+        // killed mid-slam left its whirlpool and tentacle on screen forever:
+        // KrakenHealth despawns the kraken's NetworkObject on death, the
+        // running OneAttack coroutine then trips over the destroyed
+        // references, and Unity aborts that coroutine -- so the Destroy calls
+        // at the very end of it, which are the only cleanup those visuals
+        // have, never run.
+        boundKraken = FindFirstObjectByType<KrakenHealth>();
+
+        if (boundKraken != null)
+        {
+            boundKraken.Defeated += HandleKrakenDefeated;
+        }
+    }
+
+    private void HandleKrakenDefeated()
+    {
+        StopAllCoroutines();
+        ClearActiveVisuals();
+    }
+
+    private void ClearActiveVisuals()
+    {
+        if (activeWhirl != null)
+        {
+            Destroy(activeWhirl);
+            activeWhirl = null;
+        }
+
+        if (activeTentacle != null)
+        {
+            Destroy(activeTentacle);
+            activeTentacle = null;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (boundKraken != null)
+        {
+            boundKraken.Defeated -= HandleKrakenDefeated;
+        }
+
+        ClearActiveVisuals();
     }
 
     private IEnumerator AttackLoop()
@@ -112,6 +160,7 @@ public class KrakenAttack : MonoBehaviour
         if (whirlpoolPrefab != null)
         {
             whirl = Instantiate(whirlpoolPrefab);
+            activeWhirl = whirl;
             whirl.transform.position = new Vector3(target.x, target.y, 0f);
             whirlSr = whirl.GetComponentInChildren<SpriteRenderer>();
             if (whirlSr != null)
@@ -175,6 +224,7 @@ public class KrakenAttack : MonoBehaviour
         if (hasTentacle)
         {
             tentacle = new GameObject("Tentacle");
+            activeTentacle = tentacle;
             tentacle.transform.position = new Vector3(target.x, target.y, 0f);
             tentacle.transform.localScale = Vector3.one * tentacleScale;
             tentSr = tentacle.AddComponent<SpriteRenderer>();
@@ -265,10 +315,12 @@ public class KrakenAttack : MonoBehaviour
         if (whirl != null)
         {
             Destroy(whirl);
+            activeWhirl = null;
         }
         if (tentacle != null)
         {
             Destroy(tentacle);
+            activeTentacle = null;
         }
     }
 
