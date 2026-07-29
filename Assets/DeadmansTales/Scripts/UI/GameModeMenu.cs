@@ -1,4 +1,5 @@
 using System.Collections;
+using DeadmansTales.Networking;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -109,8 +110,67 @@ public class GameModeMenu : MonoBehaviour
             yield break;
         }
 
+        yield return InitializeRunForLobby();
+
         networkManager.SceneManager.LoadScene(
             multiplayerLobbyScene, LoadSceneMode.Single);
+    }
+
+    /// <summary>
+    /// Starts the shared run before the lobby loads.
+    ///
+    /// Without this the multiplayer route was a dead end: MainMenuManager is
+    /// the only other caller of InitializeNewRunServer, so coming through the
+    /// lobby left NetworkRunState uninitialized -- MasterSeed 0, stage 0. That
+    /// makes StageSeedProvider bail (it requires StageIndex >= 1), so
+    /// SeededIslandContentGenerator never completes, so the first island's
+    /// portal -- which requires generation complete -- never opens. Nothing
+    /// spawned and the crew could not leave.
+    ///
+    /// Stage 1 because the lobby is only an MP staging area; everyone plays
+    /// level one, and the lobby sits before it rather than replacing it.
+    /// </summary>
+    private IEnumerator InitializeRunForLobby()
+    {
+        float deadline =
+            Time.realtimeSinceStartup + Mathf.Max(0.1f, networkStartTimeout);
+
+        // DeadmansNetworkBootstrap spawns NetworkRunState once the host is
+        // listening, so it is not available the instant StartHost returns.
+        while (
+            (NetworkRunState.Instance == null ||
+             !NetworkRunState.Instance.IsSpawned) &&
+            Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+        }
+
+        NetworkRunState runState = NetworkRunState.Instance;
+
+        if (runState == null || !runState.IsSpawned)
+        {
+            Debug.LogError(
+                "[Menu] NetworkRunState never spawned, so the run could not " +
+                "be initialized. The islands will generate no content.",
+                this);
+            yield break;
+        }
+
+        if (!runState.IsServer)
+        {
+            // Only the host seeds the run; clients receive it replicated.
+            yield break;
+        }
+
+        // Seed 0 means "unset" to NetworkRunState, so never hand it one.
+        int seed = Random.Range(1, int.MaxValue);
+
+        runState.InitializeNewRunServer(seed, "boat_default", 1, 1);
+
+        Debug.Log(
+            $"[Menu] Multiplayer run seeded {seed} at stage 1. " +
+            "Lobby -> level one -> boat leg.",
+            this);
     }
 
     private void ShutDownNetworkIfRunning()

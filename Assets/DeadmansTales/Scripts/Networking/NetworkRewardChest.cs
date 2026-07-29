@@ -213,7 +213,12 @@ namespace DeadmansTales.Networking
                     continue;
                 }
 
-                foodNetworkObject.Spawn();
+                // destroyWithScene: true. NGO defaults this to FALSE, which
+                // parks dynamically spawned objects in DontDestroyOnLoad --
+                // uneaten food then followed the crew out of the island,
+                // floating in the sea in the shop and still lying around in
+                // the boat scene. Every other spawner here passes true.
+                foodNetworkObject.Spawn(true);
                 spawned++;
             }
 

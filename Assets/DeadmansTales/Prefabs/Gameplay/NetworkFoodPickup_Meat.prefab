@@ -113,7 +113,7 @@ MonoBehaviour:
   allowRepeatedInteraction: 0
   additionalServerRange: 0.25
   foodName: Roast Meat
-  healAmount: 45
+  foodAmount: 1
 --- !u!1 &7128499662146680147
 GameObject:
   m_ObjectHideFlags: 0

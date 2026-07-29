@@ -51,7 +51,7 @@ namespace DeadmansTales.Networking
             if (!IsSpawned || !IsOwner || PauseMenu.InputBlocked)
             {
                 currentTarget = null;
-                InteractionPromptHUD.Instance?.Hide();
+                InteractionPromptHUD.Instance?.Hide(this);
                 return;
             }
 
@@ -63,12 +63,13 @@ namespace DeadmansTales.Networking
             )
             {
                 InteractionPromptHUD.Instance?.Show(
-                    currentTarget.InteractionPrompt
+                    currentTarget.InteractionPrompt,
+                    this, InteractionPromptHUD.PromptPriority
                 );
             }
             else
             {
-                InteractionPromptHUD.Instance?.Hide();
+                InteractionPromptHUD.Instance?.Hide(this);
             }
 
             if (
@@ -130,7 +131,7 @@ namespace DeadmansTales.Networking
         }
         private void OnDisable()
         {
-            InteractionPromptHUD.Instance?.Hide();
+            InteractionPromptHUD.Instance?.Hide(this);
         }
 
     }
