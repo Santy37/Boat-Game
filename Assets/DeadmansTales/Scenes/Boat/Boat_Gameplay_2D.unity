@@ -599,6 +599,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.NetworkShipHealth
   ShowTopMostFoldoutHeaderGroup: 1
   maximumHealth: 500
+  destroyDelay: 1
   healthRestoredPerStageAdvance: 200
 --- !u!114 &235887351
 MonoBehaviour:
@@ -771,6 +772,11 @@ MonoBehaviour:
   messageDuration: 5
   arrivalMessage: LAND HOOOO!!!
   messagePrioritySeconds: 5
+--- !u!1 &362709374 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 497764116081080609, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+  m_PrefabInstance: {fileID: 1434019479496468661}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &366614375
 GameObject:
   m_ObjectHideFlags: 0
@@ -3868,6 +3874,17 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!114 &985325137 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3662378677260580065, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+  m_PrefabInstance: {fileID: 1434019479496468661}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b4030e4f54d104439512b76954ab4bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PauseMenu
 --- !u!1 &990760639
 GameObject:
   m_ObjectHideFlags: 0
@@ -4229,6 +4246,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 6.1913986
       objectReference: {fileID: 0}
+    - target: {fileID: 2629067834607775279, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2798816086414913423, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 2.0478516
@@ -4319,7 +4340,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 3311054470609540431, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1477197677}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
 --- !u!1 &1169528594
@@ -4431,6 +4455,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1435242197}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!224 &1230121259 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 3311054470609540431, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
+  m_PrefabInstance: {fileID: 1136674581}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1233594660
 GameObject:
   m_ObjectHideFlags: 0
@@ -8126,6 +8155,57 @@ Tilemap:
     e31: 0
     e32: 0
     e33: 1
+--- !u!1 &1477197676
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1477197677}
+  - component: {fileID: 1477197678}
+  m_Layer: 5
+  m_Name: ShipSunkUIController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1477197677
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1477197676}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1230121259}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 4.3492904, y: 6.1913776}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1477197678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1477197676}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be93b85d3f605474e911b0f3bf2f10f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShipSunkUI
+  shipSunkPanel: {fileID: 1598478370}
+  hotbar: {fileID: 362709374}
+  pauseMenu: {fileID: 985325137}
 --- !u!1 &1498266382
 GameObject:
   m_ObjectHideFlags: 0
@@ -8296,6 +8376,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1456519513}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1598478370 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2629067834607775279, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
+  m_PrefabInstance: {fileID: 1136674581}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1606410516
 GameObject:
   m_ObjectHideFlags: 0
