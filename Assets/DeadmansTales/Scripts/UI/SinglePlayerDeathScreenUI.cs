@@ -15,6 +15,7 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
     private Coroutine showDeathScreenCoroutine;
     private PlayerHealth localPlayerHealth;
     private PauseMenu pauseMenu;
+    private bool deathScreenIsBlocking;
 
     private void Awake()
     {
@@ -86,12 +87,23 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
                 deathPanel.SetActive(false);
             }
 
-            SetPauseMenuBlocked(false);
+            // Only unblock the pause menu if the death screen
+            // had previously blocked it.
+            if (deathScreenIsBlocking)
+            {
+                deathScreenIsBlocking = false;
+                SetPauseMenuBlocked(false);
+            }
+
             return;
         }
 
-        // Immediately prevent the pause menu from opening.
-        SetPauseMenuBlocked(true);
+        // Only close/block the pause menu when the player actually dies.
+        if (!deathScreenIsBlocking)
+        {
+            deathScreenIsBlocking = true;
+            SetPauseMenuBlocked(true);
+        }
 
         if (showDeathScreenCoroutine == null)
         {

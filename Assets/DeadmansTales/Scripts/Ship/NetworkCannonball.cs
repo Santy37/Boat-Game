@@ -24,6 +24,18 @@ namespace DeadmansTales.Ship
         private float damage = 25f;
 
         [SerializeField]
+        [Min(1)]
+        [Tooltip(
+            "Damage dealt to a KrakenHealth boss per hit. Kept separate " +
+            "from 'damage' above -- that value is tuned against a ship's " +
+            "SinkLevel (default max 150) and would one/two-shot the " +
+            "kraken's much smaller health pool (default max 20) if reused " +
+            "directly. Mirrors the old local Cannonball's per-hit damage " +
+            "of 1, so the fight paces the same either way."
+        )]
+        private int krakenDamage = 1;
+
+        [SerializeField]
         [Min(0.1f)]
         [Tooltip(
             "Server side safety clamp on requested launch speed. Prevents " +
@@ -193,6 +205,24 @@ namespace DeadmansTales.Ship
                 return;
             }
 
+            // The kraken boss isn't a ship and isn't an Enemy -- its own
+            // server-authoritative KrakenHealth is what
+            // KrakenArenaHud's boss bar reads via FindFirstObjectByType.
+            // Uses krakenDamage, not damage: 'damage' is tuned for a
+            // ship's much larger SinkLevel pool and would one/two-shot
+            // the kraken's much smaller health pool if reused directly.
+            KrakenHealth kraken = other.GetComponentInParent<KrakenHealth>();
+
+            if (kraken != null)
+            {
+                if (!kraken.IsDead)
+                {
+                    kraken.TakeHitServer(krakenDamage);
+                }
+
+                return;
+            }
+
             Enemy enemy = other.GetComponentInParent<Enemy>();
 
             if (enemy != null)
@@ -203,8 +233,8 @@ namespace DeadmansTales.Ship
 
             Debug.Log(
                 $"[Cannonball] {name} hit {other.name} but it has neither " +
-                "a NetworkShipSinkMeter nor an Enemy in its parent chain -- " +
-                "shot consumed with no damage applied.",
+                "a NetworkShipSinkMeter, KrakenHealth, nor an Enemy in its " +
+                "parent chain -- shot consumed with no damage applied.",
                 this
             );
         }

@@ -20,10 +20,20 @@ public class KrakenOilAttack : MonoBehaviour
     [SerializeField] private float interval = 2.75f;
 
     [Header("Projectile")]
-    [SerializeField] private float projectileSpeed = 16f;
+    [Tooltip(
+        "60% slower than the original 16 -- gives the crew a fair chance "
+        + "to read and dodge the firing line."
+    )]
+    [SerializeField] private float projectileSpeed = 6.4f;
     [SerializeField] private float projectileLife = 4f;
     [SerializeField] private float hitRadius = 2.5f;
-    [SerializeField] private int damage = 6;
+    [Tooltip(
+        "SinkLevel damage on landing, applied the same way a cannonball is "
+        + "(NetworkShipSinkMeter.ApplyCannonHitServer). Matches "
+        + "NetworkCannonball's default of 25 -- bump it higher here if the "
+        + "oil should hurt more than a regular cannon hit."
+    )]
+    [SerializeField] private float oilDamage = 25f;
     [Tooltip("Above the tentacle (6) so the oil reads in front as it flies.")]
     [SerializeField] private int sortingOrder = 7;
 
@@ -76,6 +86,6 @@ public class KrakenOilAttack : MonoBehaviour
             shot = go.AddComponent<OilShot>();
         }
         shot.Launch(
-            dir * projectileSpeed, projectileLife, damage, shipHitbox, hitRadius);
+            dir * projectileSpeed, projectileLife, oilDamage, shipHitbox, hitRadius);
     }
 }

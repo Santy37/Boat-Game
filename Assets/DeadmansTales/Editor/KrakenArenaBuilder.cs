@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using Unity.Netcode;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
@@ -289,6 +290,12 @@ public static class KrakenArenaBuilder
         SetFloat(bobbed, "rockSpeed", 0.3f);
         bobbed.ApplyModifiedPropertiesWithoutUndo();
 
+        // KrakenHealth is now server-authoritative (NetworkBehaviour)
+        // and requires a NetworkObject on the same GameObject; add it
+        // explicitly rather than relying on RequireComponent's implicit
+        // auto-add, so it's obvious here that Kraken is a networked,
+        // spawnable object.
+        root.AddComponent<NetworkObject>();
         root.AddComponent<KrakenHealth>();
 
         // A generous body trigger so cannonballs register hits.

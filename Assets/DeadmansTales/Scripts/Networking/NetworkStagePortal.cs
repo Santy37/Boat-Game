@@ -29,8 +29,37 @@ namespace DeadmansTales.Networking
         [SerializeField]
         private bool requireAllEnemyShipsDefeated;
 
+        [Tooltip(
+            "Blocks passage until every KrakenHealth in the scene is gone " +
+            "(defeated and despawned -- KrakenHealth.TakeHitServer despawns " +
+            "it on death). This is the boss-arena's final portal; ordinary " +
+            "stage portals between islands leave this off."
+        )]
+        [SerializeField]
+        private bool requireKrakenDefeated;
+
         [SerializeField]
         private bool advanceStage = true;
+
+        [Tooltip(
+            "The final portal after the boss: interacting sets " +
+            "NetworkRunState.Status to Completed instead of loading " +
+            "destinationSceneName -- there is no next stage after a win. " +
+            "No win screen exists yet ('eventually'); this NetworkRunStatus " +
+            "is the hook a future WinScreenUI can react to, the same way " +
+            "SinglePlayerDeathScreenUI reacts to Failed. destinationSceneName " +
+            "and Advance Stage are ignored when this is on."
+        )]
+        [SerializeField]
+        private bool completesRun;
+
+        /// <summary>
+        /// Raised locally on every peer the moment a Completes Run portal is
+        /// used, so end-of-run UI does not have to poll. Subscribers must
+        /// unsubscribe when they are destroyed -- this is static and outlives
+        /// any single scene.
+        /// </summary>
+        public static event System.Action RunCompleted;
 
         private const float EnemyCountRefreshSeconds = 0.25f;
 
@@ -85,6 +114,11 @@ namespace DeadmansTales.Networking
                     return "Loading Next Stage...";
                 }
 
+                if (requireKrakenDefeated && FindFirstObjectByType<KrakenHealth>() != null)
+                {
+                    return "Defeat the Kraken First";
+                }
+
                 if (requireAllEnemyShipsDefeated && RemainingEnemyShips > 0)
                 {
                     return $"Sink All Enemy Ships ({RemainingEnemyShips} Remaining)";
@@ -96,7 +130,9 @@ namespace DeadmansTales.Networking
                     return $"Defeat All Enemies ({remaining} Remaining)";
                 }
 
-                return "Press E to Continue the Voyage";
+                return completesRun
+                    ? "PRESS E TO CLAIM VICTORY"
+                    : "PRESS E TO CONTINUE VOYAGE";
             }
         }
 
@@ -105,6 +141,11 @@ namespace DeadmansTales.Networking
         )
         {
             if (sceneLoadRequested)
+            {
+                return false;
+            }
+
+            if (requireKrakenDefeated && FindFirstObjectByType<KrakenHealth>() != null)
             {
                 return false;
             }
@@ -132,6 +173,28 @@ namespace DeadmansTales.Networking
             NetworkInteractionController2D interactor
         )
         {
+            if (completesRun)
+            {
+                NetworkRunState completionRunState = NetworkRunState.Instance;
+                if (completionRunState != null && completionRunState.IsSpawned)
+                {
+                    completionRunState.SetStatusServer(NetworkRunStatus.Completed);
+                }
+
+                // The win screen lives in the arena scene, so there is no
+                // scene to load here -- every peer just needs to be told the
+                // run is over. NetworkRunState.Status is the durable record
+                // (a late joiner can still read Completed from it); this RPC
+                // is the immediate nudge that BossDefeatedUI listens for.
+                NotifyRunCompletedClientRpc();
+
+                Debug.Log(
+                    "[Stage Portal] Run completed through the victory portal.",
+                    this
+                );
+                return;
+            }
+
             NetworkManager manager = NetworkManager.Singleton;
 
             if (
@@ -191,6 +254,12 @@ namespace DeadmansTales.Networking
                     this
                 );
             }
+        }
+
+        [ClientRpc]
+        private void NotifyRunCompletedClientRpc()
+        {
+            RunCompleted?.Invoke();
         }
 
         private static int CountRemainingEnemies()

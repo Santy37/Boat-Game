@@ -20,7 +20,7 @@ namespace DeadmansTales.Ship
     {
         [SerializeField]
         [Min(1f)]
-        private float maximumSinkLevel = 150f;
+        private float maximumSinkLevel = 300f;
 
         [SerializeField]
         [Min(0f)]
