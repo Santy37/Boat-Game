@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace DeadmansTales.Ship
@@ -18,9 +19,53 @@ namespace DeadmansTales.Ship
     /// </summary>
     public sealed class EnemyShipHullContact : MonoBehaviour
     {
+        private static readonly List<EnemyShipHullContact> ActiveHulls =
+            new List<EnemyShipHullContact>();
+
+        /// <summary>
+        /// Every enemy-ship hull currently alive in the scene. This component
+        /// already marks "the collider that IS an enemy ship's hull", so it
+        /// doubles as the registry ShipHelm reads to push the player's ship
+        /// back out of a hull it has steered into. Enemy ships are spawned at
+        /// runtime, so there is nothing to wire in the Inspector -- and a
+        /// per-frame FindObjectsByType would be far more expensive than a
+        /// list kept up to date by OnEnable/OnDisable.
+        /// </summary>
+        public static IReadOnlyList<EnemyShipHullContact> Active => ActiveHulls;
+
         private int contactCount;
 
         public bool IsTouchingPlayerShip => contactCount > 0;
+
+        /// <summary>
+        /// The hull collider this component listens on -- the same collider
+        /// that must stay a trigger for cannonball hits and engagement to
+        /// work.
+        /// </summary>
+        public Collider2D Hull { get; private set; }
+
+        private void Awake()
+        {
+            Hull = GetComponent<Collider2D>();
+
+            if (Hull == null)
+            {
+                Debug.LogError(
+                    $"[Enemy Ship Hull Contact] '{name}' has no Collider2D on " +
+                    "this same object. Put this component on the ship's hull " +
+                    "trigger (e.g. ShipHitBox).",
+                    this
+                );
+            }
+        }
+
+        private void OnEnable()
+        {
+            if (!ActiveHulls.Contains(this))
+            {
+                ActiveHulls.Add(this);
+            }
+        }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
@@ -41,6 +86,7 @@ namespace DeadmansTales.Ship
         private void OnDisable()
         {
             contactCount = 0;
+            ActiveHulls.Remove(this);
         }
     }
 }
