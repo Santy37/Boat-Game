@@ -50,11 +50,29 @@ public class ScrollingReef : MonoBehaviour
     [Range(0f, 1f)]
     private float rockImpactVolume = 1f;
 
+    [Header("Cannon fire")]
+    [Tooltip("Let cannonballs break reef rocks. Server-authoritative: only the "
+        + "host resolves a hit, then it tells every peer to drop the same rock.")]
+    [SerializeField] private bool destructibleByCannons = true;
+
+    [Tooltip("Cannonball hits a rock takes before it breaks.")]
+    [SerializeField, Min(1)] private int rockHitsToBreak = 2;
+
+    [Tooltip("Radius of the trigger added to each rock so cannonballs can hit "
+        + "it. The rocks carry no collider of their own -- contact damage with "
+        + "the ship is done by a position check, not by physics.")]
+    [SerializeField, Min(0.1f)] private float rockHitRadius = 1.2f;
+
     private sealed class Gate
     {
         public float x;
         public Transform[] rocks;
         public bool[] hitConsumed;
+        // Bumped every time the gate is laid out again. A break message that
+        // arrives after its gate recycled names an older generation and is
+        // dropped, so it cannot hide a rock that has just come back whole.
+        public int generation;
+        public int[] hitsTaken;
     }
 
     private Gate[] gates;
@@ -83,12 +101,23 @@ public class ScrollingReef : MonoBehaviour
                 x = despawnX + i * gateSpacing,
                 rocks = new Transform[Mathf.Max(1, rocksPerGate)],
                 hitConsumed = new bool[Mathf.Max(1, rocksPerGate)],
+                hitsTaken = new int[Mathf.Max(1, rocksPerGate)],
             };
             for (int r = 0; r < g.rocks.Length; r++)
             {
                 GameObject go = Instantiate(
                     rockPrefabs[rng.Next(rockPrefabs.Length)], transform);
                 g.rocks[r] = go.transform;
+
+                // Every gate and every rocks[] slot is allocated once here and
+                // reused forever -- rocks are repositioned, never respawned --
+                // so (gate index, rock index) is a stable identity that every
+                // peer agrees on with no networked objects involved. That pair
+                // is what a break is broadcast by.
+                if (destructibleByCannons)
+                {
+                    MakeRockShootable(go, i, r);
+                }
             }
             LayoutGate(g);
             gates[i] = g;
@@ -139,6 +168,9 @@ public class ScrollingReef : MonoBehaviour
     // Choose a fresh drifting gap and scatter the gate's rocks outside it.
     private void LayoutGate(Gate g)
     {
+        // Invalidate any break still in flight for this gate's previous run.
+        g.generation++;
+
         float half = gapHeight * 0.5f;
         float gapLo = laneMinY + half;
         float gapHi = laneMaxY - half;
@@ -173,6 +205,7 @@ public class ScrollingReef : MonoBehaviour
             t.localScale = new Vector3(sizeMul * faceX, sizeMul, 1f);
             t.position = new Vector3(g.x, y, 0f);
             g.hitConsumed[r] = false;
+            g.hitsTaken[r] = 0;
 
             // A rock hidden by a previous impact comes back with its gate.
             if (!t.gameObject.activeSelf)
@@ -180,6 +213,112 @@ public class ScrollingReef : MonoBehaviour
                 t.gameObject.SetActive(true);
             }
         }
+    }
+
+    // Gives a pooled rock the bits a cannonball needs to notice it: a trigger
+    // to be detected by, and a marker carrying its identity. Done at runtime
+    // rather than on the rock prefabs so the arena scene and every rock prefab
+    // stay untouched -- they are being edited on other branches.
+    private void MakeRockShootable(GameObject rock, int gateIndex, int rockIndex)
+    {
+        if (rock.GetComponent<Collider2D>() == null)
+        {
+            CircleCollider2D hit = rock.AddComponent<CircleCollider2D>();
+            hit.radius = rockHitRadius;
+            hit.isTrigger = true;
+        }
+
+        ReefRock marker = rock.GetComponent<ReefRock>();
+
+        if (marker == null)
+        {
+            marker = rock.AddComponent<ReefRock>();
+        }
+
+        marker.Bind(this, gateIndex, rockIndex);
+    }
+
+    /// <summary>
+    /// Current generation of a gate, so a caller can stamp a break with the
+    /// generation it observed.
+    /// </summary>
+    public int GenerationOf(int gateIndex)
+    {
+        return gates != null && gateIndex >= 0 && gateIndex < gates.Length
+            ? gates[gateIndex].generation
+            : -1;
+    }
+
+    /// <summary>
+    /// Server-only: registers a cannonball hit on a rock. Returns true when
+    /// that hit broke it, which is the caller's cue to broadcast the break.
+    /// </summary>
+    public bool RegisterCannonHitServer(int gateIndex, int rockIndex)
+    {
+        if (!destructibleByCannons || gates == null ||
+            gateIndex < 0 || gateIndex >= gates.Length)
+        {
+            return false;
+        }
+
+        Gate g = gates[gateIndex];
+
+        if (rockIndex < 0 || rockIndex >= g.rocks.Length || g.hitConsumed[rockIndex])
+        {
+            return false;
+        }
+
+        g.hitsTaken[rockIndex]++;
+
+        return g.hitsTaken[rockIndex] >= rockHitsToBreak;
+    }
+
+    /// <summary>
+    /// Applies a break on THIS peer. Called on the server when it resolves a
+    /// hit and on every client from the broadcast, so the same logical rock
+    /// disappears everywhere.
+    ///
+    /// The generation guard is what makes this safe to receive late: gates
+    /// recycle constantly, and without it a delayed message would blank a rock
+    /// that had already come back around whole.
+    /// </summary>
+    public void ApplyRockBreak(int gateIndex, int rockIndex, int generation)
+    {
+        if (gates == null || gateIndex < 0 || gateIndex >= gates.Length)
+        {
+            return;
+        }
+
+        Gate g = gates[gateIndex];
+
+        if (rockIndex < 0 || rockIndex >= g.rocks.Length)
+        {
+            return;
+        }
+
+        if (generation >= 0 && generation != g.generation)
+        {
+            return;
+        }
+
+        Transform t = g.rocks[rockIndex];
+
+        if (t == null || g.hitConsumed[rockIndex])
+        {
+            return;
+        }
+
+        g.hitConsumed[rockIndex] = true;
+
+        if (rockImpactClip != null)
+        {
+            AudioSource.PlayClipAtPoint(
+                rockImpactClip, t.position, rockImpactVolume);
+        }
+
+        // Hidden, not destroyed: the gate's rocks are a fixed pool and
+        // LayoutGate switches this back on when the gate is reused.
+        t.gameObject.SetActive(false);
     }
 
     /// <summary>

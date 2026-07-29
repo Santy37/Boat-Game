@@ -183,6 +183,38 @@ namespace DeadmansTales.Ship
             HandlePossibleHit(other);
         }
 
+        /// <summary>
+        /// Server-only: tells every peer that a reef rock broke.
+        ///
+        /// The broadcast rides this cannonball's NetworkObject because
+        /// ScrollingReef has none of its own -- it is a plain MonoBehaviour and
+        /// its rocks are pooled Transforms. Sending it from here keeps the reef
+        /// un-networked while still making a break authoritative, so a client
+        /// can never shoot away a rock the host still has.
+        /// </summary>
+        public void BreakReefRockServer(int gate, int rock, int generation)
+        {
+            if (!IsServer)
+            {
+                return;
+            }
+
+            BreakReefRockClientRpc(gate, rock, generation);
+        }
+
+        // The host receives its own ClientRpc, so server and clients apply the
+        // break through this one path rather than two that could disagree.
+        [ClientRpc]
+        private void BreakReefRockClientRpc(int gate, int rock, int generation)
+        {
+            ScrollingReef reef = FindFirstObjectByType<ScrollingReef>();
+
+            if (reef != null)
+            {
+                reef.ApplyRockBreak(gate, rock, generation);
+            }
+        }
+
         private void HandlePossibleHit(Collider2D other)
         {
             if (!IsServer || !launched || Time.time < armedTime)
@@ -322,6 +354,16 @@ namespace DeadmansTales.Ship
                 }
 
                 return ImpactSound.Explosion;
+            }
+
+            // Kraken arena reef: a ScrollingReef rock. Handled by ReefRock's own
+            // trigger rather than here, because the reef has no NetworkObject
+            // and its rocks are pooled Transforms, so there is nothing on them
+            // for the networked checks below to find. Recognising it here only
+            // stops the ball sailing straight through a rock it just broke.
+            if (other.GetComponentInParent<ReefRock>() != null)
+            {
+                return ImpactSound.HeavyImpact;
             }
 
             // Water obstacles: destructible rocks/hazards the progress bar
