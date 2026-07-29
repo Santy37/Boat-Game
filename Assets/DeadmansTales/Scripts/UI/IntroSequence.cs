@@ -30,11 +30,9 @@ public sealed class IntroSequence : MonoBehaviour
 
     [SerializeField]
     [Min(0f)]
-    private float titleDisplayDuration = 3f;
+    private float titleDisplayDuration = 2f;
 
-    [SerializeField]
-    [Min(0f)]
-    private float skipTextVisibleDuration = 2f;
+
 
     [Header("Scene")]
     [SerializeField]
@@ -48,60 +46,33 @@ public sealed class IntroSequence : MonoBehaviour
 
         "He survived—but the Kraken claimed his soul",
 
-        "Bound to a cursed vessel, he must conquer haunted islands " +
-        "and destroy the monsters of the sea",
-
-        "Only the Kraken's defeat can set him free"
+        "Bound to a cursed vessel, he sails in search of freedom"
     };
 
-    private bool isLoading;
+    private bool canSkip;
+    private bool loadingScene;
 
-    private void Start()
+    private void Awake()
     {
-        Time.timeScale = 1f;
-
-        // StoryText already starts visible in the Inspector.
+        if (storyCanvasGroup != null)
+        {
+            // The first story line begins visible.
+            storyCanvasGroup.alpha = 1f;
+        }
 
         if (titleCanvasGroup != null)
         {
+            // The title remains hidden until the story finishes.
             titleCanvasGroup.alpha = 0f;
         }
 
         if (skipText != null)
         {
-            SetTextAlpha(skipText, 1f);
-        }
-
-        StartCoroutine(PlayIntro());
-        StartCoroutine(FadeOutSkipText());
-    }
-
-    private void Update()
-    {
-        if (isLoading)
-        {
-            return;
-        }
-
-        bool keyboardSkip =
-            Keyboard.current != null &&
-            (
-                Keyboard.current.spaceKey.wasPressedThisFrame ||
-                Keyboard.current.enterKey.wasPressedThisFrame ||
-                Keyboard.current.escapeKey.wasPressedThisFrame
-            );
-
-        bool gamepadSkip =
-            Gamepad.current != null &&
-            Gamepad.current.buttonSouth.wasPressedThisFrame;
-
-        if (keyboardSkip || gamepadSkip)
-        {
-            LoadMainMenu();
+            skipText.gameObject.SetActive(true);
         }
     }
 
-    private IEnumerator PlayIntro()
+    private void Start()
     {
         if (
             storyText == null ||
@@ -110,62 +81,100 @@ public sealed class IntroSequence : MonoBehaviour
         )
         {
             Debug.LogError(
-                "[Intro Sequence] Story Text, Story Canvas Group, " +
-                "or Title Canvas Group is missing.",
+                "[Intro Sequence] Required UI references are missing.",
                 this
             );
 
-            yield break;
+            return;
         }
 
-        foreach (string line in storyLines)
-        {
-            if (isLoading)
-            {
-                yield break;
-            }
+        storyText.text = storyLines[0];
 
-            storyText.text = line;
+        StartCoroutine(PlayIntro());
+      
+    }
+
+    private void Update()
+    {
+        if (
+            !canSkip ||
+            loadingScene ||
+            Keyboard.current == null
+        )
+        {
+            return;
+        }
+
+        Keyboard keyboard = Keyboard.current;
+
+        bool skipPressed =
+            keyboard.spaceKey.wasPressedThisFrame ||
+            keyboard.escapeKey.wasPressedThisFrame ||
+            keyboard.enterKey.wasPressedThisFrame ||
+            keyboard.numpadEnterKey.wasPressedThisFrame;
+
+        if (skipPressed)
+        {
+            LoadMainMenu();
+        }
+    }
+
+    private IEnumerator PlayIntro()
+    {
+        // Prevent the key that opened the scene from immediately skipping it.
+        yield return null;
+        canSkip = true;
+
+        // The first story line is already visible.
+        yield return new WaitForSeconds(displayDuration);
+
+        yield return FadeCanvasGroup(
+            storyCanvasGroup,
+            storyCanvasGroup.alpha,
+            0f
+        );
+
+        // Display and fade all remaining story lines.
+        for (int i = 1; i < storyLines.Length; i++)
+        {
+            storyText.text = storyLines[i];
 
             yield return FadeCanvasGroup(
                 storyCanvasGroup,
+                0f,
                 1f
             );
 
-            yield return new WaitForSecondsRealtime(
-                displayDuration
-            );
+            yield return new WaitForSeconds(displayDuration);
 
             yield return FadeCanvasGroup(
                 storyCanvasGroup,
+                1f,
                 0f
             );
         }
 
-        if (isLoading)
-        {
-            yield break;
-        }
+        storyText.gameObject.SetActive(false);
 
+        // Fade the title in last.
         yield return FadeCanvasGroup(
             titleCanvasGroup,
+            0f,
             1f
         );
 
-        yield return new WaitForSecondsRealtime(
-            titleDisplayDuration
-        );
+        // Keep the title visible for two seconds.
+        yield return new WaitForSeconds(titleDisplayDuration);
 
-        yield return FadeCanvasGroup(
-            titleCanvasGroup,
-            0f
-        );
-
+        // Automatically switch to the Main Menu.
         LoadMainMenu();
     }
 
+    
+
     private IEnumerator FadeCanvasGroup(
         CanvasGroup canvasGroup,
+        float startingAlpha,
         float targetAlpha
     )
     {
@@ -180,26 +189,17 @@ public sealed class IntroSequence : MonoBehaviour
             yield break;
         }
 
-        float startingAlpha = canvasGroup.alpha;
-        float elapsed = 0f;
+        float elapsedTime = 0f;
+        canvasGroup.alpha = startingAlpha;
 
-        while (elapsed < fadeDuration)
+        while (elapsedTime < fadeDuration)
         {
-            if (isLoading)
-            {
-                yield break;
-            }
-
-            elapsed += Time.unscaledDeltaTime;
-
-            float progress = Mathf.Clamp01(
-                elapsed / fadeDuration
-            );
+            elapsedTime += Time.deltaTime;
 
             canvasGroup.alpha = Mathf.Lerp(
                 startingAlpha,
                 targetAlpha,
-                progress
+                elapsedTime / fadeDuration
             );
 
             yield return null;
@@ -208,76 +208,15 @@ public sealed class IntroSequence : MonoBehaviour
         canvasGroup.alpha = targetAlpha;
     }
 
-    private IEnumerator FadeOutSkipText()
-    {
-        if (skipText == null)
-        {
-            yield break;
-        }
-
-        yield return new WaitForSecondsRealtime(
-            skipTextVisibleDuration
-        );
-
-        if (fadeDuration <= 0f)
-        {
-            SetTextAlpha(skipText, 0f);
-            yield break;
-        }
-
-        float startingAlpha = skipText.color.a;
-        float elapsed = 0f;
-
-        while (elapsed < fadeDuration)
-        {
-            if (isLoading)
-            {
-                yield break;
-            }
-
-            elapsed += Time.unscaledDeltaTime;
-
-            float progress = Mathf.Clamp01(
-                elapsed / fadeDuration
-            );
-
-            float alpha = Mathf.Lerp(
-                startingAlpha,
-                0f,
-                progress
-            );
-
-            SetTextAlpha(skipText, alpha);
-
-            yield return null;
-        }
-
-        SetTextAlpha(skipText, 0f);
-    }
-
-    private static void SetTextAlpha(
-        TextMeshProUGUI text,
-        float alpha
-    )
-    {
-        if (text == null)
-        {
-            return;
-        }
-
-        Color color = text.color;
-        color.a = Mathf.Clamp01(alpha);
-        text.color = color;
-    }
-
     private void LoadMainMenu()
     {
-        if (isLoading)
+        if (loadingScene)
         {
             return;
         }
 
-        isLoading = true;
+        loadingScene = true;
+        StopAllCoroutines();
         SceneManager.LoadScene(mainMenuSceneName);
     }
 }

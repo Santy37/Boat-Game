@@ -805,7 +805,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 4cac18a2a7429e14d8dc8e95ecec4d5c, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.003
+  m_Volume: 0.005
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -1047,8 +1047,7 @@ MonoBehaviour:
   skipText: {fileID: 488767661}
   fadeDuration: 1
   displayDuration: 3
-  titleDisplayDuration: 3
-  skipTextVisibleDuration: 8
+  titleDisplayDuration: 2
   mainMenuSceneName: MainMenu
 --- !u!4 &1510635724
 Transform:
@@ -1077,8 +1076,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 81be2d0f55683414aa7d4fdd0b36b942, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SceneFadeIn
-  fadeCanvasGroup: {fileID: 0}
-  fadeDuration: 5
 --- !u!1 &1642680058
 GameObject:
   m_ObjectHideFlags: 0
