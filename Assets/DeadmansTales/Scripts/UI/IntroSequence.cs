@@ -21,6 +21,12 @@ public sealed class IntroSequence : MonoBehaviour
     private CanvasGroup titleCanvasGroup;
 
     [SerializeField]
+    private CanvasGroup skipCanvasGroup;
+
+    [SerializeField]
+    private float skipTextVisibleDuration = 2f;
+
+    [SerializeField]
     private float displayDuration = 2.5f;
 
     [Header("Scene")]
@@ -45,7 +51,14 @@ public sealed class IntroSequence : MonoBehaviour
     private void Start()
     {
         Time.timeScale = 1f;
+
+        if (skipCanvasGroup != null)
+        {
+            skipCanvasGroup.alpha = 1f;
+        }
+
         StartCoroutine(PlayIntro());
+        StartCoroutine(FadeOutSkipText());
     }
 
     private void Update()
@@ -136,5 +149,22 @@ public sealed class IntroSequence : MonoBehaviour
 
         isLoading = true;
         SceneManager.LoadScene(mainMenuSceneName);
+    }
+
+    private IEnumerator FadeOutSkipText()
+    {
+        if (skipCanvasGroup == null)
+        {
+            yield break;
+        }
+
+        yield return new WaitForSecondsRealtime(
+            skipTextVisibleDuration
+        );
+
+        yield return FadeCanvasGroup(
+            skipCanvasGroup,
+            0f
+        );
     }
 }

@@ -284,6 +284,7 @@ GameObject:
   - component: {fileID: 488767660}
   - component: {fileID: 488767662}
   - component: {fileID: 488767661}
+  - component: {fileID: 488767663}
   m_Layer: 5
   m_Name: SkipText
   m_TagString: Untagged
@@ -339,8 +340,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 1320743167
-  m_fontColor: {r: 1, g: 0.9411765, b: 0.72156864, a: 0.30588236}
+    rgba: 3619221759
+  m_fontColor: {r: 1, g: 0.9411765, b: 0.72156864, a: 0.84313726}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -410,6 +411,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 488767659}
   m_CullTransparentMesh: 1
+--- !u!225 &488767663
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 488767659}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &522478810
 GameObject:
   m_ObjectHideFlags: 0
@@ -1031,6 +1044,8 @@ MonoBehaviour:
   storyCanvasGroup: {fileID: 735012997}
   fadeDuration: 1
   titleCanvasGroup: {fileID: 1642680059}
+  skipCanvasGroup: {fileID: 488767663}
+  skipTextVisibleDuration: 2
   displayDuration: 2.5
   mainMenuSceneName: MainMenu
 --- !u!4 &1510635724
@@ -1216,7 +1231,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1840017973
 RectTransform:
   m_ObjectHideFlags: 0
