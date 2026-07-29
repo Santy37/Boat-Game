@@ -29,6 +29,7 @@ public sealed class HotbarUI : MonoBehaviour
     [SerializeField]
     private Image swordCooldownOverlay;
 
+    private PlayerCharacter cachedPlayerCharacter;
     private NetworkPlayerLoadout cachedLoadout;
     private PlayerGun cachedGun;
     private PlayerAttack cachedAttack;
@@ -43,7 +44,12 @@ public sealed class HotbarUI : MonoBehaviour
         RefreshGunCooldown();
         RefreshSwordCooldown();
 
-        if (PauseMenu.InputBlocked)
+        PlayerCharacter player = ResolveLocalPlayerCharacter();
+
+        if (
+            PauseMenu.InputBlocked ||
+            (player != null && player.ControlLocked)
+        )
         {
             return;
         }
@@ -131,6 +137,32 @@ public sealed class HotbarUI : MonoBehaviour
 
         return cachedAttack;
     }
+
+    private PlayerCharacter ResolveLocalPlayerCharacter()
+    {
+        if (cachedPlayerCharacter != null)
+        {
+            return cachedPlayerCharacter;
+        }
+
+        NetworkManager manager = NetworkManager.Singleton;
+
+        if (
+            manager == null ||
+            !manager.IsListening ||
+            manager.LocalClient == null ||
+            manager.LocalClient.PlayerObject == null
+        )
+        {
+            return null;
+        }
+
+        cachedPlayerCharacter = manager.LocalClient.PlayerObject
+            .GetComponent<PlayerCharacter>();
+
+        return cachedPlayerCharacter;
+    }
+
     private void RefreshGunCooldown()
     {
         if (gunCooldownOverlay == null)
