@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Audio;
 
 public class PlayerAnimation2D : MonoBehaviour
 {
@@ -9,6 +10,7 @@ public class PlayerAnimation2D : MonoBehaviour
         Right,
         Up
     }
+
     public FacingDirection CurrentFacingDirection => facingDirection;
 
     [Header("References")]
@@ -18,10 +20,13 @@ public class PlayerAnimation2D : MonoBehaviour
     [SerializeField]
     private float movementThreshold = 0.0005f;
 
+    [Header("Audio")]
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip walkingClip;
+
     private Vector3 previousPosition;
 
-    private FacingDirection facingDirection =
-        FacingDirection.Down;
+    private FacingDirection facingDirection = FacingDirection.Down;
 
     private int currentStateHash;
 
@@ -30,16 +35,12 @@ public class PlayerAnimation2D : MonoBehaviour
     private void Awake()
     {
         if (animator == null)
-        {
-            animator =
-                GetComponentInChildren<Animator>(true);
-        }
+            animator = GetComponentInChildren<Animator>(true);
 
         if (animator == null)
         {
             Debug.LogError(
-                "[Player Animation] No Animator was found " +
-                "on the player or its children.",
+                "[Player Animation] No Animator was found on the player or its children.",
                 this
             );
 
@@ -48,6 +49,13 @@ public class PlayerAnimation2D : MonoBehaviour
         }
 
         animator.applyRootMotion = false;
+
+        if (audioSource != null)
+        {
+            audioSource.loop = true;
+            audioSource.playOnAwake = false;
+            audioSource.clip = walkingClip;
+        }
     }
 
     private void OnEnable()
@@ -56,6 +64,7 @@ public class PlayerAnimation2D : MonoBehaviour
         currentStateHash = 0;
 
         PlayCurrentState(false);
+        StopWalkingSound();
     }
 
     private void LateUpdate()
@@ -64,15 +73,15 @@ public class PlayerAnimation2D : MonoBehaviour
         if (facingLocked)
         {
             PlayCurrentState(false);
+            StopWalkingSound();
+
             previousPosition = transform.position;
             return;
         }
 
-        Vector3 currentPosition =
-            transform.position;
+        Vector3 currentPosition = transform.position;
 
-        Vector2 movementDelta =
-            currentPosition - previousPosition;
+        Vector2 movementDelta = currentPosition - previousPosition;
 
         previousPosition = currentPosition;
 
@@ -83,14 +92,17 @@ public class PlayerAnimation2D : MonoBehaviour
         if (isMoving)
         {
             UpdateFacingDirection(movementDelta);
+            PlayWalkingSound();
+        }
+        else
+        {
+            StopWalkingSound();
         }
 
         PlayCurrentState(isMoving);
     }
 
-    private void UpdateFacingDirection(
-        Vector2 movementDelta
-    )
+    private void UpdateFacingDirection(Vector2 movementDelta)
     {
         if (Mathf.Abs(movementDelta.y) > movementThreshold)
         {
@@ -116,22 +128,36 @@ public class PlayerAnimation2D : MonoBehaviour
                 : $"Idle_{facingDirection}";
 
         int stateHash =
-            Animator.StringToHash(
-                $"Base Layer.{stateName}"
-            );
+            Animator.StringToHash($"Base Layer.{stateName}");
 
         if (stateHash == currentStateHash)
-        {
             return;
-        }
 
-        animator.Play(
-            stateHash,
-            0,
-            0f
-        );
+        animator.Play(stateHash, 0, 0f);
 
         currentStateHash = stateHash;
+    }
+
+    private void PlayWalkingSound()
+    {
+        if (audioSource == null || walkingClip == null)
+            return;
+
+        if (!audioSource.isPlaying)
+        {
+            audioSource.Play();
+        }
+    }
+
+    private void StopWalkingSound()
+    {
+        if (audioSource == null)
+            return;
+
+        if (audioSource.isPlaying)
+        {
+            audioSource.Stop();
+        }
     }
 
     /// <summary>
@@ -147,10 +173,13 @@ public class PlayerAnimation2D : MonoBehaviour
             UpdateFacingDirection(direction);
         }
 
+        StopWalkingSound();
         PlayCurrentState(false);
     }
 
-    /// <summary>Resume normal movement-based facing.</summary>
+    /// <summary>
+    /// Resume normal movement-based facing.
+    /// </summary>
     public void UnlockFacing()
     {
         facingLocked = false;
