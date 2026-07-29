@@ -96,7 +96,7 @@ namespace DeadmansTales.Networking
                     return $"Defeat All Enemies ({remaining} Remaining)";
                 }
 
-                return "Press E to Continue the Voyage";
+                return "PRESS E TO CONTINUE VOYAGE";
             }
         }
 

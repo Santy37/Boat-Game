@@ -625,7 +625,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   ShowTopMostFoldoutHeaderGroup: 1
   anim: {fileID: 1885146353908549489}
-  attackCooldown: 0.4
+  attackCooldown: 1
   inputBufferSeconds: 0.12
   damage: 50
   attackRadius: 1.35
@@ -699,6 +699,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayerLoadout
   ShowTopMostFoldoutHeaderGroup: 1
+  foodHealAmount: 25
 --- !u!114 &8434005522542735720
 MonoBehaviour:
   m_ObjectHideFlags: 0

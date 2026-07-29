@@ -19,6 +19,11 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
     public const float DamagePerWeaponTier = 5f;
     public const float MoveSpeedPerUpgrade = 0.1f;
     public const float MaxHealthPerUpgrade = 25f;
+    public const int MaxFood = 5;
+    [Header("Food")]
+    [SerializeField]
+    [Min(1f)]
+    private float foodHealAmount = 25f;
 
     public readonly NetworkVariable<int> WeaponTier =
         new NetworkVariable<int>(
@@ -52,7 +57,12 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server
         );
-
+    public readonly NetworkVariable<int> FoodCount =
+    new NetworkVariable<int>(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
     public float BonusDamage =>
         Mathf.Max(0, WeaponTier.Value) * DamagePerWeaponTier;
 
@@ -74,6 +84,31 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
         return true;
     }
 
+    public bool AddFoodServer(int amount = 1)
+    {
+        if (
+            !IsSpawned ||
+            !IsServer ||
+            amount <= 0 ||
+            FoodCount.Value >= MaxFood
+        )
+        {
+            return false;
+        }
+
+        FoodCount.Value = Mathf.Min(
+            MaxFood,
+            FoodCount.Value + amount
+        );
+
+        Debug.Log(
+            $"[Food Inventory] {name} now has " +
+            $"{FoodCount.Value}/{MaxFood} food.",
+            this
+        );
+
+        return true;
+    }
     /// <summary>
     /// Server-only: spends coins if the player can afford it. Returns false
     /// and changes nothing when they cannot, so callers can drive this
@@ -122,6 +157,7 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
         if (SpeedUpgrades.Value <= HealthUpgrades.Value)
         {
             SpeedUpgrades.Value++;
+
             Debug.Log(
                 $"[Loadout] {name} gained a speed upgrade " +
                 $"(x{MoveSpeedMultiplier:0.0} movement).",
@@ -132,8 +168,9 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
         {
             HealthUpgrades.Value++;
 
-            // Grant the new health immediately so the reward feels real.
+            // Give the player the newly added health immediately.
             PlayerHealth health = GetComponent<PlayerHealth>();
+
             if (health != null)
             {
                 health.Heal(MaxHealthPerUpgrade);
@@ -147,5 +184,70 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Called by the owning player when they attempt to consume food.
+    /// </summary>
+    public bool TryUseFood()
+    {
+        if (
+            !IsSpawned ||
+            !IsOwner ||
+            FoodCount.Value <= 0
+        )
+        {
+            return false;
+        }
+
+        RequestUseFoodRpc();
+        return true;
+    }
+
+    /// <summary>
+    /// Server validates the request, heals the player, and removes one food.
+    /// </summary>
+    [Rpc(SendTo.Server)]
+    private void RequestUseFoodRpc(
+        RpcParams rpcParams = default
+    )
+    {
+        // Make sure the request came from this player's owning client.
+        if (
+            rpcParams.Receive.SenderClientId != OwnerClientId ||
+            FoodCount.Value <= 0
+        )
+        {
+            return;
+        }
+
+        PlayerHealth health = GetComponent<PlayerHealth>();
+
+        // Do not consume food when dead or already at full health.
+        if (
+            health == null ||
+            !health.IsAlive ||
+            health.CurrentHealth.Value >= health.MaximumHealth
+        )
+        {
+            return;
+        }
+
+        bool healed = health.Heal(
+            Mathf.Max(1f, foodHealAmount)
+        );
+
+        if (!healed)
+        {
+            return;
+        }
+
+        FoodCount.Value--;
+
+        Debug.Log(
+            $"[Food Inventory] {name} used food. " +
+            $"{FoodCount.Value} remaining.",
+            this
+        );
     }
 }

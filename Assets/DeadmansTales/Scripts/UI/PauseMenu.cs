@@ -14,6 +14,9 @@ public class PauseMenu : MonoBehaviour
     private bool deathScreenBlocking;
     public static bool InputBlocked { get; private set; }
 
+    [SerializeField]
+    private GameObject hotbar;
+
     private void Start()
     {
         ResumeGame();
@@ -57,6 +60,12 @@ public class PauseMenu : MonoBehaviour
         menuIsOpen = true;
         pauseMenuPanel.SetActive(true);
         pauseButton.SetActive(false);
+
+        if (hotbar != null)
+        {
+            hotbar.SetActive(false);
+        }
+
         InputBlocked = true;
     }
 
@@ -85,6 +94,12 @@ public class PauseMenu : MonoBehaviour
         menuIsOpen = false;
         pauseMenuPanel.SetActive(false);
         pauseButton.SetActive(true);
+
+        if (hotbar != null)
+        {
+            hotbar.SetActive(true);
+        }
+
         InputBlocked = false;
     }
 

@@ -3,53 +3,56 @@ using UnityEngine;
 
 namespace DeadmansTales.Networking
 {
-    /// <summary>
-    /// A one-use island food pickup for the checkpoint heal loop. Eating the
-    /// food heals the interacting player on the server, then the pickup
-    /// despawns for everyone. Players at full health cannot waste it.
-    /// </summary>
     public sealed class NetworkFoodPickup : NetworkInteractable2D
     {
         [SerializeField]
         private string foodName = "Food";
 
         [SerializeField]
-        [Min(1f)]
-        private float healAmount = 25f;
+        [Min(1)]
+        private int foodAmount = 1;
 
         public override string InteractionPrompt =>
-            $"Press E to Eat {foodName} (+{healAmount:0} HP)";
+            $"PRESS E TO PICK UP";
 
         protected override bool CanInteractServer(
             NetworkInteractionController2D interactor
         )
         {
-            PlayerHealth health = interactor.GetComponent<PlayerHealth>();
+            NetworkPlayerLoadout loadout =
+                interactor.GetComponent<NetworkPlayerLoadout>();
 
             return
-                health != null &&
-                health.IsAlive &&
-                health.CurrentHealth.Value < health.MaximumHealth;
+                loadout != null &&
+                loadout.FoodCount.Value < NetworkPlayerLoadout.MaxFood;
         }
 
         protected override void PerformInteractionServer(
             NetworkInteractionController2D interactor
         )
         {
-            PlayerHealth health = interactor.GetComponent<PlayerHealth>();
+            NetworkPlayerLoadout loadout =
+                interactor.GetComponent<NetworkPlayerLoadout>();
 
-            if (health != null)
+            if (loadout == null)
             {
-                health.Heal(Mathf.Max(1f, healAmount));
-
-                Debug.Log(
-                    $"[Food] Client {interactor.OwnerClientId} ate " +
-                    $"{foodName} (+{healAmount:0} HP).",
-                    this
-                );
+                return;
             }
 
-            // One bite per pickup: remove it for every player.
+            bool added = loadout.AddFoodServer(foodAmount);
+
+            if (!added)
+            {
+                return;
+            }
+
+            Debug.Log(
+                $"[Food Pickup] Client {interactor.OwnerClientId} picked up " +
+                $"{foodName}. Inventory: {loadout.FoodCount.Value}/" +
+                $"{NetworkPlayerLoadout.MaxFood}.",
+                this
+            );
+
             NetworkObject.Despawn(true);
         }
     }
