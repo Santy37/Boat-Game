@@ -10,8 +10,8 @@ using UnityEngine;
 /// away once they have walked on. A hint can also be marked one-shot, so it
 /// stops reappearing after the crew has clearly learned it.
 ///
-/// Drawn with OnGUI to match ControlsDisplay, so it needs no canvas wiring
-/// and works the same in the editor and a build. Only the local player's
+/// The trigger sends its message to TutorialPromptHUD, which displays the
+/// text using the shared pirate-themed Canvas panel. Only the local player's
 /// trigger matters -- prompts are pure client-side UI and never networked.
 /// </summary>
 [RequireComponent(typeof(Collider2D))]
@@ -19,20 +19,17 @@ public class TutorialPrompt2D : MonoBehaviour
 {
     [Header("Hint")]
     [TextArea]
-    [SerializeField] private string message = "WASD to move";
+    [SerializeField]
+    private string message = "WASD TO MOVE";
 
-    [Tooltip("Hide this hint permanently once the player has left the zone.")]
-    [SerializeField] private bool showOnlyOnce;
-
-    [Header("Placement")]
-    [Tooltip("How far up the screen the hint sits (0 = bottom, 1 = top).")]
-    [Range(0f, 1f)]
-    [SerializeField] private float screenHeight = 0.16f;
-
-    [SerializeField] private int fontSize = 26;
+    [Tooltip(
+        "Hide this hint permanently once the player has left the zone."
+    )]
+    [SerializeField]
+    private bool showOnlyOnce;
 
     // Only one hint is ever on screen: overlapping zones would otherwise
-    // stack panels on top of each other.
+    // compete to display different messages on the shared prompt panel.
     private static TutorialPrompt2D active;
 
     private bool consumed;
@@ -42,6 +39,8 @@ public class TutorialPrompt2D : MonoBehaviour
         if (active == this)
         {
             active = null;
+
+            TutorialPromptHUD.Instance?.Hide();
         }
     }
 
@@ -53,6 +52,7 @@ public class TutorialPrompt2D : MonoBehaviour
         }
 
         active = this;
+        ShowPrompt();
     }
 
     /// <summary>
@@ -60,16 +60,18 @@ public class TutorialPrompt2D : MonoBehaviour
     ///
     /// OnTriggerEnter2D never fires for a collider you are already inside, and
     /// the crew spawns directly on top of the "WASD to move" zone -- so the
-    /// very first hint, the one that matters most, silently never appeared.
+    /// very first hint, the one that matters most, could otherwise silently
+    /// fail to appear.
     /// </summary>
     private void OnTriggerStay2D(Collider2D other)
     {
-        if (consumed || active == this || !IsLocalPlayer(other))
+        if (consumed || !IsLocalPlayer(other))
         {
             return;
         }
 
         active = this;
+        ShowPrompt();
     }
 
     private void OnTriggerExit2D(Collider2D other)
@@ -82,12 +84,27 @@ public class TutorialPrompt2D : MonoBehaviour
         if (active == this)
         {
             active = null;
+
+            TutorialPromptHUD.Instance?.Hide();
         }
 
         if (showOnlyOnce)
         {
             consumed = true;
         }
+    }
+
+    /// <summary>
+    /// Sends this zone's message to the shared tutorial prompt Canvas.
+    /// </summary>
+    private void ShowPrompt()
+    {
+        if (active != this)
+        {
+            return;
+        }
+
+        TutorialPromptHUD.Instance?.Show(message);
     }
 
     /// <summary>
@@ -114,42 +131,21 @@ public class TutorialPrompt2D : MonoBehaviour
         return other.GetComponentInParent<PlayerCharacter>() != null;
     }
 
-    private void OnGUI()
-    {
-        if (active != this || string.IsNullOrWhiteSpace(message))
-        {
-            return;
-        }
-
-        GUIStyle style = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = fontSize,
-            wordWrap = true,
-        };
-        style.normal.textColor = Color.white;
-
-        float width = Mathf.Min(760f, Screen.width - 80f);
-        float height = 78f;
-        Rect panel = new Rect(
-            (Screen.width - width) * 0.5f,
-            Screen.height * (1f - screenHeight) - height * 0.5f,
-            width,
-            height
-        );
-
-        Color previous = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.62f);
-        GUI.Box(panel, GUIContent.none);
-        GUI.color = previous;
-
-        GUI.Label(panel, message, style);
-    }
-
+    /// <summary>
+    /// Draws the tutorial trigger area in the Scene view so designers can
+    /// see where each teaching hint begins and ends.
+    /// </summary>
     private void OnDrawGizmos()
     {
-        Gizmos.color = new Color(1f, 0.85f, 0.2f, 0.35f);
+        Gizmos.color = new Color(
+            1f,
+            0.85f,
+            0.2f,
+            0.35f
+        );
+
         Collider2D area = GetComponent<Collider2D>();
+
         if (area != null)
         {
             Bounds bounds = area.bounds;

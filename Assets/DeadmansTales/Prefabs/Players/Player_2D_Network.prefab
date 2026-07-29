@@ -625,7 +625,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   ShowTopMostFoldoutHeaderGroup: 1
   anim: {fileID: 1885146353908549489}
-  attackCooldown: 0.4
+  attackCooldown: 1
   inputBufferSeconds: 0.12
   damage: 50
   attackRadius: 1.35
@@ -699,6 +699,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayerLoadout
   ShowTopMostFoldoutHeaderGroup: 1
+  foodHealAmount: 25
 --- !u!114 &8434005522542735720
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -746,6 +747,29 @@ MonoBehaviour:
   hitMask:
     serializedVersion: 2
     m_Bits: 256
+--- !u!114 &4424567147886695379
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3388892594036479966}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc9ae406983390f41bf54c2582c3b546, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSoulVFX
+  ShowTopMostFoldoutHeaderGroup: 1
+  soulFrames:
+  - {fileID: 392877701, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: 163876693, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: -340037243, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  - {fileID: 1976479395, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
+  framesPerSecond: 8
+  startOffset: {x: 0, y: 0.5, z: 0}
+  riseDistance: 2.5
+  duration: 1.2
+  soulScale: 0.65
 --- !u!1 &3920563249596062333
 GameObject:
   m_ObjectHideFlags: 0
@@ -1270,26 +1294,3 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &4424567147886695379
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3388892594036479966}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bc9ae406983390f41bf54c2582c3b546, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerSoulVFX
-  ShowTopMostFoldoutHeaderGroup: 1
-  soulFrames:
-  - {fileID: 392877701, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
-  - {fileID: 163876693, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
-  - {fileID: -340037243, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
-  - {fileID: 1976479395, guid: 586998b50bbed8b40acd8f2ce815d51b, type: 3}
-  framesPerSecond: 8
-  startOffset: {x: 0, y: 0.5, z: 0}
-  riseDistance: 2.5
-  duration: 1.2
-  soulScale: 0.65
