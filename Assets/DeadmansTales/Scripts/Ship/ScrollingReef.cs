@@ -58,10 +58,15 @@ public class ScrollingReef : MonoBehaviour
     [Tooltip("Cannonball hits a rock takes before it breaks.")]
     [SerializeField, Min(1)] private int rockHitsToBreak = 2;
 
-    [Tooltip("Radius of the trigger added to each rock so cannonballs can hit "
-        + "it. The rocks carry no collider of their own -- contact damage with "
-        + "the ship is done by a position check, not by physics.")]
+    [Tooltip("Fallback radius for the trigger added to each rock, used only if "
+        + "the rock has no sprite to measure. The rocks carry no collider of "
+        + "their own -- ship contact damage is a position check, not physics.")]
     [SerializeField, Min(0.1f)] private float rockHitRadius = 1.2f;
+
+    [Tooltip("Multiplies the hit radius measured from the rock's sprite. Raise "
+        + "it if cannonballs still slip past rocks, lower it if they detonate "
+        + "short of one.")]
+    [SerializeField, Min(0.1f)] private float rockHitScale = 1f;
 
     private sealed class Gate
     {
@@ -221,11 +226,26 @@ public class ScrollingReef : MonoBehaviour
     // stay untouched -- they are being edited on other branches.
     private void MakeRockShootable(GameObject rock, int gateIndex, int rockIndex)
     {
-        if (rock.GetComponent<Collider2D>() == null)
+        // Size the hit area from the rock's own art rather than a guessed
+        // radius: these prefabs vary, and a circle too small to cover the
+        // sprite reads in game as cannonballs passing straight through a rock
+        // they visibly struck.
+        if (rock.GetComponentInChildren<Collider2D>(true) == null)
         {
             CircleCollider2D hit = rock.AddComponent<CircleCollider2D>();
-            hit.radius = rockHitRadius;
             hit.isTrigger = true;
+
+            SpriteRenderer art = rock.GetComponentInChildren<SpriteRenderer>(true);
+            float radius = rockHitRadius;
+
+            if (art != null && art.sprite != null)
+            {
+                // Local-space extents, since the collider scales with the rock.
+                Vector2 size = art.sprite.bounds.size;
+                radius = Mathf.Max(size.x, size.y) * 0.5f;
+            }
+
+            hit.radius = Mathf.Max(0.1f, radius * rockHitScale);
         }
 
         ReefRock marker = rock.GetComponent<ReefRock>();

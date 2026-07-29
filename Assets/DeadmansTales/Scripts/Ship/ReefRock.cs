@@ -25,6 +25,10 @@ public sealed class ReefRock : MonoBehaviour
     private int gateIndex = -1;
     private int rockIndex = -1;
 
+    public ScrollingReef Reef => reef;
+    public int GateIndex => gateIndex;
+    public int RockIndex => rockIndex;
+
     public void Bind(ScrollingReef owner, int gate, int rock)
     {
         reef = owner;
@@ -32,36 +36,16 @@ public sealed class ReefRock : MonoBehaviour
         rockIndex = rock;
     }
 
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        if (reef == null)
-        {
-            return;
-        }
-
-        NetworkCannonball ball = other.GetComponentInParent<NetworkCannonball>();
-
-        if (ball == null)
-        {
-            return;
-        }
-
-        // Server decides. Clients do nothing here and simply wait to be told,
-        // otherwise each peer would break rocks on its own and the reef would
-        // drift apart between machines.
-        if (!ball.IsServer)
-        {
-            return;
-        }
-
-        if (!reef.RegisterCannonHitServer(gateIndex, rockIndex))
-        {
-            return;
-        }
-
-        // The generation is read at the moment of the break and travels with the
-        // message, so a receiver whose gate has already recycled can discard it.
-        ball.BreakReefRockServer(
-            gateIndex, rockIndex, reef.GenerationOf(gateIndex));
-    }
+    // Deliberately a pure identity tag with no trigger callback of its own.
+    //
+    // The first attempt resolved hits in OnTriggerEnter2D here, and cannonballs
+    // sailed straight through: detection was split across two systems, and only
+    // the cannonball's side actually fires. The ball finds its targets through
+    // its OWN trigger plus an explicit overlap sweep (it can spawn already
+    // overlapping something), and that is the path every other target type is
+    // resolved on. A callback on this object is not part of it.
+    //
+    // So the hit is now resolved in NetworkCannonball.HandlePossibleHit, which
+    // reads the indices above. Nothing about the server-authority or the
+    // generation guard changes -- only which side notices the contact.
 }

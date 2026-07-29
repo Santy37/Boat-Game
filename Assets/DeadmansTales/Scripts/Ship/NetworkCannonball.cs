@@ -356,13 +356,33 @@ namespace DeadmansTales.Ship
                 return ImpactSound.Explosion;
             }
 
-            // Kraken arena reef: a ScrollingReef rock. Handled by ReefRock's own
-            // trigger rather than here, because the reef has no NetworkObject
-            // and its rocks are pooled Transforms, so there is nothing on them
-            // for the networked checks below to find. Recognising it here only
-            // stops the ball sailing straight through a rock it just broke.
-            if (other.GetComponentInParent<ReefRock>() != null)
+            // Kraken arena reef: a ScrollingReef rock. Resolved HERE rather than
+            // on the rock, because this is the path that actually fires -- the
+            // ball's own trigger plus its overlap sweep. An OnTriggerEnter2D on
+            // the rock never ran, which is why cannonballs went straight
+            // through. The reef itself stays un-networked: its rocks are pooled
+            // Transforms named by (gate, rock), so there is nothing here for the
+            // networked checks below to find.
+            ReefRock reefRock = other.GetComponentInParent<ReefRock>();
+
+            if (reefRock != null)
             {
+                ScrollingReef reef = reefRock.Reef;
+
+                // Server decides, then tells every peer, so a client can never
+                // shoot away a rock the host still has.
+                if (reef != null &&
+                    reef.RegisterCannonHitServer(
+                        reefRock.GateIndex, reefRock.RockIndex))
+                {
+                    BreakReefRockServer(
+                        reefRock.GateIndex,
+                        reefRock.RockIndex,
+                        reef.GenerationOf(reefRock.GateIndex));
+                }
+
+                // Solid rock, and the ball is spent either way -- a hit that
+                // only chipped the rock still must not fly on through it.
                 return ImpactSound.HeavyImpact;
             }
 
