@@ -410,7 +410,7 @@ MonoBehaviour:
   shipHitbox: {fileID: 1361659284}
   firstDelay: 3.5
   interval: 2.75
-  projectileSpeed: 6.4
+  projectileSpeed: 8
   projectileLife: 4
   hitRadius: 2.5
   oilDamage: 30
@@ -445,9 +445,9 @@ MonoBehaviour:
   shipHitbox: {fileID: 1361659284}
   strikeRadius: 4.5
   sinkMeterDamage: 50
-  firstDelay: 2.5
-  attackInterval: 3.5
-  telegraphTime: 2.7
+  firstDelay: 5
+  attackInterval: 5
+  telegraphTime: 4
   strikeHold: 0.35
   fadeTime: 0.5
 --- !u!114 &102312514
@@ -848,7 +848,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.NetworkShipSinkMeter
   ShowTopMostFoldoutHeaderGroup: 1
-  maximumSinkLevel: 150
+  maximumSinkLevel: 300
   maximumHealthDrainPerSecond: 8
   shipHealth: {fileID: 0}
 --- !u!1 &256290935

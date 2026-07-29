@@ -29,8 +29,29 @@ namespace DeadmansTales.Networking
         [SerializeField]
         private bool requireAllEnemyShipsDefeated;
 
+        [Tooltip(
+            "Blocks passage until every KrakenHealth in the scene is gone " +
+            "(defeated and despawned -- KrakenHealth.TakeHitServer despawns " +
+            "it on death). This is the boss-arena's final portal; ordinary " +
+            "stage portals between islands leave this off."
+        )]
+        [SerializeField]
+        private bool requireKrakenDefeated;
+
         [SerializeField]
         private bool advanceStage = true;
+
+        [Tooltip(
+            "The final portal after the boss: interacting sets " +
+            "NetworkRunState.Status to Completed instead of loading " +
+            "destinationSceneName -- there is no next stage after a win. " +
+            "No win screen exists yet ('eventually'); this NetworkRunStatus " +
+            "is the hook a future WinScreenUI can react to, the same way " +
+            "SinglePlayerDeathScreenUI reacts to Failed. destinationSceneName " +
+            "and Advance Stage are ignored when this is on."
+        )]
+        [SerializeField]
+        private bool completesRun;
 
         private const float EnemyCountRefreshSeconds = 0.25f;
 
@@ -85,6 +106,11 @@ namespace DeadmansTales.Networking
                     return "Loading Next Stage...";
                 }
 
+                if (requireKrakenDefeated && FindFirstObjectByType<KrakenHealth>() != null)
+                {
+                    return "Defeat the Kraken First";
+                }
+
                 if (requireAllEnemyShipsDefeated && RemainingEnemyShips > 0)
                 {
                     return $"Sink All Enemy Ships ({RemainingEnemyShips} Remaining)";
@@ -96,7 +122,9 @@ namespace DeadmansTales.Networking
                     return $"Defeat All Enemies ({remaining} Remaining)";
                 }
 
-                return "Press E to Continue the Voyage";
+                return completesRun
+                    ? "Press E to Complete the Voyage"
+                    : "Press E to Continue the Voyage";
             }
         }
 
@@ -105,6 +133,11 @@ namespace DeadmansTales.Networking
         )
         {
             if (sceneLoadRequested)
+            {
+                return false;
+            }
+
+            if (requireKrakenDefeated && FindFirstObjectByType<KrakenHealth>() != null)
             {
                 return false;
             }
@@ -132,6 +165,28 @@ namespace DeadmansTales.Networking
             NetworkInteractionController2D interactor
         )
         {
+            if (completesRun)
+            {
+                NetworkRunState runState = NetworkRunState.Instance;
+                if (runState != null && runState.IsSpawned)
+                {
+                    runState.SetStatusServer(NetworkRunStatus.Completed);
+                }
+
+                // TODO: once a real win screen/scene exists, load it here,
+                // the same way the branch below loads destinationSceneName.
+                // For now NetworkRunStatus.Completed is the hook -- build a
+                // WinScreenUI that reacts to it, mirroring how
+                // SinglePlayerDeathScreenUI reacts to Failed.
+                Debug.Log(
+                    "[Stage Portal] Run completed. No win screen wired up " +
+                    "yet -- NetworkRunState.Status is Completed for a " +
+                    "future UI to react to.",
+                    this
+                );
+                return;
+            }
+
             NetworkManager manager = NetworkManager.Singleton;
 
             if (
