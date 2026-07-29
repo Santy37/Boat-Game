@@ -130,6 +130,13 @@ namespace DeadmansTales.Networking
                     return $"Defeat All Enemies ({remaining} Remaining)";
                 }
 
+                // The boat leg has to actually finish before any exit opens,
+                // including the one that ends the run.
+                if (Leg != null && !Leg.IsComplete)
+                {
+                    return "NOT THERE YET...";
+                }
+
                 return completesRun
                     ? "PRESS E TO CLAIM VICTORY"
                     : "PRESS E TO CONTINUE VOYAGE";
@@ -166,7 +173,29 @@ namespace DeadmansTales.Networking
                 return false;
             }
 
+            // If this scene has a boat-leg bar, block until it is complete.
+            if (Leg != null && !Leg.IsComplete)
+            {
+                return false;
+            }
+
             return !requireAllEnemiesDefeated || CountRemainingEnemies() == 0;
+        }
+
+        private BoatLegProgress boatLeg;
+        private bool boatLegSearched;
+
+        private BoatLegProgress Leg
+        {
+            get
+            {
+                if (!boatLegSearched)
+                {
+                    boatLeg = FindFirstObjectByType<BoatLegProgress>();
+                    boatLegSearched = true;
+                }
+                return boatLeg;
+            }
         }
 
         protected override void PerformInteractionServer(

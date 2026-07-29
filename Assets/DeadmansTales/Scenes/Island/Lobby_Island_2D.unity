@@ -46918,7 +46918,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LobbyRowboatInteraction
   interactionKey: 101
-  gameplaySceneName: Boat_Gameplay_2D
+  gameplaySceneName: Level_1_Crab_Beach_2D
 --- !u!61 &1907538491
 BoxCollider2D:
   m_ObjectHideFlags: 0

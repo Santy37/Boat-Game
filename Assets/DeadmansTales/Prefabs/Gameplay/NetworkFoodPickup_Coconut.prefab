@@ -113,7 +113,7 @@ MonoBehaviour:
   allowRepeatedInteraction: 0
   additionalServerRange: 0.25
   foodName: a Coconut
-  healAmount: 20
+  foodAmount: 1
 --- !u!1 &872522072658773264
 GameObject:
   m_ObjectHideFlags: 0

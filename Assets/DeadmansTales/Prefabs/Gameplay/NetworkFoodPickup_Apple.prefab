@@ -204,4 +204,4 @@ MonoBehaviour:
   allowRepeatedInteraction: 0
   additionalServerRange: 0.25
   foodName: an Apple
-  healAmount: 25
+  foodAmount: 1
