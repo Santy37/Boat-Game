@@ -489,7 +489,7 @@ public class BoatLegProgress : MonoBehaviour
             ? InteractionPromptHUD.BannerPriority
             : InteractionPromptHUD.StatusPriority;
 
-        hud.Show(message, this, priority, centered: true);
+        hud.Show(message, this, priority, centered: false);
     }
 
     private void OnDisable()

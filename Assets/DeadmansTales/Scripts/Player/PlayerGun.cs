@@ -39,7 +39,7 @@ public sealed class PlayerGun : NetworkBehaviour
     private Vector2 lastAimDirection = Vector2.right;
 
     private NetworkPlayerLoadout loadout;
-
+    private PlayerCharacter playerCharacter;
 
 
 
@@ -52,12 +52,20 @@ public sealed class PlayerGun : NetworkBehaviour
             anim = GetComponentInChildren<Animator>(true);
 
         loadout = GetComponent<NetworkPlayerLoadout>();
+        playerCharacter = GetComponent<PlayerCharacter>();
     }
 
     private void Update()
     {
-        if (!IsSpawned || !IsOwner || PauseMenu.InputBlocked)
+        if (
+            !IsSpawned ||
+            !IsOwner ||
+            PauseMenu.InputBlocked ||
+            (playerCharacter != null && playerCharacter.ControlLocked)
+        )
+        {
             return;
+        }
 
         if (EventSystem.current != null &&
             EventSystem.current.IsPointerOverGameObject())
@@ -96,6 +104,8 @@ public sealed class PlayerGun : NetworkBehaviour
         if (
             !IsSpawned ||
             !IsOwner ||
+            PauseMenu.InputBlocked ||
+            (playerCharacter != null && playerCharacter.ControlLocked) ||
             Time.unscaledTime < nextLocalFireTime
         )
         {

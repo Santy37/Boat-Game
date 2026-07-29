@@ -57,6 +57,7 @@ public sealed class PlayerAttack : NetworkBehaviour
     private float bufferedAttackUntil = float.NegativeInfinity;
     private NetworkPlayerLoadout loadout;
     private Vector2 lastAimDirection = Vector2.down;
+    private PlayerCharacter playerCharacter;
 
     private void Awake()
     {
@@ -64,12 +65,12 @@ public sealed class PlayerAttack : NetworkBehaviour
         {
             anim = GetComponentInChildren<Animator>(true);
         }
-
         if (audioSource == null)
         {
             audioSource = GetComponentInChildren<AudioSource>(true);
         }
 
+        playerCharacter = GetComponent<PlayerCharacter>();
         loadout = GetComponent<NetworkPlayerLoadout>();
     }
     public float CooldownRemainingNormalized
@@ -89,7 +90,12 @@ public sealed class PlayerAttack : NetworkBehaviour
     }
     private void Update()
     {
-        if (!IsSpawned || !IsOwner || PauseMenu.InputBlocked)
+        if (
+    !IsSpawned ||
+    !IsOwner ||
+    PauseMenu.InputBlocked ||
+    (playerCharacter != null && playerCharacter.ControlLocked)
+)
         {
             return;
         }
@@ -142,6 +148,7 @@ public sealed class PlayerAttack : NetworkBehaviour
             !IsSpawned ||
             !IsOwner ||
             PauseMenu.InputBlocked ||
+            (playerCharacter != null && playerCharacter.ControlLocked) ||
             Time.unscaledTime < nextLocalAttackTime
         )
         {
