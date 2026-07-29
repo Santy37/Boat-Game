@@ -56,6 +56,15 @@ public class KrakenAttack : MonoBehaviour
     )]
     [SerializeField] private float sinkMeterDamage = 100f;
 
+    [Tooltip(
+        "Played where the tentacle slams down. The attack coroutine runs on "
+        + "every peer, so this needs no RPC.")]
+    [SerializeField] private AudioClip tentacleAttackClip;
+
+    [SerializeField]
+    [Range(0f, 1f)]
+    private float tentacleAttackVolume = 1f;
+
     [Header("Timing (seconds)")]
     [SerializeField] private float firstDelay = 2.5f;
     [SerializeField] private float attackInterval = 3.5f;
@@ -200,6 +209,14 @@ public class KrakenAttack : MonoBehaviour
         // right under the strike, or a "hit" while it was nowhere close.
         // ClosestPoint finds the nearest point ON THE HULL itself (0 if
         // target already lands inside it), so this respects the real shape.
+        // The slam itself, whether or not it connects -- the crew should hear
+        // a tentacle come down beside them as well as on them.
+        if (tentacleAttackClip != null)
+        {
+            AudioSource.PlayClipAtPoint(
+                tentacleAttackClip, target, tentacleAttackVolume);
+        }
+
         if (shipHitbox != null)
         {
             Vector2 closestOnHull = Physics2D.ClosestPoint(target, shipHitbox);
