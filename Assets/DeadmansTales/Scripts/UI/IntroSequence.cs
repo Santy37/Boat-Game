@@ -18,6 +18,9 @@ public sealed class IntroSequence : MonoBehaviour
     private float fadeDuration = 1f;
 
     [SerializeField]
+    private CanvasGroup titleCanvasGroup;
+
+    [SerializeField]
     private float displayDuration = 2.5f;
 
     [Header("Scene")]
@@ -68,38 +71,51 @@ public sealed class IntroSequence : MonoBehaviour
 
     private IEnumerator PlayIntro()
     {
-        if (storyText == null || storyCanvasGroup == null)
+        if (
+            storyText == null ||
+            storyCanvasGroup == null ||
+            titleCanvasGroup == null
+        )
         {
             Debug.LogError(
-                "[Intro Sequence] Story Text or Canvas Group is missing.",
+                "[Intro Sequence] A UI reference is missing.",
                 this
             );
 
             yield break;
         }
 
+        titleCanvasGroup.alpha = 0f;
+
         foreach (string line in storyLines)
         {
             storyText.text = line;
 
-            yield return FadeTo(1f);
+            yield return FadeCanvasGroup(storyCanvasGroup, 1f);
             yield return new WaitForSecondsRealtime(displayDuration);
-            yield return FadeTo(0f);
+            yield return FadeCanvasGroup(storyCanvasGroup, 0f);
         }
+
+        yield return FadeCanvasGroup(titleCanvasGroup, 1f);
+        yield return new WaitForSecondsRealtime(3f);
+        yield return FadeCanvasGroup(titleCanvasGroup, 0f);
 
         LoadMainMenu();
     }
 
-    private IEnumerator FadeTo(float targetAlpha)
+    private IEnumerator FadeCanvasGroup(
+     CanvasGroup canvasGroup,
+     float targetAlpha
+ )
     {
-        float startingAlpha = storyCanvasGroup.alpha;
+        float startingAlpha = canvasGroup.alpha;
         float elapsed = 0f;
 
         while (elapsed < fadeDuration)
         {
             elapsed += Time.unscaledDeltaTime;
 
-            storyCanvasGroup.alpha = Mathf.Lerp(
+            canvasGroup.alpha = Mathf.Lerp(
                 startingAlpha,
                 targetAlpha,
                 elapsed / fadeDuration
@@ -108,7 +124,7 @@ public sealed class IntroSequence : MonoBehaviour
             yield return null;
         }
 
-        storyCanvasGroup.alpha = targetAlpha;
+        canvasGroup.alpha = targetAlpha;
     }
 
     private void LoadMainMenu()
