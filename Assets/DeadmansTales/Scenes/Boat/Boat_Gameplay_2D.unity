@@ -277,7 +277,7 @@ MonoBehaviour:
   shipSpeed: 2.5
   randomSpawnPoint: 1
   chosenSpawnPoint: 0
-  crewPrefab: {fileID: 4707447174414615646, guid: 0fde4599e85ed8842a2ac6019fbcf4d4, type: 3}
+  crewPrefab: {fileID: 8918378950335595603, guid: 9fdb35f3310529b4ab48fdc3a0b8d991, type: 3}
   crewPerShip: 2
   crewLocalOffsets:
   - {x: -2, y: 0.3}
@@ -599,6 +599,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.NetworkShipHealth
   ShowTopMostFoldoutHeaderGroup: 1
   maximumHealth: 500
+  destroyDelay: 1
   healthRestoredPerStageAdvance: 200
 --- !u!114 &235887351
 MonoBehaviour:
@@ -756,6 +757,7 @@ MonoBehaviour:
   level3Events: 3
   defaultLevel: 3
   enemyShipChance: 0.5
+  guaranteeBothEventTypes: 1
   obstacleIcon: {fileID: 1077131482}
   pirateShipIcon: {fileID: 2111329722}
   eventOffset: {x: 0, y: -1}
@@ -771,6 +773,11 @@ MonoBehaviour:
   messageDuration: 5
   arrivalMessage: LAND HOOOO!!!
   messagePrioritySeconds: 5
+--- !u!1 &362709374 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 497764116081080609, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+  m_PrefabInstance: {fileID: 1434019479496468661}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &366614375
 GameObject:
   m_ObjectHideFlags: 0
@@ -1450,6 +1457,8 @@ MonoBehaviour:
   steeringCameraZoom: 25
   zoomLerpSpeed: 5
   fallbackManKey: 101
+  pushOutOfEnemyHulls: 1
+  hullSeparationSkin: 0
 --- !u!61 &497979626
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -3870,6 +3879,17 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!114 &985325137 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3662378677260580065, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+  m_PrefabInstance: {fileID: 1434019479496468661}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b4030e4f54d104439512b76954ab4bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PauseMenu
 --- !u!1 &990760639
 GameObject:
   m_ObjectHideFlags: 0
@@ -4216,22 +4236,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 1398146463713163631, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 2327.5547
-      objectReference: {fileID: 0}
-    - target: {fileID: 1398146463713163631, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_SizeDelta.y
-      value: 1222.2728
-      objectReference: {fileID: 0}
-    - target: {fileID: 1398146463713163631, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 4.3493
-      objectReference: {fileID: 0}
-    - target: {fileID: 1398146463713163631, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 6.1913986
-      objectReference: {fileID: 0}
     - target: {fileID: 2798816086414913423, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 2.0478516
@@ -4316,6 +4320,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4285159270737972099, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
+      propertyPath: hotbar
+      value: 
+      objectReference: {fileID: 362709374}
+    - target: {fileID: 4285159270737972099, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
+      propertyPath: pauseMenu
+      value: 
+      objectReference: {fileID: 985325137}
     - target: {fileID: 5608676363641927800, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
       propertyPath: m_Name
       value: DeathScreenUI

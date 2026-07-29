@@ -28,6 +28,49 @@ namespace DeadmansTales.Ship
 
         public Collider2D Hitbox => hitbox;
 
+        [Tooltip(
+            "The walkable deck bounds, i.e. the EdgeCollider2D that fences " +
+            "the deck in (the 'Collider' child on the Ship). Handed to enemy " +
+            "crew that board this ship so they wander and chase within the " +
+            "deck instead of walking off over the sea. Leave empty to fall " +
+            "back to the first EdgeCollider2D found among this ship's " +
+            "children."
+        )]
+        [SerializeField]
+        private Collider2D deckBounds;
+
+        /// <summary>
+        /// Deck bounds for anything that has to stay aboard this ship. Falls
+        /// back to the first child EdgeCollider2D so boarding still works on
+        /// a ship whose marker predates this field -- the boat scene is being
+        /// rewritten on several branches at once, so this deliberately does
+        /// not depend on new scene wiring.
+        /// </summary>
+        public Collider2D DeckBounds
+        {
+            get
+            {
+                if (deckBounds != null)
+                {
+                    return deckBounds;
+                }
+
+                deckBounds = GetComponentInChildren<EdgeCollider2D>(true);
+
+                if (deckBounds == null)
+                {
+                    Debug.LogWarning(
+                        $"[Player Ship Marker] '{name}' has no Deck Bounds " +
+                        "assigned and no child EdgeCollider2D to fall back " +
+                        "on, so boarding enemies cannot be kept on deck.",
+                        this
+                    );
+                }
+
+                return deckBounds;
+            }
+        }
+
         /// <summary>
         /// Best aim/distance reference point for this ship: the hull
         /// collider's actual bounds center if wired, otherwise a fallback to

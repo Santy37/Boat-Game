@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/DeadmansTales/Scenes/Menu/OpeningScene.unity
+    guid: 2aac1943a281bb84c9afe622b89645ec
+  - enabled: 1
     path: Assets/DeadmansTales/Scenes/Menu/MainMenu.unity
     guid: 72002d976adc88e4ab50fe25ed961848
   - enabled: 1
