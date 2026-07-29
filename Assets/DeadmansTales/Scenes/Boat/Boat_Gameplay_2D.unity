@@ -555,7 +555,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.NetworkShipSinkMeter
   ShowTopMostFoldoutHeaderGroup: 1
-  maximumSinkLevel: 150
+  maximumSinkLevel: 300
   maximumHealthDrainPerSecond: 8
   shipHealth: {fileID: 0}
 --- !u!114 &235887350
@@ -572,7 +572,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.NetworkShipHealth
   ShowTopMostFoldoutHeaderGroup: 1
   maximumHealth: 500
-  healthRestoredPerStageAdvance: 0.5
+  healthRestoredPerStageAdvance: 200
 --- !u!114 &235887351
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -36,7 +36,6 @@ public class KrakenArenaHud : MonoBehaviour
     {
         if (won)
         {
-            DrawCentered("THE KRAKEN IS SLAIN", 34, Color.white, -1f);
             return;
         }
 
