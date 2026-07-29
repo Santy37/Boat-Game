@@ -167,10 +167,10 @@ namespace DeadmansTales.Networking
         {
             if (completesRun)
             {
-                NetworkRunState runState = NetworkRunState.Instance;
-                if (runState != null && runState.IsSpawned)
+                NetworkRunState completionRunState = NetworkRunState.Instance;
+                if (completionRunState != null && completionRunState.IsSpawned)
                 {
-                    runState.SetStatusServer(NetworkRunStatus.Completed);
+                    completionRunState.SetStatusServer(NetworkRunStatus.Completed);
                 }
 
                 // TODO: once a real win screen/scene exists, load it here,
