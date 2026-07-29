@@ -13,7 +13,7 @@ namespace DeadmansTales.Networking
         private int foodAmount = 1;
 
         public override string InteractionPrompt =>
-            $"Press E to Pick Up {foodName}";
+            $"PRESS E TO PICK UP";
 
         protected override bool CanInteractServer(
             NetworkInteractionController2D interactor

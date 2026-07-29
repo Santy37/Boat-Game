@@ -64,7 +64,7 @@ namespace DeadmansTales.Networking
         public override string InteractionPrompt =>
             Opened.Value
                 ? "Chest Opened"
-                : "Press E to Open Chest";
+                : "PRESS E TO OPEN";
 
         public override void OnNetworkSpawn()
         {
