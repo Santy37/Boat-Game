@@ -70,6 +70,18 @@ public class BoatObstacleGenerator : MonoBehaviour
     private bool initialized;
     private PlayerShipMarker playerShip;
 
+    // One warning per reason per run: an obstacle event fires repeatedly and
+    // this would otherwise flood the Console.
+    private readonly HashSet<string> warnedMessages = new HashSet<string>();
+
+    private void WarnOnce(string message)
+    {
+        if (warnedMessages.Add(message))
+        {
+            Debug.LogWarning(message, this);
+        }
+    }
+
     // The obstacles spawned by the current trigger. Pruned of destroyed entries
     // by IsResolving; the progress bar waits on this to empty out.
     private readonly List<GameObject> activeObstacles = new List<GameObject>();
@@ -108,15 +120,34 @@ public class BoatObstacleGenerator : MonoBehaviour
 
     private bool TryPrepareServer()
     {
-        if (BoatRunDirector.Instance == null ||
-            !BoatRunDirector.Instance.IsRunReady)
+        // Interactive NetworkObjects are only spawned by the server. Clients
+        // call Trigger too (every peer's progress bar does), and for them
+        // doing nothing is correct and silent.
+        if (BoatRunDirector.Instance != null &&
+            !BoatRunDirector.Instance.IsServer)
         {
             return false;
         }
 
-        // Interactive NetworkObjects are only spawned by the server.
-        if (!BoatRunDirector.Instance.IsServer)
+        // The two gates below used to return silently, so an obstacle event
+        // that spawned nothing looked identical to one that never fired --
+        // "the rocks aren't working" with an empty Console. Warned once, on
+        // the server only, so it says which gate stopped it.
+        if (BoatRunDirector.Instance == null)
         {
+            WarnOnce(
+                "[Obstacle Generator] No BoatRunDirector in the scene, so " +
+                "obstacles cannot spawn.");
+            return false;
+        }
+
+        if (!BoatRunDirector.Instance.IsRunReady)
+        {
+            WarnOnce(
+                "[Obstacle Generator] The run is not ready (needs a seed and " +
+                "a loaded config), so this obstacle event spawned nothing. " +
+                "If the run was started from the multiplayer lobby, check " +
+                "that it seeded the run.");
             return false;
         }
 
@@ -294,7 +325,10 @@ public class BoatObstacleGenerator : MonoBehaviour
             return null;
         }
 
-        networkObject.Spawn();
+        // destroyWithScene: true, same reason as the chest's food spill --
+        // NGO's default of false would leave voyage obstacles alive in
+        // whatever scene the crew lands in next.
+        networkObject.Spawn(true);
 
         DestructibleObstacle obstacle =
             spawned.GetComponent<DestructibleObstacle>();

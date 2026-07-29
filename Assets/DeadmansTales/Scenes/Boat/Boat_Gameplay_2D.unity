@@ -8875,7 +8875,7 @@ MonoBehaviour:
   - {fileID: 2494251307689933358, guid: cbbc8c260bc446646b6c938ec6d7cde8, type: 3}
   amount: 8
   interval: 2
-  obstacleSpeed: 2.5
+  obstacleSpeed: 0
   randomSpawnPoint: 1
   chosenSpawnPoint: 0
   logGeneratedObstacles: 1
