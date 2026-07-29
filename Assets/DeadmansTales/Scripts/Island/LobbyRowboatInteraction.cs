@@ -57,7 +57,7 @@ public class LobbyRowboatInteraction : MonoBehaviour
         if (remainingEnemies > 0)
         {
             Debug.Log(
-                "[Rowboat] Defeat all enemies before setting sail. " + remainingEnemies +" remaining.", this );
+                "[Rowboat] DEFEAT ALL ENEMIES " + remainingEnemies +" REMAINING.", this );
 
             return;
         }
