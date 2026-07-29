@@ -847,11 +847,8 @@ MonoBehaviour:
   hitMask:
     serializedVersion: 2
     m_Bits: 256
-<<<<<<< HEAD
   audioSource: {fileID: 3821306435189239945}
   gunShotClip: {fileID: 8300000, guid: a764377339b869e459f5e53fb9258f73, type: 3}
-=======
->>>>>>> main
 --- !u!114 &4424567147886695379
 MonoBehaviour:
   m_ObjectHideFlags: 0
