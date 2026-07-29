@@ -556,6 +556,160 @@ RectTransform:
   m_AnchoredPosition: {x: 25, y: 90}
   m_SizeDelta: {x: 300, y: 24}
   m_Pivot: {x: 0, y: 0}
+--- !u!1 &161720938
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 161720939}
+  - component: {fileID: 161720942}
+  - component: {fileID: 161720941}
+  - component: {fileID: 161720940}
+  m_Layer: 0
+  m_Name: Cannon (5)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &161720939
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 161720938}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -7.81, y: 12.6, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1877963702}
+  - {fileID: 385887538}
+  m_Father: {fileID: 235887347}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!61 &161720940
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 161720938}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0.005648613, y: -1.7122151}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 1.2, y: 1.2}
+  m_EdgeRadius: 0
+--- !u!61 &161720941
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 161720938}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0.005648613, y: -0.11221504}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 1, y: 2}
+  m_EdgeRadius: 0
+--- !u!114 &161720942
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 161720938}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5d6fde0a68e8f040baf1b40665ac7cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShipCannon
+  standPoint: {fileID: 1877963702}
+  facing: {x: 0, y: 1}
+  muzzle: {fileID: 385887538}
+  target: {fileID: 543750386}
+  targetSortingOrder: 20
+  cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
+  ballSpeed: 12
+  cooldown: 1
+  aimRange: 15
+  aimSpeed: 6
+  maxAimAngleFromFacing: 90
+  cannonCameraZoom: 24
+  fallbackManKey: 101
+  fallbackFireKey: 32
 --- !u!1 &190177767
 GameObject:
   m_ObjectHideFlags: 0
@@ -862,6 +1016,8 @@ MonoBehaviour:
   targetCamera: {fileID: 0}
   manningScreenPosition: {x: 0.32, y: 0.42}
   manningScale: 2
+  manningSortingOrder: 500
+  manningScreenMargin: 0.12
   startIsland: {fileID: 0}
   endIsland: {fileID: 0}
   ship: {fileID: 0}
@@ -874,6 +1030,7 @@ MonoBehaviour:
   level3Events: 3
   defaultLevel: 1
   enemyShipChance: 0.5
+  guaranteeBothEventTypes: 1
   obstacleIcon: {fileID: 0}
   pirateShipIcon: {fileID: 0}
   eventOffset: {x: 0, y: 6}
@@ -889,6 +1046,7 @@ MonoBehaviour:
   messageDuration: 5
   arrivalMessage: You have arrived
   messagePrioritySeconds: 5
+  logManningState: 1
 --- !u!1 &235887345
 GameObject:
   m_ObjectHideFlags: 0
@@ -947,6 +1105,7 @@ Transform:
   - {fileID: 1710980762}
   - {fileID: 497979623}
   - {fileID: 1515593423}
+  - {fileID: 161720939}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &235887348
@@ -988,6 +1147,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.PlayerShipMarker
   hitbox: {fileID: 1361659284}
+  deckBounds: {fileID: 0}
 --- !u!114 &235887350
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1597,6 +1757,37 @@ MonoBehaviour:
   leashPlayers: 1
   leashMargin: 1
   perspectiveOffset: {x: 0, y: 9, z: -11}
+--- !u!1 &385887537
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 385887538}
+  m_Layer: 0
+  m_Name: Muzzle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &385887538
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 385887537}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.20220447, y: 1.0334911, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 161720939}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &399490506
 GameObject:
   m_ObjectHideFlags: 0
@@ -1807,6 +1998,8 @@ MonoBehaviour:
   steeringCameraZoom: 26
   zoomLerpSpeed: 5
   fallbackManKey: 101
+  pushOutOfEnemyHulls: 1
+  hullSeparationSkin: 0
 --- !u!61 &497979626
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -4102,6 +4295,10 @@ MonoBehaviour:
   rockDamage: 5
   rockImpactClip: {fileID: 8300000, guid: 7b69beceabbd8f24e8bc62d77ac7ca1c, type: 3}
   rockImpactVolume: 1
+  destructibleByCannons: 1
+  rockHitsToBreak: 2
+  rockHitRadius: 1.2
+  rockHitScale: 1
 --- !u!4 &965073997
 Transform:
   m_ObjectHideFlags: 0
@@ -10061,6 +10258,37 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 4, y: 3}
   m_EdgeRadius: 0
+--- !u!1 &1877963701
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1877963702}
+  m_Layer: 0
+  m_Name: Standpoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1877963702
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1877963701}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.005648613, y: -1.7122151, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 161720939}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1888884621
 GameObject:
   m_ObjectHideFlags: 0
