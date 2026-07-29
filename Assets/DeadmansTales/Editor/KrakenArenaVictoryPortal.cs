@@ -21,6 +21,13 @@ using UnityEngine.SceneManagement;
 /// BoxCollider2D always stays the interaction trigger; only a visual child is
 /// added alongside it.
 ///
+/// Two things this step does NOT need to touch, because they live in
+/// NetworkStagePortal itself rather than in scene wiring: the visual's
+/// sortingOrder (set here, in AddPortalVisual, high enough to draw in front
+/// of Ship_Hull) and the fact that requireKrakenDefeated being set is what
+/// makes NetworkStagePortal hide this visual + its collider until the kraken
+/// dies, so the portal does not visibly exist mid-fight.
+///
 /// Same idempotent-editor-step spirit as KrakenArenaBuilder /
 /// KrakenArenaShipHealthWiring: safe to re-run.
 /// </summary>
@@ -40,6 +47,15 @@ public static class KrakenArenaVictoryPortal
     // the two are never confused for each other in the arena.
     private static readonly Color PortalTint = new Color(1f, 0.83f, 0.35f, 0.9f);
     private const float PortalVisualScale = 0.55f;
+
+    // The Whirlpool prefab this visual is cloned from defaults to
+    // sortingOrder 1 ("above the water, below the ship and boss" -- see
+    // KrakenArenaBuilder.BuildWhirlpoolPrefab), which put the portal BEHIND
+    // Ship_Hull's Tilemap (sortingOrder 2) instead of over the deck. The
+    // portal is a distinct, always-foreground object -- not part of the
+    // water/reef layer the attack telegraph lives in -- so it needs its own,
+    // higher order here rather than inheriting the prefab's.
+    private const int PortalVisualSortingOrder = 12;
 
     [MenuItem("Deadman's Tales/Kraken Arena/7. Wire Victory Portal")]
     public static void WireVictoryPortal()
@@ -113,12 +129,17 @@ public static class KrakenArenaVictoryPortal
         if (sr != null)
         {
             sr.color = PortalTint;
+            // Explicit, rather than inherited from the Whirlpool prefab --
+            // see PortalVisualSortingOrder for why. Above the ship (2) and
+            // the kraken (10) so the portal always reads in front.
+            sr.sortingOrder = PortalVisualSortingOrder;
         }
 
         Debug.Log(
             "[Victory Portal] Added a recolored Whirlpool as the portal's " +
-            $"visual (gold, scale {PortalVisualScale}), reusing the " +
-            "portal's existing BoxCollider2D as the interaction trigger.");
+            $"visual (gold, scale {PortalVisualScale}, sorting order " +
+            $"{PortalVisualSortingOrder}), reusing the portal's existing " +
+            "BoxCollider2D as the interaction trigger.");
     }
 
     private static GameObject FindByName(Scene scene, string name)

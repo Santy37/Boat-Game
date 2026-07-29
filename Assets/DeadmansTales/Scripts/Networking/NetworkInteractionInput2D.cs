@@ -80,6 +80,45 @@ namespace DeadmansTales.Networking
             }
         }
 
+        /// <summary>
+        /// Fallback prompt box for when no InteractionPromptHUD Canvas is
+        /// wired into the current scene -- which, as of writing, is every
+        /// scene: the Canvas-based HUD is never actually placed anywhere, so
+        /// InteractionPromptHUD.Instance is always null and every
+        /// NetworkInteractable2D (portals, chests, repair stations, etc.)
+        /// silently shows no prompt at all. ShipCannon, ShipHelm, and the
+        /// rowboats never had this problem because they draw their own
+        /// legacy OnGUI box directly rather than going through that Canvas.
+        /// This mirrors their exact box (same size/position) so every
+        /// interactable gets the same "Press E to ..." box those already
+        /// have. Guarded on Instance being null so this stops drawing (no
+        /// double box) the moment someone actually wires up the Canvas HUD.
+        /// </summary>
+        private void OnGUI()
+        {
+            if (
+                !IsSpawned ||
+                !IsOwner ||
+                currentTarget == null ||
+                currentTarget.DrawsOwnScreen ||
+                InteractionPromptHUD.Instance != null
+            )
+            {
+                return;
+            }
+
+            const float width = 400f;
+            const float height = 46f;
+
+            Rect rect = new Rect(
+                (Screen.width - width) * 0.5f,
+                Screen.height - 150f,
+                width,
+                height);
+
+            GUI.Box(rect, currentTarget.InteractionPrompt);
+        }
+
         private NetworkInteractable2D FindNearestTarget()
         {
             int hitCount = Physics2D.OverlapCircle(

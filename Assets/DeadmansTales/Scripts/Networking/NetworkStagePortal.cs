@@ -63,10 +63,24 @@ namespace DeadmansTales.Networking
 
         private const float EnemyCountRefreshSeconds = 0.25f;
 
+        // Matches KrakenArenaVictoryPortal's VisualChildName -- when
+        // requireKrakenDefeated is set, the portal's visual (and its
+        // interaction collider) start hidden and are revealed once the
+        // kraken is gone, so the boss-arena portal does not "spawn in"
+        // mid-fight. Portals without that flag (ordinary stage-to-stage
+        // portals) are unaffected and reveal immediately on Awake.
+        private const string GatedVisualChildName = "PortalVisual";
+        private const float ArenaGateRefreshSeconds = 0.25f;
+
         private bool sceneLoadRequested;
         private int cachedRemainingEnemies;
         private int cachedRemainingEnemyShips;
         private float nextEnemyCountRefreshTime;
+
+        private GameObject gatedVisual;
+        private BoxCollider2D interactionCollider;
+        private bool arenaGateRevealed;
+        private float nextArenaGateCheckTime;
 
         /// <summary>
         /// Cached enemy count for UI prompts. OnGUI queries this several
@@ -131,8 +145,85 @@ namespace DeadmansTales.Networking
                 }
 
                 return completesRun
-                    ? "PRESS E TO CLAIM VICTORY"
+                    ? "Press E to Free Your Soul!"
                     : "PRESS E TO CONTINUE VOYAGE";
+            }
+        }
+
+        /// <summary>
+        /// True only for the arena's boss portal (requireKrakenDefeated).
+        /// Deliberately narrower than every requireX flag: an ordinary stage
+        /// portal like PostOceanIslandPortal sets requireAllEnemyShipsDefeated
+        /// without requireKrakenDefeated, and relies on being visible the
+        /// whole time so its "Sink All Enemy Ships (N Remaining)" prompt can
+        /// actually guide the player -- hiding it too would silently swallow
+        /// that message. Only the kraken gate implies "this portal has no
+        /// business existing yet."
+        /// </summary>
+        private bool HasArenaGate => requireKrakenDefeated;
+
+        /// <summary>
+        /// Whether the kraken gate above is satisfied, reused here to decide
+        /// when the portal's visual and collider should reveal.
+        /// </summary>
+        private bool AllArenaGatesCleared()
+        {
+            return !requireKrakenDefeated ||
+                FindFirstObjectByType<KrakenHealth>() == null;
+        }
+
+        private void Awake()
+        {
+            interactionCollider = GetComponent<BoxCollider2D>();
+
+            Transform visual = transform.Find(GatedVisualChildName);
+            gatedVisual = visual != null ? visual.gameObject : null;
+
+            // Reveal immediately unless this portal actually has something to
+            // wait for -- covers ordinary stage portals with no requireX
+            // flags set, which should look exactly as before.
+            SetPortalRevealed(!HasArenaGate || AllArenaGatesCleared());
+        }
+
+        private void Update()
+        {
+            if (arenaGateRevealed || !HasArenaGate)
+            {
+                return;
+            }
+
+            if (Time.unscaledTime < nextArenaGateCheckTime)
+            {
+                return;
+            }
+
+            nextArenaGateCheckTime = Time.unscaledTime + ArenaGateRefreshSeconds;
+
+            if (AllArenaGatesCleared())
+            {
+                SetPortalRevealed(true);
+            }
+        }
+
+        /// <summary>
+        /// Hides (or shows) the portal's own visual child and its interaction
+        /// collider. The collider doubles as what NetworkInteractionInput2D's
+        /// overlap query finds, so disabling it also keeps a not-yet-revealed
+        /// arena portal from being targeted or prompting at all -- not just
+        /// invisible.
+        /// </summary>
+        private void SetPortalRevealed(bool revealed)
+        {
+            arenaGateRevealed = revealed;
+
+            if (gatedVisual != null)
+            {
+                gatedVisual.SetActive(revealed);
+            }
+
+            if (interactionCollider != null)
+            {
+                interactionCollider.enabled = revealed;
             }
         }
 
