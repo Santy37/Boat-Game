@@ -1,19 +1,23 @@
 using System.Collections;
+using DeadmansTales.Ship;
 using UnityEngine;
 
 /// <summary>
 /// The kraken's telegraphed tentacle slam. Every so often it marks a spot (where
 /// the ship currently is) with a whirlpool that grows and reddens over a warning
 /// window; a TENTACLE erupts out of that whirlpool, rears back, and SLAMS down --
-/// if the ship is still inside the strike zone when it lands, it takes hull
-/// damage. Then the tentacle sinks and the whirlpool fades. The crew dodges by
-/// steering out of the marked zone before the slam lands.
+/// if the ship is still inside the strike zone when it lands, it takes a big hit
+/// to its SinkLevel (see <see cref="NetworkShipSinkMeter"/>). Then the tentacle
+/// sinks and the whirlpool fades. The crew dodges by steering out of the marked
+/// zone before the slam lands.
 ///
 /// The whirlpool is the "wave layer" telegraph; the tentacle (an 8-frame
-/// rise -> arc -> slam -> sink flipbook, Santiago's sprite) is the payload. Damage
-/// goes through the mode-agnostic <see cref="RunContext"/>, guarded, so it's a
-/// no-op with no active run. If no tentacle frames are wired it degrades to the
-/// old whirlpool-only strike, so nothing breaks when art is missing.
+/// rise -> arc -> slam -> sink flipbook, Santiago's sprite) is the payload.
+/// Damage is applied through NetworkShipSinkMeter.ApplyCannonHitServer, the same
+/// server-authoritative entry point a cannonball uses -- self-guarded, so it's a
+/// silent no-op on every peer except whichever one is actually the server. If no
+/// tentacle frames are wired it degrades to the old whirlpool-only strike, so
+/// nothing breaks when art is missing.
 /// </summary>
 public class KrakenAttack : MonoBehaviour
 {
@@ -23,7 +27,7 @@ public class KrakenAttack : MonoBehaviour
     [SerializeField] private GameObject whirlpoolPrefab;
     [SerializeField] private int whirlpoolSortingOrder = 5;
     [Tooltip("World size of the whirlpool at full (strike) size.")]
-    [SerializeField] private float strikeWorldSize = 9f;
+    [SerializeField] private float strikeWorldSize = 6.3f;
 
     [Header("Tentacle slam")]
     [Tooltip("8-frame flipbook: splash -> rise -> arc -> slam -> sink. If empty, "
@@ -41,16 +45,27 @@ public class KrakenAttack : MonoBehaviour
         + "thing checked against the strike zone.")]
     [SerializeField] private Collider2D shipHitbox;
     [SerializeField] private float strikeRadius = 4.5f;
-    [SerializeField] private int attackDamage = 12;
+    [Tooltip(
+        "SinkLevel damage if the ship is still in the strike zone when the "
+        + "tentacle lands. Deliberately a big chunk of SinkLevel's default "
+        + "150 max -- getting caught in the whirlpool should hurt a lot "
+        + "more than a single cannon hit (NetworkCannonball's default is "
+        + "25). Applied the same way a cannonball is, via "
+        + "NetworkShipSinkMeter.ApplyCannonHitServer, so it drains SinkLevel "
+        + "first and spills into Health if SinkLevel can't absorb it all."
+    )]
+    [SerializeField] private float sinkMeterDamage = 100f;
 
     [Header("Timing (seconds)")]
     [SerializeField] private float firstDelay = 2.5f;
     [SerializeField] private float attackInterval = 3.5f;
     [Tooltip("Warning window: the whirlpool ALONE grows and reddens; the "
         + "tentacle only appears when the strike lands.")]
-    [SerializeField] private float telegraphTime = 1.8f;
+    [SerializeField] private float telegraphTime = 2.7f;
     [SerializeField] private float strikeHold = 0.35f;
     [SerializeField] private float fadeTime = 0.5f;
+
+    private NetworkShipSinkMeter sinkMeter;
 
     private void Start()
     {
@@ -175,13 +190,26 @@ public class KrakenAttack : MonoBehaviour
             SetFrame(tentSr, slamFrame);
         }
 
-        // --- Impact: the slam lands. Damage the ship if it's still in the zone.
-        if (RunContext.HasActive && shipHitbox != null)
+        // --- Impact: the slam lands. Damage the ship's SinkLevel a lot if
+        // it's still in the zone. Tested against the hull's ACTUAL shape via
+        // Physics2D.ClosestPoint, not distance to shipHitbox.bounds.center --
+        // ShipHitBox is a long polygon whose authored points sit well away
+        // from its own centre (see NetworkCannonball.ComputeHitDirectness's
+        // notes on this exact same hitbox), so a single centre-point circle
+        // check was very often wrong: a "miss" while the ship visually sat
+        // right under the strike, or a "hit" while it was nowhere close.
+        // ClosestPoint finds the nearest point ON THE HULL itself (0 if
+        // target already lands inside it), so this respects the real shape.
+        if (shipHitbox != null)
         {
-            Vector2 shipNow = shipHitbox.bounds.center;
-            if ((shipNow - target).magnitude < strikeRadius)
+            Vector2 closestOnHull = Physics2D.ClosestPoint(target, shipHitbox);
+            if ((closestOnHull - target).sqrMagnitude <= strikeRadius * strikeRadius)
             {
-                RunContext.Active.DamageShip(attackDamage);
+                NetworkShipSinkMeter resolvedSinkMeter = ResolveSinkMeter();
+                if (resolvedSinkMeter != null)
+                {
+                    resolvedSinkMeter.ApplyCannonHitServer(sinkMeterDamage, 1f);
+                }
             }
         }
         yield return new WaitForSeconds(strikeHold);
@@ -235,5 +263,18 @@ public class KrakenAttack : MonoBehaviour
         }
         index = Mathf.Clamp(index, 0, tentacleFrames.Length - 1);
         sr.sprite = tentacleFrames[index];
+    }
+
+    // Lazily resolved from shipHitbox rather than a scene-wide
+    // FindFirstObjectByType -- same reasoning as NetworkCannonball: an enemy
+    // ship carries its own NetworkShipSinkMeter too, and shipHitbox is
+    // already wired to the PLAYER's own hull specifically.
+    private NetworkShipSinkMeter ResolveSinkMeter()
+    {
+        if (sinkMeter == null && shipHitbox != null)
+        {
+            sinkMeter = shipHitbox.GetComponentInParent<NetworkShipSinkMeter>();
+        }
+        return sinkMeter;
     }
 }

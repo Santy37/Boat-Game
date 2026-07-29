@@ -40,7 +40,13 @@ public class Cannonball : MonoBehaviour
         if (kraken != null && !kraken.IsDead && krakenBody != null
             && krakenBody.OverlapPoint(transform.position))
         {
-            kraken.TakeHit(damage);
+            // KrakenHealth is now server-authoritative (see that class) --
+            // this only actually lands if this peer is the server, which is
+            // true for the normal single-host test setup but not for a
+            // remote (non-host) client. The arena is networked-only for now
+            // anyway (see KrakenArenaBuilder), so this local-only ball is
+            // effectively unused there.
+            kraken.TakeHitServer(damage);
             Destroy(gameObject);
         }
     }
@@ -51,7 +57,7 @@ public class Cannonball : MonoBehaviour
         KrakenHealth kraken = other.GetComponentInParent<KrakenHealth>();
         if (kraken != null)
         {
-            kraken.TakeHit(damage);
+            kraken.TakeHitServer(damage);
         }
 
         Destroy(gameObject);
