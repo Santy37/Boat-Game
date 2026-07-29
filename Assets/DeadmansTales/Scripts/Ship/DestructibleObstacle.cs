@@ -43,7 +43,7 @@ public class DestructibleObstacle : NetworkBehaviour
         "stall the voyage (the progress bar waits for obstacles to clear). " +
         "Seconds after it spawns. Make this longer than it takes to reach " +
         "the ship at Drift Speed.")]
-    [SerializeField] private float maxLifetimeSeconds = 30f;
+    [SerializeField] private float maxLifetimeSeconds = 60f;
 
     [Header("Health Bar")]
     [SerializeField] private Vector2 healthBarSize = new Vector2(52f, 8f);
@@ -66,6 +66,14 @@ public class DestructibleObstacle : NetworkBehaviour
     // Server clock time at which this obstacle safety-despawns if it hasn't
     // already been destroyed or hit the ship.
     private float despawnTime;
+
+    // The player ship's hull collider, resolved once and cached.
+    private Collider2D shipHitbox;
+    private bool shipSearched;
+
+    // Set the instant this obstacle hits the ship, so the damage + despawn
+    // fire exactly once even if both detection paths notice in the same step.
+    private bool hitShip;
 
     private Texture2D pixel;
 
@@ -122,6 +130,23 @@ public class DestructibleObstacle : NetworkBehaviour
     }
 
     /// <summary>
+    /// Server-only: overrides the prefab's Drift Speed, so the spawner that
+    /// created this obstacle can control how fast it closes on the ship.
+    /// </summary>
+    public void SetSpeedServer(float speed)
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        if (speed >= 0f)
+        {
+            driftSpeed = speed;
+        }
+    }
+
+    /// <summary>
     /// Server-only: applies one cannon hit's worth of damage (this obstacle's
     /// own Cannonball Damage) and despawns it if that brings health to 0.
     /// Called both by the local Cannonball hit-test below and by
@@ -171,6 +196,19 @@ public class DestructibleObstacle : NetworkBehaviour
             return;
         }
 
+        // Reached the player's ship? -> damage the hull and break apart. This
+        // is an explicit geometric overlap test rather than trusting
+        // OnTriggerEnter2D: the obstacle is moved by writing its Transform each
+        // step with no rigidbody velocity, so its Dynamic body falls asleep
+        // long before it finishes the slow drift in -- and a sleeping 2D body
+        // stops raising trigger callbacks, which silently swallowed the hit.
+        // Collider2D.Distance queries the geometry directly, sleep or not.
+        if (hitbox != null && OverlapsPlayerShip())
+        {
+            HitShip();
+            return;
+        }
+
         // Indestructible obstacles ignore cannonballs entirely.
         if (!destructible || hitbox == null)
         {
@@ -198,17 +236,58 @@ public class DestructibleObstacle : NetworkBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (!IsServer)
+        if (!IsServer || hitShip)
         {
             return;
         }
 
-        // Reached the player's ship -> hurt the hull and break apart.
+        // Reached the player's ship -> hurt the hull and break apart. Kept as a
+        // fast path alongside the Update() overlap test; whichever notices
+        // first wins, and HitShip() makes sure it only counts once.
         if (other.GetComponentInParent<PlayerShipMarker>() != null)
         {
-            DamageShip();
-            DespawnSelf();
+            HitShip();
         }
+    }
+
+    // Applies the hit exactly once: damage the ship, then despawn this obstacle.
+    private void HitShip()
+    {
+        if (hitShip)
+        {
+            return;
+        }
+
+        hitShip = true;
+        DamageShip();
+        DespawnSelf();
+    }
+
+    // True once this obstacle's hull overlaps the player ship's hull collider.
+    private bool OverlapsPlayerShip()
+    {
+        Collider2D shipBox = ResolveShipHitbox();
+
+        return shipBox != null &&
+               shipBox.isActiveAndEnabled &&
+               hitbox.Distance(shipBox).isOverlapped;
+    }
+
+    // The player ship's hull collider (PlayerShipMarker.Hitbox), found once and
+    // cached. Keeps searching until a player ship exists in the scene.
+    private Collider2D ResolveShipHitbox()
+    {
+        if (!shipSearched)
+        {
+            PlayerShipMarker ship = FindFirstObjectByType<PlayerShipMarker>();
+            if (ship != null)
+            {
+                shipHitbox = ship.Hitbox;
+                shipSearched = true;
+            }
+        }
+
+        return shipHitbox;
     }
 
     private void DamageShip()

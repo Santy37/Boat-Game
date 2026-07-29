@@ -315,21 +315,22 @@ public class ShipCannon : MonoBehaviour
         }
     }
 
-    private void OnGUI()
+    // Drive the shared pirate-themed prompt panel instead of a legacy OnGUI
+    // box, so the cannon reads identically to every other interaction prompt.
+    // LateUpdate so it reflects this frame's manned/range state and, being a
+    // claimed owner, wins the panel over the network proximity prompt.
+    private void LateUpdate()
     {
-        if (playerInRange == null && !Manned)
+        UpdatePrompt();
+    }
+
+    private void UpdatePrompt()
+    {
+        InteractionPromptHUD hud = InteractionPromptHUD.Instance;
+        if (hud == null)
         {
             return;
         }
-
-        const float width = 400f;
-        const float height = 46f;
-
-        Rect rect = new Rect(
-            (Screen.width - width) * 0.5f,
-            Screen.height - 150f,
-            width,
-            height);
 
         if (Manned)
         {
@@ -339,15 +340,29 @@ public class ShipCannon : MonoBehaviour
             string leave = keys != null
                 ? keys.interact.ToString() : fallbackManKey.ToString();
 
-            GUI.Box(rect, $"Aim: move keys   |   {fire}: Fire   |   {leave}: Leave");
+            hud.Show(
+                $"Aim: move keys   |   {fire}: Fire   |   {leave}: Leave",
+                this, InteractionPromptHUD.StationPriority);
         }
-        else
+        else if (playerInRange != null)
         {
             KeyBindings keys = playerInRange.Bindings;
             string use = keys != null
                 ? keys.interact.ToString() : fallbackManKey.ToString();
 
-            GUI.Box(rect, $"Press {use} to Man Cannon");
+            hud.Show(
+                $"Press {use} to Man Cannon",
+                this, InteractionPromptHUD.StationPriority);
         }
+        else
+        {
+            hud.Hide(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        // Release the panel if we're torn down while still owning it.
+        InteractionPromptHUD.Instance?.Hide(this);
     }
 }

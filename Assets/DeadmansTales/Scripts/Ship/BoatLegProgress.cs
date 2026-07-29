@@ -46,9 +46,23 @@ public class BoatLegProgress : MonoBehaviour
     [Tooltip("Seconds to cross from the start island to the end island.")]
     [SerializeField] private float legDuration = 60f;
 
+    [Header("Progress Bar - Events Per Level")]
+    [Tooltip("Number of events (rocks / pirate ships) that spawn on level 1.")]
+    [SerializeField, Min(0)] private int level1Events = 1;
+    [Tooltip("Number of events that spawn on level 2.")]
+    [SerializeField, Min(0)] private int level2Events = 2;
+    [Tooltip("Number of events that spawn on level 3.")]
+    [SerializeField, Min(0)] private int level3Events = 3;
+    [Tooltip(
+        "Level used when the boat is entered with no menu selection (e.g. " +
+        "playing this scene directly to test). 1-based.")]
+    [SerializeField, Min(1)] private int defaultLevel = 1;
+
     [Header("Progress Bar - Events (spawn ON THE LINE)")]
-    [Tooltip("1 = obstacles only, 2 = one ship + one obstacle, 3 = 3 random.")]
-    [SerializeField, Range(1, 3)] private int level = 1;
+    [Tooltip(
+        "Chance each event is a PIRATE SHIP rather than an obstacle (0 = all " +
+        "rocks, 1 = all ships).")]
+    [SerializeField, Range(0f, 1f)] private float enemyShipChance = 0.5f;
     [Tooltip("Obstacle icon - hidden at start, cloned onto the line.")]
     [SerializeField] private Transform obstacleIcon;
     [Tooltip("Pirate ship icon - hidden at start, cloned onto the line.")]
@@ -87,12 +101,12 @@ public class BoatLegProgress : MonoBehaviour
     [SerializeField] private float messageDuration = 5f;
 
     [Header("Progress Bar - Arrival Message")]
-    [Tooltip("Shown centred when the bar finishes (then the portal is usable).")]
+    [Tooltip("Shown when the bar finishes (then the portal is usable).")]
     [SerializeField] private string arrivalMessage = "You have arrived";
-    [Tooltip("Font size of the centred messages (events + arrival).")]
-    [SerializeField] private int messageFontSize = 40;
-    [SerializeField] private Color messageColor = Color.white;
-    private GUIStyle messageStyle;
+    [Tooltip(
+        "Seconds a freshly-raised centred message outranks every other prompt " +
+        "so the player can't miss it, before it drops to the lowest priority.")]
+    [SerializeField] private float messagePrioritySeconds = 5f;
 
     private int activeEvent = -1;
     private float eventEndTime;
@@ -104,6 +118,11 @@ public class BoatLegProgress : MonoBehaviour
     // Clock time at which the current event message hides (the bar keeps
     // waiting for the event even after this).
     private float messageHideTime;
+
+    // The message currently pushed to the shared HUD, and the clock time until
+    // which it holds top (banner) priority. A new message restarts the window.
+    private string hudMessage;
+    private float hudPriorityUntil;
 
     private bool sailed;
     private Vector3 normalScale = Vector3.one;
@@ -133,29 +152,41 @@ public class BoatLegProgress : MonoBehaviour
         SpawnEvents();
     }
 
+    // The level this leg runs at: the one chosen in the menu if there is one,
+    // otherwise the inspector's Default Level (for testing the scene directly).
+    private int ResolveLevel()
+    {
+        return BoatLevelSelection.PendingLevel > 0
+            ? BoatLevelSelection.PendingLevel
+            : Mathf.Max(1, defaultLevel);
+    }
+
+    // How many events that level spawns. Levels past 3 use the level 3 count.
+    private int EventCountForLevel(int oneBasedLevel)
+    {
+        switch (oneBasedLevel)
+        {
+            case 1: return Mathf.Max(0, level1Events);
+            case 2: return Mathf.Max(0, level2Events);
+            default: return Mathf.Max(0, level3Events);
+        }
+    }
+
     private void SpawnEvents()
     {
-        // Which icons to place, per the level (only one level is active).
+        // Place exactly this level's event count, each independently a pirate
+        // ship or an obstacle per Enemy Ship Chance.
+        int count = EventCountForLevel(ResolveLevel());
+
         List<Transform> chosen = new List<Transform>();
-        if (level <= 1)                       // one obstacle only
+        for (int i = 0; i < count; i++)
         {
-            chosen.Add(obstacleIcon);
-        }
-        else if (level == 2)                  // one ship + one obstacle
-        {
-            chosen.Add(pirateShipIcon);
-            chosen.Add(obstacleIcon);
-        }
-        else                                  // 3 random of the two
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                chosen.Add(Random.value < 0.5f ? pirateShipIcon : obstacleIcon);
-            }
+            chosen.Add(Random.value < enemyShipChance
+                ? pirateShipIcon
+                : obstacleIcon);
         }
 
-        int count = chosen.Count;
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < chosen.Count; i++)
         {
             Transform template = chosen[i];
             if (template == null)
@@ -371,6 +402,8 @@ public class BoatLegProgress : MonoBehaviour
                     Vector2.Lerp(startSpot, endSpot, eventFractions[i]) + off;
             }
         }
+
+        UpdateMessageHud();
     }
 
     /// <summary>Current leg progress, 0 to 1.</summary>
@@ -417,32 +450,51 @@ public class BoatLegProgress : MonoBehaviour
         RunContext.Active.OnBoatArrived();
     }
 
-    // Centred messages: the event message while paused, else "You have arrived".
-    private void OnGUI()
+    // The event message while paused, else "You have arrived" once the leg is
+    // done. Routed through the shared pirate-themed panel so it matches every
+    // other prompt, and shown CENTRED on screen (not down at the prompt spot).
+    //
+    // For its first few seconds a freshly-raised message outranks everything
+    // (BannerPriority) so the player can't miss it -- even over a manned
+    // station. After that window it drops to the lowest priority, so a proximity
+    // prompt ("Press E to Continue") cleanly overrides a lingering "You have
+    // arrived" when the player walks up to the portal. No permanent blocking.
+    private void UpdateMessageHud()
     {
+        InteractionPromptHUD hud = InteractionPromptHUD.Instance;
+        if (hud == null)
+        {
+            return;
+        }
+
         string message = !string.IsNullOrEmpty(currentMessage)
             ? currentMessage
             : (IsComplete ? arrivalMessage : null);
 
         if (string.IsNullOrEmpty(message))
         {
+            hud.Hide(this);
+            hudMessage = null;
             return;
         }
 
-        if (messageStyle == null)
+        // A newly-raised (or changed) message restarts the priority window.
+        if (message != hudMessage)
         {
-            messageStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontStyle = FontStyle.Bold
-            };
+            hudMessage = message;
+            hudPriorityUntil = Time.time + messagePrioritySeconds;
         }
-        messageStyle.fontSize = messageFontSize;
 
-        Rect rect = new Rect(0f, Screen.height * 0.5f - 40f, Screen.width, 80f);
-        Color saved = GUI.color;
-        GUI.color = messageColor;
-        GUI.Label(rect, message, messageStyle);
-        GUI.color = saved;
+        int priority = Time.time < hudPriorityUntil
+            ? InteractionPromptHUD.BannerPriority
+            : InteractionPromptHUD.StatusPriority;
+
+        hud.Show(message, this, priority, centered: true);
+    }
+
+    private void OnDisable()
+    {
+        // Release the panel if we're torn down while still showing a message.
+        InteractionPromptHUD.Instance?.Hide(this);
     }
 }

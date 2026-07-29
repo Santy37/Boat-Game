@@ -43,6 +43,14 @@ public class BoatObstacleGenerator : MonoBehaviour
     private float interval = 0.5f;
 
     [Tooltip(
+        "How fast each spawned obstacle drifts toward the ship (units/sec). " +
+        "Overrides the Drift Speed on the obstacle prefab."
+    )]
+    [SerializeField]
+    [Min(0f)]
+    private float obstacleSpeed = 1.5f;
+
+    [Tooltip(
         "ON: pick a random spawn point for each obstacle. " +
         "OFF: always use Chosen Spawn Point."
     )]
@@ -262,10 +270,16 @@ public class BoatObstacleGenerator : MonoBehaviour
             return null;
         }
 
+        // Use only the spawn point's POSITION, never its rotation. The spawn
+        // points are parented under a container tilted 75 deg on X (to lay the
+        // markers out along the water's perspective), and inheriting that world
+        // rotation foreshortened the flat 2D sprite so it spawned squashed.
+        // Identity rotation matches how the prefab looks when dropped into the
+        // scene by hand.
         GameObject spawned = Instantiate(
             prefab,
             point.position,
-            point.rotation
+            Quaternion.identity
         );
 
         NetworkObject networkObject = spawned.GetComponent<NetworkObject>();
@@ -282,18 +296,21 @@ public class BoatObstacleGenerator : MonoBehaviour
 
         networkObject.Spawn();
 
-        // Lock the obstacle onto a straight line from its spawn point to where
-        // the ship is right now. It never re-aims, so it does not follow the
-        // ship and the line stays exactly where it was drawn at spawn.
-        PlayerShipMarker ship = ResolvePlayerShip();
-        if (ship != null)
+        DestructibleObstacle obstacle =
+            spawned.GetComponent<DestructibleObstacle>();
+        if (obstacle != null)
         {
-            Vector2 course = ship.AimPoint - (Vector2)point.position;
-            DestructibleObstacle obstacle =
-                spawned.GetComponent<DestructibleObstacle>();
-            if (obstacle != null)
+            // Let the generator dictate how fast obstacles move.
+            obstacle.SetSpeedServer(obstacleSpeed);
+
+            // Lock the obstacle onto a straight line from its spawn point to
+            // where the ship is right now. It never re-aims, so it does not
+            // follow the ship and the line stays exactly where it was drawn.
+            PlayerShipMarker ship = ResolvePlayerShip();
+            if (ship != null)
             {
-                obstacle.SetCourseServer(course);
+                obstacle.SetCourseServer(
+                    ship.AimPoint - (Vector2)point.position);
             }
         }
 

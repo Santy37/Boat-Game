@@ -51,6 +51,14 @@ namespace DeadmansTales.Networking
         private float interval = 0.5f;
 
         [Tooltip(
+            "How fast each spawned ship approaches the player (units/sec). " +
+            "Overrides the Approach Speed on the ship prefab."
+        )]
+        [SerializeField]
+        [Min(0f)]
+        private float shipSpeed = 2f;
+
+        [Tooltip(
             "ON: pick a random spawn point for each ship. " +
             "OFF: always use Chosen Spawn Point."
         )]
@@ -296,6 +304,12 @@ namespace DeadmansTales.Networking
 
             EnemyShipApproach shipApproach =
                 shipObject.GetComponent<EnemyShipApproach>();
+
+            if (shipApproach != null)
+            {
+                // Let the spawner dictate how fast the ship closes in.
+                shipApproach.SetApproachSpeedServer(shipSpeed);
+            }
 
             if (shipApproach == null || crewPrefab == null || crewPerShip <= 0)
             {

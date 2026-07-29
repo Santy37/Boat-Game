@@ -302,6 +302,23 @@ namespace DeadmansTales.Ship
         }
 
         /// <summary>
+        /// Server-only: overrides the prefab's Approach Speed, so the spawner
+        /// that created this ship can control how fast it closes in.
+        /// </summary>
+        public void SetApproachSpeedServer(float speed)
+        {
+            if (!IsServer)
+            {
+                return;
+            }
+
+            if (speed >= 0f)
+            {
+                approachSpeed = speed;
+            }
+        }
+
+        /// <summary>
         /// Server-only: despawns whatever crew is still alive when this ship
         /// is defeated. They're sibling scene objects, not real Transform
         /// children, so despawning/destroying this ship's own NetworkObject
