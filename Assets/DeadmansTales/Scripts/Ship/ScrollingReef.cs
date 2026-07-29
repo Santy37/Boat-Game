@@ -1,3 +1,4 @@
+using DeadmansTales.Ship;
 using UnityEngine;
 
 /// <summary>
@@ -39,6 +40,16 @@ public class ScrollingReef : MonoBehaviour
     [SerializeField] private Vector2 hitHalfSize = new Vector2(6f, 3f);
     [SerializeField] private int rockDamage = 5;
 
+    [Tooltip(
+        "Played where the rock breaks on the hull. Runs on every peer: the "
+        + "reef is deterministic and each client detects its own contact, so "
+        + "this needs no RPC.")]
+    [SerializeField] private AudioClip rockImpactClip;
+
+    [SerializeField]
+    [Range(0f, 1f)]
+    private float rockImpactVolume = 1f;
+
     private sealed class Gate
     {
         public float x;
@@ -48,6 +59,7 @@ public class ScrollingReef : MonoBehaviour
 
     private Gate[] gates;
     private System.Random rng;
+    private NetworkShipSinkMeter sinkMeter;
 
     private void Start()
     {
@@ -161,12 +173,33 @@ public class ScrollingReef : MonoBehaviour
             t.localScale = new Vector3(sizeMul * faceX, sizeMul, 1f);
             t.position = new Vector3(g.x, y, 0f);
             g.hitConsumed[r] = false;
+
+            // A rock hidden by a previous impact comes back with its gate.
+            if (!t.gameObject.activeSelf)
+            {
+                t.gameObject.SetActive(true);
+            }
         }
+    }
+
+    /// <summary>
+    /// Lazily resolved from shipHitbox rather than a scene-wide search, the
+    /// same way KrakenAttack does it: shipHitbox is already wired to the
+    /// PLAYER's own hull, and an enemy ship carries its own sink meter.
+    /// </summary>
+    private NetworkShipSinkMeter ResolveSinkMeter()
+    {
+        if (sinkMeter == null && shipHitbox != null)
+        {
+            sinkMeter = shipHitbox.GetComponentInParent<NetworkShipSinkMeter>();
+        }
+
+        return sinkMeter;
     }
 
     private void ApplyContactDamage()
     {
-        if (shipHitbox == null || !RunContext.HasActive)
+        if (shipHitbox == null)
         {
             return;
         }
@@ -185,8 +218,36 @@ public class ScrollingReef : MonoBehaviour
                 if (Mathf.Abs(p.x - c.x) < hitHalfSize.x
                     && Mathf.Abs(p.y - c.y) < hitHalfSize.y)
                 {
-                    RunContext.Active.DamageShip(rockDamage);
+                    // Was RunContext.Active.DamageShip, gated on
+                    // RunContext.HasActive -- that is the LOCAL co-op run
+                    // manager, which only exists when the game is entered
+                    // through StartScene. Coming through the networked route
+                    // it is never active, so the whole method returned early
+                    // and the reef did nothing at all: rocks passed straight
+                    // through the ship. Damage now goes through the same
+                    // server-authoritative sink meter KrakenAttack uses. That
+                    // call no-ops on clients by itself, so every peer can run
+                    // this and only the server actually applies it.
+                    NetworkShipSinkMeter resolved = ResolveSinkMeter();
+                    if (resolved != null)
+                    {
+                        resolved.ApplyCannonHitServer(rockDamage, 1f);
+                    }
+
+                    // The rock is consumed by the impact. Marking it hit only
+                    // stopped it damaging again -- it stayed sitting on the
+                    // deck until its gate recycled. Hiding it reads as the
+                    // rock actually breaking on the hull. LayoutGate switches
+                    // it back on when the gate is reused.
                     g.hitConsumed[r] = true;
+
+                    if (rockImpactClip != null)
+                    {
+                        AudioSource.PlayClipAtPoint(
+                            rockImpactClip, t.position, rockImpactVolume);
+                    }
+
+                    t.gameObject.SetActive(false);
                 }
             }
         }

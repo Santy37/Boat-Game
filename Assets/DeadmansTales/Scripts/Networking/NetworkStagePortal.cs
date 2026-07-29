@@ -119,6 +119,26 @@ namespace DeadmansTales.Networking
             cachedRemainingEnemyShips = CountRemainingEnemyShips();
         }
 
+        /// <summary>
+        /// The run is over once the crew's own ship goes down --
+        /// NetworkShipHealth sets the run Failed. Nothing was consulting
+        /// that, so a sunk ship still let anyone press E on the door and
+        /// carry on. Checked against the shared run state so it holds for
+        /// every portal in every scene, not just the one on the boat.
+        /// </summary>
+        private static bool RunIsLost
+        {
+            get
+            {
+                NetworkRunState runState = NetworkRunState.Instance;
+
+                return
+                    runState != null &&
+                    runState.IsSpawned &&
+                    runState.RunStatus == NetworkRunStatus.Failed;
+            }
+        }
+
         public override string InteractionPrompt
         {
             get
@@ -126,6 +146,11 @@ namespace DeadmansTales.Networking
                 if (sceneLoadRequested)
                 {
                     return "Loading Next Stage...";
+                }
+
+                if (RunIsLost)
+                {
+                    return "THE SHIP IS LOST";
                 }
 
                 if (requireKrakenDefeated && FindFirstObjectByType<KrakenHealth>() != null)
@@ -142,6 +167,13 @@ namespace DeadmansTales.Networking
                 if (requireAllEnemiesDefeated && remaining > 0)
                 {
                     return $"Defeat All Enemies ({remaining} Remaining)";
+                }
+
+                // The boat leg has to actually finish before any exit opens,
+                // including the one that ends the run.
+                if (Leg != null && !Leg.IsComplete)
+                {
+                    return "NOT THERE YET...";
                 }
 
                 return completesRun
@@ -231,7 +263,7 @@ namespace DeadmansTales.Networking
             NetworkInteractionController2D interactor
         )
         {
-            if (sceneLoadRequested)
+            if (sceneLoadRequested || RunIsLost)
             {
                 return false;
             }
@@ -257,7 +289,29 @@ namespace DeadmansTales.Networking
                 return false;
             }
 
+            // If this scene has a boat-leg bar, block until it is complete.
+            if (Leg != null && !Leg.IsComplete)
+            {
+                return false;
+            }
+
             return !requireAllEnemiesDefeated || CountRemainingEnemies() == 0;
+        }
+
+        private BoatLegProgress boatLeg;
+        private bool boatLegSearched;
+
+        private BoatLegProgress Leg
+        {
+            get
+            {
+                if (!boatLegSearched)
+                {
+                    boatLeg = FindFirstObjectByType<BoatLegProgress>();
+                    boatLegSearched = true;
+                }
+                return boatLeg;
+            }
         }
 
         protected override void PerformInteractionServer(

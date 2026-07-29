@@ -43,11 +43,21 @@ public sealed class PlayerAttack : NetworkBehaviour
     [Min(1)]
     private int maximumTargetsPerSwing = 4;
 
+    [SerializeField]
+    private AudioSource audioSource;
+
+    [SerializeField]
+    private AudioClip swordSwingClip;
+
+    [SerializeField]
+    private AudioClip swordHitClip;
+
     private float nextLocalAttackTime;
     private float nextServerAttackTime;
     private float bufferedAttackUntil = float.NegativeInfinity;
     private NetworkPlayerLoadout loadout;
     private Vector2 lastAimDirection = Vector2.down;
+    private PlayerCharacter playerCharacter;
 
     private void Awake()
     {
@@ -55,7 +65,12 @@ public sealed class PlayerAttack : NetworkBehaviour
         {
             anim = GetComponentInChildren<Animator>(true);
         }
+        if (audioSource == null)
+        {
+            audioSource = GetComponentInChildren<AudioSource>(true);
+        }
 
+        playerCharacter = GetComponent<PlayerCharacter>();
         loadout = GetComponent<NetworkPlayerLoadout>();
     }
     public float CooldownRemainingNormalized
@@ -75,7 +90,12 @@ public sealed class PlayerAttack : NetworkBehaviour
     }
     private void Update()
     {
-        if (!IsSpawned || !IsOwner || PauseMenu.InputBlocked)
+        if (
+    !IsSpawned ||
+    !IsOwner ||
+    PauseMenu.InputBlocked ||
+    (playerCharacter != null && playerCharacter.ControlLocked)
+)
         {
             return;
         }
@@ -128,6 +148,7 @@ public sealed class PlayerAttack : NetworkBehaviour
             !IsSpawned ||
             !IsOwner ||
             PauseMenu.InputBlocked ||
+            (playerCharacter != null && playerCharacter.ControlLocked) ||
             Time.unscaledTime < nextLocalAttackTime
         )
         {
@@ -143,6 +164,7 @@ public sealed class PlayerAttack : NetworkBehaviour
         // Anticipate only the animation locally. Damage and cooldown validation
         // remain authoritative on the server.
         PlayAttackAnimation(aimDirection);
+        PlaySwordSwingSound();
         RequestAttackRpc(aimDirection);
         return true;
     }
@@ -165,6 +187,22 @@ public sealed class PlayerAttack : NetworkBehaviour
         }
 
         return lastAimDirection;
+    }
+
+    public void PlaySwordSwingSound()
+    {
+        if (audioSource == null || swordSwingClip == null)
+            return;
+
+        audioSource.PlayOneShot(swordSwingClip);
+    }
+
+    private void PlaySwordHitSound()
+    {
+        if (audioSource == null || swordHitClip == null)
+            return;
+
+        audioSource.PlayOneShot(swordHitClip);
     }
 
     [Rpc(SendTo.Server)]
@@ -221,6 +259,20 @@ public sealed class PlayerAttack : NetworkBehaviour
         }
 
         PlayAttackAnimation(aimDirection);
+        PlaySwordSwingSound();
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void PlaySwordHitSoundRpc(ulong attackingClientId)
+    {
+        // Only the attacking player hears the hit confirmation.
+        if (NetworkManager == null ||
+            NetworkManager.LocalClientId != attackingClientId)
+        {
+            return;
+        }
+
+        PlaySwordHitSound();
     }
 
     private void PlayAttackAnimation(Vector2 aimDirection)
@@ -290,6 +342,8 @@ public sealed class PlayerAttack : NetworkBehaviour
         HashSet<Enemy> hitEnemies = new HashSet<Enemy>();
         int maximumTargets = Mathf.Max(1, maximumTargetsPerSwing);
 
+        bool hitSomething = false;
+
         foreach (Collider2D overlap in overlaps)
         {
             Enemy enemy = overlap.GetComponentInParent<Enemy>();
@@ -304,11 +358,17 @@ public sealed class PlayerAttack : NetworkBehaviour
             }
 
             enemy.TakeDamage(totalDamage);
+            hitSomething = true;
 
             if (hitEnemies.Count >= maximumTargets)
             {
                 break;
             }
+        }
+
+        if (hitSomething)
+        {
+            PlaySwordHitSoundRpc(OwnerClientId);
         }
     }
 

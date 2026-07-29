@@ -1,16 +1,11 @@
+using System.Collections.Generic;
+using DeadmansTales.Networking;
 using UnityEngine;
 
 /// <summary>
-/// Owns the boat leg's completion state.
-///
-/// The plan is: a progress bar fills during the leg, and once it is full a
-/// "land on island" button appears. Clicking it ends the leg and sails the run
-/// to the island the players chose on the map.
-///
-/// The progress bar itself is not built yet, so for now the button can simply
-/// be shown (see <see cref="showButtonAlways"/>). When you add the bar, have it
-/// call <see cref="SetProgress"/> each frame - the button then appears on its
-/// own and nothing else has to change.
+/// Owns the boat leg's progress bar: fills over time, positions the line /
+/// islands / ship, and spawns event icons on the line. Landing is handled
+/// elsewhere (e.g. the stage portal) - call <see cref="LandOnIsland"/>.
 /// </summary>
 public class BoatLegProgress : MonoBehaviour
 {
@@ -18,21 +13,398 @@ public class BoatLegProgress : MonoBehaviour
     [Tooltip("0 = leg just started, 1 = leg complete and the button appears.")]
     [SerializeField, Range(0f, 1f)] private float progress01;
 
-    [Tooltip("Show the button right away, before the progress bar exists.")]
-    [SerializeField] private bool showButtonAlways = true;
+    [Header("Progress Bar - Screen Position")]
+    [Tooltip("Where the whole bar sits on screen: (0.5, 0.9) = top-centre. " +
+             "x: 0=left..1=right,  y: 0=bottom..1=top.")]
+    [SerializeField] private Vector2 screenPosition = new Vector2(0.5f, 0.9f);
+    [Tooltip("Distance in front of the camera the bar is drawn.")]
+    [SerializeField] private float distanceFromCamera = 10f;
+    [Tooltip("Leave empty to use the Main Camera.")]
+    [SerializeField] private Camera targetCamera;
 
-    [Header("Button")]
-    [SerializeField] private string buttonLabel = "Land on Island";
-    [SerializeField] private Vector2 buttonSize = new Vector2(260f, 56f);
-    [Tooltip("Distance in from the RIGHT and BOTTOM edges of the screen.")]
-    [SerializeField] private Vector2 cornerMargin = new Vector2(24f, 24f);
+    [Header("Progress Bar - When Manning (helm/cannon zoom)")]
+    [Tooltip("Screen spot the bar moves to while a station is manned.")]
+    [SerializeField] private Vector2 manningScreenPosition = new Vector2(0.32f, 0.42f);
+    [Tooltip("Scale multiplier while a station is manned (2 = twice as big).")]
+    [SerializeField] private float manningScale = 2f;
 
-    [Header("Debug")]
-    [Tooltip("Test button that damages the ship, left of the landing button.")]
-    [SerializeField] private bool showDamageButton = true;
-    [SerializeField] private int debugDamageAmount = 10;
+    [Header("Progress Bar - Pieces (children of this object)")]
+    [Tooltip("START island - placed on the RIGHT (the ship starts here).")]
+    [SerializeField] private Transform startIsland;
+    [Tooltip("END island - placed on the LEFT (the destination).")]
+    [SerializeField] private Transform endIsland;
+    [Tooltip("The ship - slides from the right island to the left one.")]
+    [SerializeField] private Transform ship;
+    [Tooltip("RIGHT spot (start island / where the ship starts).")]
+    [SerializeField] private Vector2 startSpot = new Vector2(4f, 0f);
+    [Tooltip("LEFT spot (end island / destination).")]
+    [SerializeField] private Vector2 endSpot = new Vector2(-4f, 0f);
+
+    [Header("Progress Bar - Timing")]
+    [Tooltip("Fill the bar automatically over time (this moves the ship).")]
+    [SerializeField] private bool autoAdvance = true;
+    [Tooltip("Seconds to cross from the start island to the end island.")]
+    [SerializeField] private float legDuration = 60f;
+
+    [Header("Progress Bar - Events Per Level")]
+    [Tooltip("Number of events (rocks / pirate ships) that spawn on level 1.")]
+    [SerializeField, Min(0)] private int level1Events = 1;
+    [Tooltip("Number of events that spawn on level 2.")]
+    [SerializeField, Min(0)] private int level2Events = 2;
+    [Tooltip("Number of events that spawn on level 3.")]
+    [SerializeField, Min(0)] private int level3Events = 3;
+    [Tooltip(
+        "Level used when the boat is entered with no menu selection (e.g. " +
+        "playing this scene directly to test). 1-based.")]
+    [SerializeField, Min(1)] private int defaultLevel = 1;
+
+    [Header("Progress Bar - Events (spawn ON THE LINE)")]
+    [Tooltip(
+        "Chance each event is a PIRATE SHIP rather than an obstacle (0 = all " +
+        "rocks, 1 = all ships).")]
+    [SerializeField, Range(0f, 1f)] private float enemyShipChance = 0.5f;
+    [Tooltip("Obstacle icon - hidden at start, cloned onto the line.")]
+    [SerializeField] private Transform obstacleIcon;
+    [Tooltip("Pirate ship icon - hidden at start, cloned onto the line.")]
+    [SerializeField] private Transform pirateShipIcon;
+    [Tooltip("Nudge event icons off the line, e.g. y = 6 to lift the rocks " +
+             "up above it.")]
+    [SerializeField] private Vector2 eventOffset = new Vector2(0f, 6f);
+    [Tooltip("Events spawn no closer to the START island than this " +
+             "(0 = start island, 1 = end island).")]
+    [SerializeField, Range(0f, 1f)] private float eventMinFraction = 0.25f;
+    [Tooltip("Events spawn no closer to the END island than this.")]
+    [SerializeField, Range(0f, 1f)] private float eventMaxFraction = 0.9f;
+    [Tooltip("Smallest gap allowed between two events along the line so they " +
+             "never sit on top of each other (fraction of the whole line).")]
+    [SerializeField, Range(0f, 0.5f)] private float eventMinSpacing = 0.12f;
+
+    [Header("Progress Bar - Real Spawns (driven by the events above)")]
+    [Tooltip("Fires when the ship reaches a PIRATE SHIP event. Leave empty " +
+             "to only show the icon/message with no real spawn.")]
+    [SerializeField] private NetworkEnemyShipSpawner2D enemyShipSpawner;
+    [Tooltip("Fires when the ship reaches an OBSTACLE event. Leave empty to " +
+             "only show the icon/message with no real spawn.")]
+    [SerializeField] private BoatObstacleGenerator obstacleGenerator;
+
+    [Header("Progress Bar - Event Pause")]
+    [Tooltip("Ship pauses when it gets within this many units of an event.")]
+    [SerializeField] private float eventTriggerRange = 2.5f;
+    [Tooltip("Seconds the bar pauses at each event.")]
+    [SerializeField] private float eventPauseDuration = 3f;
+    [Tooltip("Message shown for OBSTACLE events.")]
+    [SerializeField] private string obstacleMessage = "Protect the ship!";
+    [Tooltip("Message shown for ENEMY SHIP events.")]
+    [SerializeField] private string enemyMessage = "Attack the pirates!";
+    [Tooltip("Seconds the event message stays on screen. The bar still keeps " +
+             "waiting for the event to clear even after the message hides.")]
+    [SerializeField] private float messageDuration = 5f;
+
+    [Header("Progress Bar - Arrival Message")]
+    [Tooltip("Shown when the bar finishes (then the portal is usable).")]
+    [SerializeField] private string arrivalMessage = "You have arrived";
+    [Tooltip(
+        "Seconds a freshly-raised centred message outranks every other prompt " +
+        "so the player can't miss it, before it drops to the lowest priority.")]
+    [SerializeField] private float messagePrioritySeconds = 5f;
+
+    private int activeEvent = -1;
+    private float eventEndTime;
+    // When true, the active event just waits out eventPauseDuration (used on
+    // clients, or when no spawner is wired). When false, it waits until the
+    // triggered spawner reports IsResolving == false.
+    private bool activeEventTimed;
+    private string currentMessage = string.Empty;
+    // Clock time at which the current event message hides (the bar keeps
+    // waiting for the event even after this).
+    private float messageHideTime;
+
+    // The message currently pushed to the shared HUD, and the clock time until
+    // which it holds top (banner) priority. A new message restarts the window.
+    private string hudMessage;
+    private float hudPriorityUntil;
 
     private bool sailed;
+    private Vector3 normalScale = Vector3.one;
+    private LocalCoopCamera coopCam;
+    private readonly List<Transform> events = new List<Transform>();
+    private readonly List<float> eventFractions = new List<float>();
+    private readonly List<bool> eventIsEnemy = new List<bool>();
+    private readonly List<bool> eventDone = new List<bool>();
+
+    private void Awake()
+    {
+        normalScale = transform.localScale;
+    }
+
+    private void Start()
+    {
+        // Hide the source icons so they NEVER show at their scene position.
+        if (obstacleIcon != null)
+        {
+            obstacleIcon.gameObject.SetActive(false);
+        }
+        if (pirateShipIcon != null)
+        {
+            pirateShipIcon.gameObject.SetActive(false);
+        }
+
+        SpawnEvents();
+    }
+
+    // The level this leg runs at: the one chosen in the menu if there is one,
+    // otherwise the inspector's Default Level (for testing the scene directly).
+    private int ResolveLevel()
+    {
+        return BoatLevelSelection.PendingLevel > 0
+            ? BoatLevelSelection.PendingLevel
+            : Mathf.Max(1, defaultLevel);
+    }
+
+    // How many events that level spawns. Levels past 3 use the level 3 count.
+    private int EventCountForLevel(int oneBasedLevel)
+    {
+        switch (oneBasedLevel)
+        {
+            case 1: return Mathf.Max(0, level1Events);
+            case 2: return Mathf.Max(0, level2Events);
+            default: return Mathf.Max(0, level3Events);
+        }
+    }
+
+    private void SpawnEvents()
+    {
+        // Place exactly this level's event count, each independently a pirate
+        // ship or an obstacle per Enemy Ship Chance.
+        int count = EventCountForLevel(ResolveLevel());
+
+        List<Transform> chosen = new List<Transform>();
+        for (int i = 0; i < count; i++)
+        {
+            chosen.Add(Random.value < enemyShipChance
+                ? pirateShipIcon
+                : obstacleIcon);
+        }
+
+        for (int i = 0; i < chosen.Count; i++)
+        {
+            Transform template = chosen[i];
+            if (template == null)
+            {
+                continue;
+            }
+
+            // Clone the hidden template, turn it on, and parent it to the bar so
+            // its LOCAL position lands on the line between the islands.
+            GameObject clone = Instantiate(template.gameObject, transform);
+            clone.SetActive(true);
+            events.Add(clone.transform);
+            // Random spot on the line, kept away from the start island and
+            // spaced apart from the events already placed.
+            eventFractions.Add(PickSpacedFraction());
+            eventIsEnemy.Add(template == pirateShipIcon);
+            eventDone.Add(false);
+        }
+    }
+
+    // Picks a fraction along the line that is at least eventMinSpacing away
+    // from every event placed so far, so icons never overlap. Tries a number
+    // of random spots; if the line is too crowded to satisfy the spacing it
+    // falls back to the least-crowded spot it found rather than looping forever.
+    private float PickSpacedFraction()
+    {
+        const int attempts = 30;
+        float best = Random.Range(eventMinFraction, eventMaxFraction);
+        float bestGap = -1f;
+
+        for (int attempt = 0; attempt < attempts; attempt++)
+        {
+            float candidate = Random.Range(eventMinFraction, eventMaxFraction);
+
+            // Distance to the nearest already-placed event.
+            float nearest = float.MaxValue;
+            for (int i = 0; i < eventFractions.Count; i++)
+            {
+                nearest = Mathf.Min(
+                    nearest, Mathf.Abs(candidate - eventFractions[i]));
+            }
+
+            // First event, or far enough from all the others: accept it.
+            if (eventFractions.Count == 0 || nearest >= eventMinSpacing)
+            {
+                return candidate;
+            }
+
+            // Otherwise remember the roomiest spot as a fallback.
+            if (nearest > bestGap)
+            {
+                bestGap = nearest;
+                best = candidate;
+            }
+        }
+
+        return best;
+    }
+
+    private void Update()
+    {
+        // Paused at an event: hold the bar until the event is resolved.
+        if (activeEvent >= 0)
+        {
+            // Hide the message after its duration, but keep waiting.
+            if (currentMessage.Length > 0 && Time.time >= messageHideTime)
+            {
+                currentMessage = string.Empty;
+            }
+
+            if (IsActiveEventResolved())
+            {
+                CompleteActiveEvent();
+            }
+            return;
+        }
+
+        // Ship reached an event? -> pause, show its message, and spawn.
+        Vector2 shipPos = Vector2.Lerp(startSpot, endSpot, progress01);
+        for (int i = 0; i < events.Count; i++)
+        {
+            if (eventDone[i] || events[i] == null)
+            {
+                continue;
+            }
+
+            Vector2 evPos = Vector2.Lerp(startSpot, endSpot, eventFractions[i]);
+            if (Vector2.Distance(shipPos, evPos) <= eventTriggerRange)
+            {
+                activeEvent = i;
+                currentMessage = eventIsEnemy[i] ? enemyMessage : obstacleMessage;
+                messageHideTime = Time.time + messageDuration;
+
+                // Tell the matching spawner to spawn its stuff. This runs once
+                // per event (we return while paused). The spawners are
+                // server-guarded, so it is safe for every client to call.
+                bool spawnerWired;
+                if (eventIsEnemy[i])
+                {
+                    spawnerWired = enemyShipSpawner != null;
+                    if (spawnerWired)
+                    {
+                        enemyShipSpawner.Trigger();
+                    }
+                }
+                else
+                {
+                    spawnerWired = obstacleGenerator != null;
+                    if (spawnerWired)
+                    {
+                        obstacleGenerator.Trigger();
+                    }
+                }
+
+                // The server waits for the spawned things to be cleared; a pure
+                // client (or an unwired event) just waits out a fixed pause so
+                // its bar never hangs.
+                bool isServer = BoatRunDirector.Instance != null &&
+                                BoatRunDirector.Instance.IsServer;
+                activeEventTimed = !(isServer && spawnerWired);
+                eventEndTime = Time.time + eventPauseDuration;
+                return;
+            }
+        }
+
+        // Otherwise advance the bar.
+        if (autoAdvance && !sailed && legDuration > 0f && progress01 < 1f)
+        {
+            progress01 = Mathf.Clamp01(progress01 + Time.deltaTime / legDuration);
+        }
+    }
+
+    // Has the current event finished? Timed events wait out the pause; spawn
+    // events wait until their spawner has cleared everything it spawned.
+    private bool IsActiveEventResolved()
+    {
+        if (activeEventTimed)
+        {
+            return Time.time >= eventEndTime;
+        }
+
+        bool stillResolving = eventIsEnemy[activeEvent]
+            ? enemyShipSpawner != null && enemyShipSpawner.IsResolving
+            : obstacleGenerator != null && obstacleGenerator.IsResolving;
+
+        return !stillResolving;
+    }
+
+    // Finish the active event: take its icon off the line and let the bar move.
+    private void CompleteActiveEvent()
+    {
+        int i = activeEvent;
+        eventDone[i] = true;
+
+        if (events[i] != null)
+        {
+            Destroy(events[i].gameObject);
+            events[i] = null;
+        }
+
+        activeEvent = -1;
+        currentMessage = string.Empty;
+    }
+
+    private bool IsManning()
+    {
+        if (coopCam == null)
+        {
+            coopCam = FindFirstObjectByType<LocalCoopCamera>();
+        }
+        return coopCam != null && coopCam.HasZoomOverride;
+    }
+
+    // STEP 1: keep the whole bar pinned to the top-centre of the screen so the
+    // line (and, later, the islands/ship) follow the camera.
+    private void LateUpdate()
+    {
+        Camera cam = targetCamera != null ? targetCamera : Camera.main;
+        if (cam != null)
+        {
+            // While a station (helm/cannon) is manned, move + scale up; back to
+            // normal the moment you leave.
+            bool manning = IsManning();
+            Vector2 pos = manning ? manningScreenPosition : screenPosition;
+            transform.position = cam.ViewportToWorldPoint(new Vector3(
+                pos.x, pos.y, distanceFromCamera));
+            transform.localScale = manning ? normalScale * manningScale : normalScale;
+        }
+
+        // Islands on the ends; ship slides from the right (start) to the left.
+        if (startIsland != null)
+        {
+            startIsland.localPosition = startSpot;
+        }
+        if (endIsland != null)
+        {
+            endIsland.localPosition = endSpot;
+        }
+        if (ship != null)
+        {
+            ship.localPosition = Vector2.Lerp(startSpot, endSpot, progress01);
+        }
+
+        // Events sit ON THE LINE between the islands (same Lerp as the ship),
+        // forced here every frame so they can never stay at their scene spot.
+        for (int i = 0; i < events.Count; i++)
+        {
+            if (events[i] != null)
+            {
+                // Offset only obstacles (drop the rocks); leave the ship alone.
+                Vector2 off = eventIsEnemy[i] ? Vector2.zero : eventOffset;
+                events[i].localPosition =
+                    Vector2.Lerp(startSpot, endSpot, eventFractions[i]) + off;
+            }
+        }
+
+        UpdateMessageHud();
+    }
 
     /// <summary>Current leg progress, 0 to 1.</summary>
     public float Progress01 => progress01;
@@ -78,46 +450,51 @@ public class BoatLegProgress : MonoBehaviour
         RunContext.Active.OnBoatArrived();
     }
 
-    private void OnGUI()
+    // The event message while paused, else "You have arrived" once the leg is
+    // done. Routed through the shared pirate-themed panel so it matches every
+    // other prompt, and shown CENTRED on screen (not down at the prompt spot).
+    //
+    // For its first few seconds a freshly-raised message outranks everything
+    // (BannerPriority) so the player can't miss it -- even over a manned
+    // station. After that window it drops to the lowest priority, so a proximity
+    // prompt ("Press E to Continue") cleanly overrides a lingering "You have
+    // arrived" when the player walks up to the portal. No permanent blocking.
+    private void UpdateMessageHud()
     {
-        if (sailed)
+        InteractionPromptHUD hud = InteractionPromptHUD.Instance;
+        if (hud == null)
         {
             return;
         }
 
-        // Bottom-right corner, clear of the centred station prompts.
-        Rect landRect = new Rect(
-            Screen.width - buttonSize.x - cornerMargin.x,
-            Screen.height - buttonSize.y - cornerMargin.y,
-            buttonSize.x,
-            buttonSize.y);
+        string message = !string.IsNullOrEmpty(currentMessage)
+            ? currentMessage
+            : (IsComplete ? arrivalMessage : null);
 
-        // Test button, sitting immediately to the LEFT of the landing button.
-        if (showDamageButton)
+        if (string.IsNullOrEmpty(message))
         {
-            Rect damageRect = new Rect(
-                landRect.x - buttonSize.x - 12f,
-                landRect.y,
-                buttonSize.x,
-                buttonSize.y);
-
-            if (GUI.Button(damageRect, $"Damage Ship  -{debugDamageAmount}"))
-            {
-                if (RunContext.HasActive)
-                {
-                    RunContext.Active.DamageShip(debugDamageAmount);
-                }
-            }
-        }
-
-        if (!IsComplete && !showButtonAlways)
-        {
+            hud.Hide(this);
+            hudMessage = null;
             return;
         }
 
-        if (GUI.Button(landRect, buttonLabel))
+        // A newly-raised (or changed) message restarts the priority window.
+        if (message != hudMessage)
         {
-            LandOnIsland();
+            hudMessage = message;
+            hudPriorityUntil = Time.time + messagePrioritySeconds;
         }
+
+        int priority = Time.time < hudPriorityUntil
+            ? InteractionPromptHUD.BannerPriority
+            : InteractionPromptHUD.StatusPriority;
+
+        hud.Show(message, this, priority, centered: false);
+    }
+
+    private void OnDisable()
+    {
+        // Release the panel if we're torn down while still showing a message.
+        InteractionPromptHUD.Instance?.Hide(this);
     }
 }

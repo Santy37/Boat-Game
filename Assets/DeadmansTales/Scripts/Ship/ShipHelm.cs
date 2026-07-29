@@ -151,6 +151,51 @@ public class ShipHelm : MonoBehaviour
                 operatorBody.position = standPoint.position;
             }
         }
+
+        UpdatePrompt();
+    }
+
+    // Drive the shared pirate-themed prompt panel instead of a legacy OnGUI
+    // box, so the helm reads identically to every other interaction prompt.
+    // As a claimed owner it wins the panel over the network proximity prompt.
+    private void UpdatePrompt()
+    {
+        InteractionPromptHUD hud = InteractionPromptHUD.Instance;
+        if (hud == null)
+        {
+            return;
+        }
+
+        if (Manned)
+        {
+            KeyBindings keys = operatorPlayer.Bindings;
+            string leave = keys != null
+                ? keys.interact.ToString() : fallbackManKey.ToString();
+
+            hud.Show(
+                $"Move keys steer the ship   |   {leave}: Leave Helm",
+                this, InteractionPromptHUD.StationPriority);
+        }
+        else if (playerInRange != null)
+        {
+            KeyBindings keys = playerInRange.Bindings;
+            string use = keys != null
+                ? keys.interact.ToString() : fallbackManKey.ToString();
+
+            hud.Show(
+                $"Press {use} to Take Helm",
+                this, InteractionPromptHUD.StationPriority);
+        }
+        else
+        {
+            hud.Hide(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        // Release the panel if we're torn down while still owning it.
+        InteractionPromptHUD.Instance?.Hide(this);
     }
 
     private void Man(PlayerCharacter player)
@@ -233,37 +278,4 @@ public class ShipHelm : MonoBehaviour
         }
     }
 
-    private void OnGUI()
-    {
-        if (playerInRange == null && !Manned)
-        {
-            return;
-        }
-
-        const float width = 400f;
-        const float height = 46f;
-
-        Rect rect = new Rect(
-            (Screen.width - width) * 0.5f,
-            Screen.height - 150f,
-            width,
-            height);
-
-        if (Manned)
-        {
-            KeyBindings keys = operatorPlayer.Bindings;
-            string leave = keys != null
-                ? keys.interact.ToString() : fallbackManKey.ToString();
-
-            GUI.Box(rect, $"Move keys steer the ship   |   {leave}: Leave Helm");
-        }
-        else
-        {
-            KeyBindings keys = playerInRange.Bindings;
-            string use = keys != null
-                ? keys.interact.ToString() : fallbackManKey.ToString();
-
-            GUI.Box(rect, $"Press {use} to Take Helm");
-        }
-    }
 }

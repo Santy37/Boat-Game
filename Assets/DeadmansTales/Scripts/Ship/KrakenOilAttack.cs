@@ -37,6 +37,17 @@ public class KrakenOilAttack : MonoBehaviour
     [Tooltip("Above the tentacle (6) so the oil reads in front as it flies.")]
     [SerializeField] private int sortingOrder = 7;
 
+    [Header("Audio")]
+    [Tooltip("Played where the blob is launched from.")]
+    [SerializeField] private AudioClip oilFireClip;
+
+    [Tooltip("Handed to the blob and played where it lands.")]
+    [SerializeField] private AudioClip oilImpactClip;
+
+    [SerializeField]
+    [Range(0f, 1f)]
+    private float oilVolume = 1f;
+
     private void Start()
     {
         if (oilPrefab == null)
@@ -86,6 +97,12 @@ public class KrakenOilAttack : MonoBehaviour
             shot = go.AddComponent<OilShot>();
         }
         shot.Launch(
-            dir * projectileSpeed, projectileLife, oilDamage, shipHitbox, hitRadius);
+            dir * projectileSpeed, projectileLife, oilDamage, shipHitbox, hitRadius,
+            oilImpactClip, oilVolume);
+
+        if (oilFireClip != null)
+        {
+            AudioSource.PlayClipAtPoint(oilFireClip, origin, oilVolume);
+        }
     }
 }
