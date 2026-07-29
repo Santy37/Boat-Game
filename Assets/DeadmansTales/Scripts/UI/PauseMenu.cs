@@ -71,7 +71,8 @@ public class PauseMenu : MonoBehaviour
 
     public void OpenLevelSelect()
     {
-        Debug.Log("Level Select");
+        PlayerPrefs.SetInt("OpenLevelSelectAfterDeath", 1);
+        ReturnToMainMenu();
     }
 
     public void SetDeathScreenBlocking(bool blocked)
