@@ -173,7 +173,7 @@ public class ShipHelm : MonoBehaviour
                 ? keys.interact.ToString() : fallbackManKey.ToString();
 
             hud.Show(
-                $"Move keys steer the ship   |   {leave}: Leave Helm",
+                $"WASD TO STEER ",
                 this, InteractionPromptHUD.StationPriority);
         }
         else if (playerInRange != null)
@@ -183,7 +183,7 @@ public class ShipHelm : MonoBehaviour
                 ? keys.interact.ToString() : fallbackManKey.ToString();
 
             hud.Show(
-                $"Press {use} to Take Helm",
+                $"PRESS {use} TO USE",
                 this, InteractionPromptHUD.StationPriority);
         }
         else

@@ -358,7 +358,7 @@ public class ShipCannon : MonoBehaviour
                 ? keys.interact.ToString() : fallbackManKey.ToString();
 
             hud.Show(
-                $"Aim: move keys   |   {fire}: Fire   |   {leave}: Leave",
+                $"WASD TO AIM | SPACE TO SHOOT",
                 this, InteractionPromptHUD.StationPriority);
         }
         else if (playerInRange != null)
@@ -368,7 +368,7 @@ public class ShipCannon : MonoBehaviour
                 ? keys.interact.ToString() : fallbackManKey.ToString();
 
             hud.Show(
-                $"Press {use} to Man Cannon",
+                $"PRESS {use} TO USE",
                 this, InteractionPromptHUD.StationPriority);
         }
         else

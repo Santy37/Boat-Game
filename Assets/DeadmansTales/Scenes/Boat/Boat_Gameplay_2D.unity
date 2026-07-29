@@ -599,6 +599,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.NetworkShipHealth
   ShowTopMostFoldoutHeaderGroup: 1
   maximumHealth: 500
+  destroyDelay: 1
   healthRestoredPerStageAdvance: 200
 --- !u!114 &235887351
 MonoBehaviour:
@@ -771,6 +772,11 @@ MonoBehaviour:
   messageDuration: 5
   arrivalMessage: LAND HOOOO!!!
   messagePrioritySeconds: 5
+--- !u!1 &362709374 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 497764116081080609, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+  m_PrefabInstance: {fileID: 1434019479496468661}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &366614375
 GameObject:
   m_ObjectHideFlags: 0
@@ -946,6 +952,7 @@ MonoBehaviour:
   facing: {x: 0, y: 1}
   muzzle: {fileID: 1809852439}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -1624,6 +1631,7 @@ MonoBehaviour:
   facing: {x: 0, y: 1}
   muzzle: {fileID: 22986013}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -3868,6 +3876,17 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!114 &985325137 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3662378677260580065, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+  m_PrefabInstance: {fileID: 1434019479496468661}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b4030e4f54d104439512b76954ab4bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PauseMenu
 --- !u!1 &990760639
 GameObject:
   m_ObjectHideFlags: 0
@@ -4074,6 +4093,7 @@ MonoBehaviour:
   facing: {x: -1, y: 0}
   muzzle: {fileID: 1353640264}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -4213,22 +4233,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 1398146463713163631, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 2327.5547
-      objectReference: {fileID: 0}
-    - target: {fileID: 1398146463713163631, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_SizeDelta.y
-      value: 1222.2728
-      objectReference: {fileID: 0}
-    - target: {fileID: 1398146463713163631, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 4.3493
-      objectReference: {fileID: 0}
-    - target: {fileID: 1398146463713163631, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 6.1913986
-      objectReference: {fileID: 0}
     - target: {fileID: 2798816086414913423, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 2.0478516
@@ -4313,6 +4317,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4285159270737972099, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
+      propertyPath: hotbar
+      value: 
+      objectReference: {fileID: 362709374}
+    - target: {fileID: 4285159270737972099, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
+      propertyPath: pauseMenu
+      value: 
+      objectReference: {fileID: 985325137}
     - target: {fileID: 5608676363641927800, guid: 92e12dd44c78b5044b3e583e3a42bfcb, type: 3}
       propertyPath: m_Name
       value: DeathScreenUI
@@ -4897,6 +4909,7 @@ MonoBehaviour:
   facing: {x: 0, y: -1}
   muzzle: {fileID: 870088633}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
@@ -5050,6 +5063,7 @@ MonoBehaviour:
   facing: {x: 0, y: -1}
   muzzle: {fileID: 418975921}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1

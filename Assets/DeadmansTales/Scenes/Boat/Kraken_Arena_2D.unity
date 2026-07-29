@@ -1002,6 +1002,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.NetworkShipHealth
   ShowTopMostFoldoutHeaderGroup: 1
   maximumHealth: 500
+  destroyDelay: 1
   healthRestoredPerStageAdvance: 200
 --- !u!114 &235887351
 MonoBehaviour:
@@ -1359,10 +1360,11 @@ MonoBehaviour:
   facing: {x: 0, y: 1}
   muzzle: {fileID: 1809852439}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
-  aimRange: 30
+  aimRange: 15
   aimSpeed: 6
   maxAimAngleFromFacing: 90
   cannonCameraZoom: 24
@@ -1949,10 +1951,11 @@ MonoBehaviour:
   facing: {x: 0, y: 1}
   muzzle: {fileID: 22986013}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
-  aimRange: 30
+  aimRange: 15
   aimSpeed: 6
   maxAimAngleFromFacing: 90
   cannonCameraZoom: 24
@@ -2422,8 +2425,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.25}
   m_AnchorMax: {x: 1, y: 0.75}
-  m_AnchoredPosition: {x: -5, y: 0}
-  m_SizeDelta: {x: -20, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &754887837
 GameObject:
@@ -5202,6 +5205,63 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1.4}
   m_EdgeRadius: 0
+--- !u!1001 &1426478951
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 48.85372
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 27.88482
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3392106300177911956, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4604194619919965267, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
+      propertyPath: m_Name
+      value: InteractionPromptUI
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 6bc17c50c5d813a4c864f504ac0bc03f, type: 3}
 --- !u!1 &1435242196
 GameObject:
   m_ObjectHideFlags: 0
@@ -5346,10 +5406,11 @@ MonoBehaviour:
   facing: {x: 0, y: -1}
   muzzle: {fileID: 870088633}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
-  aimRange: 30
+  aimRange: 15
   aimSpeed: 6
   maxAimAngleFromFacing: 90
   cannonCameraZoom: 24
@@ -5499,10 +5560,11 @@ MonoBehaviour:
   facing: {x: 0, y: -1}
   muzzle: {fileID: 418975921}
   target: {fileID: 543750386}
+  targetSortingOrder: 20
   cannonballPrefab: {fileID: 685894238626747762, guid: 064a5582b99fa254b93d61764085a1a7, type: 3}
   ballSpeed: 12
   cooldown: 1
-  aimRange: 30
+  aimRange: 15
   aimSpeed: 6
   maxAimAngleFromFacing: 90
   cannonCameraZoom: 24
@@ -9278,8 +9340,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.25}
   m_AnchorMax: {x: 1, y: 0.75}
-  m_AnchoredPosition: {x: -5, y: 0}
-  m_SizeDelta: {x: -20, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1648975316
 GameObject:
@@ -10409,6 +10471,7 @@ SceneRoots:
   - {fileID: 102312510}
   - {fileID: 1021468368}
   - {fileID: 1409201751}
+  - {fileID: 1426478951}
   - {fileID: 965073997}
   - {fileID: 1988247680}
   - {fileID: 1583839935}
