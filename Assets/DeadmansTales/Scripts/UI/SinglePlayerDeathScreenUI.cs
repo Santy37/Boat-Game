@@ -133,8 +133,7 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
         // everybody aboard and never recovers, so that one shows in an online
         // session too, where it used to show nothing at all.
         bool playerDied =
-            shipHasSunk ||
-            (!isOnlineMultiplayer && health <= 0f);
+    !isOnlineMultiplayer && health <= 0f;
 
         if (!playerDied)
         {
