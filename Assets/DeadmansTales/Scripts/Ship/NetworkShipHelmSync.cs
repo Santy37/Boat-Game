@@ -22,10 +22,47 @@ namespace DeadmansTales.Ship
     /// wheel as it drifts. Both mutate authoritative state (the ship's
     /// position, a networked player's position), so both now run
     /// server-only, same as the steering itself.
+    ///
+    /// THE WHEEL IS A CLAIMED SEAT. Every peer has its own copy of the
+    /// non-networked ShipHelm, and "am I manning it" used to be purely local
+    /// state on each of them. Nothing asked the server whether the wheel was
+    /// already taken, so with three or four players two of them could each
+    /// decide they were the steersman and both stream input here at once:
+    /// the operator id flip-flopped between them every packet, their inputs
+    /// summed into one offset (double speed when they agreed, a stutter when
+    /// they fought), and PinOperatorServer yanked whichever of them had sent
+    /// the most recent packet onto the wheel while leaving the other frozen
+    /// in place but not pinned. <see cref="ClaimHelmServerRpc"/> is what
+    /// makes the seat exclusive, and <see cref="SubmitSteerInputServerRpc"/>
+    /// now drops input from anyone who does not hold it.
     /// </summary>
     [RequireComponent(typeof(NetworkObject))]
     public sealed class NetworkShipHelmSync : NetworkBehaviour
     {
+        /// <summary>
+        /// Sentinel for "nobody is steering". A real client id is never this
+        /// value, and a sentinel keeps the operator in a NetworkVariable
+        /// (which cannot hold a nullable) so that every peer can see whether
+        /// the wheel is free BEFORE trying to take it.
+        /// </summary>
+        public const ulong NoOperator = ulong.MaxValue;
+
+        /// <summary>How long a client waits for a verdict on its claim.</summary>
+        private const float ClaimReplyTimeoutSeconds = 3f;
+
+        /// <summary>
+        /// This machine's view of its own attempt to take the wheel.
+        /// Deliberately NOT a NetworkVariable: it is local UI state about a
+        /// request in flight, and only the requesting client ever reads it.
+        /// </summary>
+        public enum HelmClaim
+        {
+            None,
+            Pending,
+            Granted,
+            Denied,
+        }
+
         [Header("Wiring")]
         [Tooltip(
             "The same stand point ShipHelm seats the operator at. Read " +
@@ -77,12 +114,33 @@ namespace DeadmansTales.Ship
         [Min(0f)]
         private float aboardMargin = 0.75f;
 
+        /// <summary>
+        /// Who holds the wheel, replicated so that every peer's ShipHelm can
+        /// see the seat is occupied without asking, and so a client can tell
+        /// when the server has taken the wheel back off it (stale input,
+        /// disconnect) and stand its own player up to match.
+        /// </summary>
+        private readonly NetworkVariable<ulong> operatorClientId =
+            new NetworkVariable<ulong>(
+                NoOperator,
+                NetworkVariableReadPermission.Everyone,
+                NetworkVariableWritePermission.Server
+            );
+
         private Vector3 shipHome;
         private Vector2 steerOffset;
-        private ulong? operatorClientId;
+
+        // The operator's most recent input, held until the next server frame
+        // integrates it. NOT integrated on arrival -- see
+        // IntegrateSteeringServer for why that was the whole ballgame.
+        private Vector2 pendingSteerInput;
+
         private float inputExpiryTime;
         private Collider2D steeredHull;
         private PlayerShipMarker marker;
+
+        private HelmClaim localClaim;
+        private float localClaimTimeoutTime;
 
         // World position the ship sat at after the previous authoritative
         // move. The difference against the current one is how far the deck
@@ -90,6 +148,64 @@ namespace DeadmansTales.Ship
         // be carried -- see CarryPassengersServer.
         private Vector3 lastAppliedShipPosition;
         private bool hasLastAppliedShipPosition;
+
+        /// <summary>True while somebody holds the wheel.</summary>
+        public bool HasOperator => operatorClientId.Value != NoOperator;
+
+        /// <summary>
+        /// True when this machine may try to take the wheel: nobody has it,
+        /// or this machine already does. Checked by ShipHelm before it seats
+        /// a player, so the common case (walking up to a wheel another
+        /// player is visibly steering) is refused without a round trip.
+        /// </summary>
+        public bool IsHelmFree
+        {
+            get
+            {
+                if (!IsSpawned)
+                {
+                    return false;
+                }
+
+                return !HasOperator ||
+                    operatorClientId.Value == NetworkManager.LocalClientId;
+            }
+        }
+
+        /// <summary>
+        /// True once the server has confirmed this machine holds the wheel.
+        /// Steering input is only worth sending in this state; while the
+        /// claim is still Pending the server would reject it anyway.
+        /// </summary>
+        public bool IsLocalClaimGranted =>
+            IsSpawned &&
+            localClaim == HelmClaim.Granted &&
+            operatorClientId.Value == NetworkManager.LocalClientId;
+
+        /// <summary>
+        /// True while this machine's bid for the wheel is still alive --
+        /// either waiting on a verdict, or granted and still held. Goes
+        /// false the moment the server denies the claim, hands the wheel to
+        /// somebody else, or drops us for stale input, which is ShipHelm's
+        /// cue to stand its player back up.
+        /// </summary>
+        public bool IsLocalClaimActive
+        {
+            get
+            {
+                if (!IsSpawned)
+                {
+                    return false;
+                }
+
+                if (localClaim == HelmClaim.Pending)
+                {
+                    return Time.unscaledTime < localClaimTimeoutTime;
+                }
+
+                return IsLocalClaimGranted;
+            }
+        }
 
         private void Awake()
         {
@@ -105,30 +221,130 @@ namespace DeadmansTales.Ship
                 ResolveSteeredHullServer();
                 lastAppliedShipPosition = transform.position;
                 hasLastAppliedShipPosition = true;
+
+                NetworkManager.OnClientDisconnectCallback +=
+                    HandleClientDisconnectServer;
             }
         }
 
+        public override void OnNetworkDespawn()
+        {
+            if (IsServer && NetworkManager != null)
+            {
+                NetworkManager.OnClientDisconnectCallback -=
+                    HandleClientDisconnectServer;
+            }
+
+            localClaim = HelmClaim.None;
+
+            base.OnNetworkDespawn();
+        }
+
         /// <summary>
-        /// Called every frame a networked player mans the helm (mirrors the
-        /// old ShipHelm.LateUpdate write, just routed through the server
-        /// instead of straight onto the Transform). Any connected client may
-        /// call this -- there is nothing to own ahead of time, since who is
-        /// currently steering is exactly what this call itself establishes.
+        /// Called on this machine by ShipHelm when its local player takes the
+        /// wheel. Marks the claim in flight and asks the server to award it.
+        /// </summary>
+        public void BeginLocalClaim()
+        {
+            if (!IsSpawned)
+            {
+                return;
+            }
+
+            localClaim = HelmClaim.Pending;
+            localClaimTimeoutTime = Time.unscaledTime + ClaimReplyTimeoutSeconds;
+
+            ClaimHelmServerRpc();
+        }
+
+        /// <summary>
+        /// Called on this machine by ShipHelm when its local player steps
+        /// away, so a later "is the wheel still mine" check cannot re-answer
+        /// yes off stale local state.
+        /// </summary>
+        public void ClearLocalClaim()
+        {
+            localClaim = HelmClaim.None;
+        }
+
+        /// <summary>
+        /// Awards the wheel to the caller, but only if it is actually free.
+        /// Any connected client may ask -- there is nothing to own ahead of
+        /// time -- but exactly one of them can hold it, which is the point.
         /// </summary>
         [ServerRpc(RequireOwnership = false)]
+        private void ClaimHelmServerRpc(ServerRpcParams rpcParams = default)
+        {
+            ulong sender = rpcParams.Receive.SenderClientId;
+
+            bool granted =
+                !HasOperator || operatorClientId.Value == sender;
+
+            if (granted)
+            {
+                operatorClientId.Value = sender;
+
+                // Start them still, and give them a full stale window before
+                // the first input packet has to arrive.
+                pendingSteerInput = Vector2.zero;
+                inputExpiryTime = Time.unscaledTime + inputStaleSeconds;
+            }
+
+            ReplyClaimClientRpc(
+                granted,
+                new ClientRpcParams
+                {
+                    Send = new ClientRpcSendParams
+                    {
+                        TargetClientIds = new[] { sender },
+                    },
+                }
+            );
+        }
+
+        [ClientRpc]
+        private void ReplyClaimClientRpc(
+            bool granted,
+            ClientRpcParams rpcParams = default
+        )
+        {
+            // A verdict on a claim we already abandoned (walked away before
+            // the reply landed) must not put us back at the wheel.
+            if (localClaim != HelmClaim.Pending)
+            {
+                return;
+            }
+
+            localClaim = granted ? HelmClaim.Granted : HelmClaim.Denied;
+        }
+
+        /// <summary>
+        /// Called by the operator's client while it mans the helm. This is
+        /// the LATEST INPUT, not an increment: the server integrates it once
+        /// per frame in <see cref="IntegrateSteeringServer"/>, so it does not
+        /// matter how many of these arrive in a given frame.
+        ///
+        /// Unreliable, and sent by the client on change plus a heartbeat
+        /// rather than every frame, exactly like TopDownNetworkPlayer2D's own
+        /// movement stream. A held direction is one packet every 50 ms, not
+        /// one per rendered frame per player.
+        /// </summary>
+        [ServerRpc(RequireOwnership = false, Delivery = RpcDelivery.Unreliable)]
         public void SubmitSteerInputServerRpc(
             Vector2 rawInput,
             ServerRpcParams rpcParams = default
         )
         {
-            operatorClientId = rpcParams.Receive.SenderClientId;
+            // Only the player holding the wheel steers the ship. Without
+            // this, whoever sent the most recent packet became the operator
+            // by the mere act of sending one.
+            if (operatorClientId.Value != rpcParams.Receive.SenderClientId)
+            {
+                return;
+            }
+
             inputExpiryTime = Time.unscaledTime + inputStaleSeconds;
-
-            steerOffset += rawInput * (moveSpeed * Time.deltaTime);
-            steerOffset.x = Mathf.Clamp(steerOffset.x, -moveBounds.x, moveBounds.x);
-            steerOffset.y = Mathf.Clamp(steerOffset.y, -moveBounds.y, moveBounds.y);
-
-            ApplyPositionServer();
+            pendingSteerInput = Vector2.ClampMagnitude(rawInput, 1f);
         }
 
         /// <summary>
@@ -140,26 +356,24 @@ namespace DeadmansTales.Ship
         [ServerRpc(RequireOwnership = false)]
         public void StopSteerServerRpc(ServerRpcParams rpcParams = default)
         {
-            if (operatorClientId == rpcParams.Receive.SenderClientId)
+            if (operatorClientId.Value == rpcParams.Receive.SenderClientId)
             {
-                operatorClientId = null;
+                ReleaseHelmServer();
             }
         }
 
-        private void Update()
+        private void HandleClientDisconnectServer(ulong clientId)
         {
-            if (!IsServer)
+            if (operatorClientId.Value == clientId)
             {
-                return;
+                ReleaseHelmServer();
             }
+        }
 
-            if (
-                operatorClientId.HasValue &&
-                Time.unscaledTime >= inputExpiryTime
-            )
-            {
-                operatorClientId = null;
-            }
+        private void ReleaseHelmServer()
+        {
+            operatorClientId.Value = NoOperator;
+            pendingSteerInput = Vector2.zero;
         }
 
         private void LateUpdate()
@@ -168,6 +382,13 @@ namespace DeadmansTales.Ship
             {
                 return;
             }
+
+            ExpireStaleOperatorServer();
+
+            // The one authoritative move for this frame, integrated on the
+            // server's own clock. Everything below reacts to where that put
+            // the ship, so it has to happen first.
+            IntegrateSteeringServer();
 
             // Before anyone is repositioned below -- otherwise a passenger
             // gets moved to match a deck that is about to be shoved
@@ -188,6 +409,57 @@ namespace DeadmansTales.Ship
             // translated. They are not standing on the deck freely, they are
             // fixed to a specific spot on it.
             PinOperatorServer();
+        }
+
+        private void ExpireStaleOperatorServer()
+        {
+            if (HasOperator && Time.unscaledTime >= inputExpiryTime)
+            {
+                ReleaseHelmServer();
+            }
+        }
+
+        /// <summary>
+        /// Advances the ship by the operator's held input, ONCE per server
+        /// frame, using the server's own delta time.
+        ///
+        /// This used to live in SubmitSteerInputServerRpc, which multiplied
+        /// moveSpeed by Time.deltaTime for every packet that arrived. Two
+        /// separate things were wrong with that, and together they are the
+        /// "ship spasms out" report:
+        ///
+        /// The delta was the SERVER's frame time, but the number of packets
+        /// was set by the CLIENT's frame rate. A client running at 144 fps
+        /// against a 60 fps host landed about 2.4 packets per server frame
+        /// and got 2.4x the intended speed; a client running at 30 fps got
+        /// half. The ship's speed was a function of whose machine was faster.
+        ///
+        /// And packet arrival is not smooth. Under jitter -- which gets
+        /// markedly worse as the third and fourth players add traffic --
+        /// several frames' worth of packets bunch up and land together, then
+        /// none land at all, so the ship lurched forward and stalled in turn
+        /// even though the operator was holding one steady direction.
+        ///
+        /// Integrating here instead makes the ship's speed depend on nothing
+        /// but the server's clock. Dropped or bunched packets change when the
+        /// server learns the input, never how fast the ship travels.
+        /// </summary>
+        private void IntegrateSteeringServer()
+        {
+            if (!HasOperator || pendingSteerInput == Vector2.zero)
+            {
+                return;
+            }
+
+            steerOffset += pendingSteerInput * (moveSpeed * Time.deltaTime);
+            ClampSteerOffset();
+            ApplyPositionServer();
+        }
+
+        private void ClampSteerOffset()
+        {
+            steerOffset.x = Mathf.Clamp(steerOffset.x, -moveBounds.x, moveBounds.x);
+            steerOffset.y = Mathf.Clamp(steerOffset.y, -moveBounds.y, moveBounds.y);
         }
 
         private void ApplyPositionServer()
@@ -261,10 +533,7 @@ namespace DeadmansTales.Ship
                 // The steersman is skipped: PinOperatorServer puts them on an
                 // exact spot immediately after this, so carrying them first
                 // would just be a wasted write.
-                if (
-                    operatorClientId.HasValue &&
-                    client.ClientId == operatorClientId.Value
-                )
+                if (HasOperator && client.ClientId == operatorClientId.Value)
                 {
                     continue;
                 }
@@ -312,7 +581,7 @@ namespace DeadmansTales.Ship
         {
             if (
                 standPoint == null ||
-                !operatorClientId.HasValue ||
+                !HasOperator ||
                 NetworkManager == null ||
                 !NetworkManager.ConnectedClients.TryGetValue(
                     operatorClientId.Value,
@@ -339,14 +608,14 @@ namespace DeadmansTales.Ship
         // carries no PlayerShipMarker, so separation stays off for it.
         private void ResolveSteeredHullServer()
         {
-            PlayerShipMarker marker = GetComponent<PlayerShipMarker>();
+            PlayerShipMarker shipMarker = GetComponent<PlayerShipMarker>();
 
-            if (marker == null)
+            if (shipMarker == null)
             {
                 return;
             }
 
-            steeredHull = marker.Hitbox;
+            steeredHull = shipMarker.Hitbox;
 
             if (steeredHull == null)
             {
@@ -439,8 +708,7 @@ namespace DeadmansTales.Ship
             }
 
             steerOffset += correction;
-            steerOffset.x = Mathf.Clamp(steerOffset.x, -moveBounds.x, moveBounds.x);
-            steerOffset.y = Mathf.Clamp(steerOffset.y, -moveBounds.y, moveBounds.y);
+            ClampSteerOffset();
 
             ApplyPositionServer();
         }

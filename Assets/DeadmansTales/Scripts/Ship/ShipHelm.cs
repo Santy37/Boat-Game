@@ -50,9 +50,19 @@ public class ShipHelm : MonoBehaviour
         "the ship off slightly further.")]
     [SerializeField] private float hullSeparationSkin = 0f;
 
+    // Matches TopDownNetworkPlayer2D's own movement stream: a held steering
+    // direction is one packet every 50 ms, not one per rendered frame. The
+    // server integrates the latest input on its own clock, so sending more
+    // often buys nothing and the extra traffic is exactly what made packet
+    // arrival bunchy once there were three or four players.
+    private const float SteerInputHeartbeatSeconds = 0.05f;
+
     private PlayerCharacter playerInRange;
     private PlayerCharacter operatorPlayer;
     private Rigidbody2D operatorBody;
+
+    private Vector2 lastSubmittedSteerInput;
+    private float nextSteerHeartbeatTime;
 
     // Resolved once: the ship's own networked steering component, if it has
     // one. Present only on ships that are actually multiplayer-networked
@@ -76,6 +86,32 @@ public class ShipHelm : MonoBehaviour
     private Collider2D steeredHull;
 
     private bool Manned => operatorPlayer != null;
+
+    /// <summary>
+    /// True when the SERVER owns this ship's Transform, on every peer,
+    /// whether or not this machine happens to be steering right now.
+    ///
+    /// This is the question that gates the local movement path below, and
+    /// getting it wrong is what made the ship "clip out on the client but
+    /// not the host". The old gate was "did I just hand my input to the
+    /// server this frame", which is false on every peer that is not
+    /// steering -- so those peers fell through to the local path and ran
+    /// PushOutOfEnemyHulls against their own local steerOffset. The instant
+    /// the hull overlapped an enemy, that offset went non-zero and the
+    /// `steerOffset != Vector2.zero` condition below latched on forever,
+    /// leaving the client rewriting the ship's position from its own private
+    /// guess every frame in a fight with the incoming NetworkTransform.
+    ///
+    /// Whether the server owns the ship is a property of the SHIP, not of
+    /// this frame, so it is asked that way. IsSpawned is the other half:
+    /// with no network session running -- pressing Play on Boat_Gameplay_2D
+    /// or Kraken_Arena_2D straight from the editor -- the ship's
+    /// NetworkObject never spawns and nothing is steering it server-side, so
+    /// the local path below is still the right one. A purely local ship (or
+    /// an enemy ship's copy of this helm, which has no sync component at
+    /// all) takes the same path.
+    /// </summary>
+    private bool ServerOwnsShip => networkSync != null && networkSync.IsSpawned;
 
     /// <summary>
     /// True while a player on THIS machine is steering. Read by the boat
@@ -146,7 +182,18 @@ public class ShipHelm : MonoBehaviour
     {
         if (Manned)
         {
-            if (InteractPressed(operatorPlayer))
+            // The server can take the wheel back off us: our claim was
+            // denied because another player already had it, we stopped
+            // sending input long enough to go stale, or we dropped and
+            // reconnected. Stand up to match rather than sitting at a wheel
+            // that no longer answers -- that mismatch is what left the third
+            // player frozen in place, seated server-side but steering
+            // nothing.
+            if (ServerOwnsShip && !networkSync.IsLocalClaimActive)
+            {
+                Leave();
+            }
+            else if (InteractPressed(operatorPlayer))
             {
                 Leave();
             }
@@ -173,15 +220,6 @@ public class ShipHelm : MonoBehaviour
 
     private void LateUpdate()
     {
-        // True once this frame's input was handed to the server instead of
-        // applied here -- a networked operator's ship. NetworkShipHelmSync
-        // moves the ship and re-pins the seated player every server tick,
-        // and NetworkTransform on both replicates the result to every peer,
-        // so nothing below (local Transform writes, hull push-out, gluing
-        // the operator to the seat) should also run: it would just fight
-        // the incoming replication with a stale local guess.
-        bool movedByServer = false;
-
         if (Manned)
         {
             Vector2 input = operatorPlayer.Bindings != null
@@ -189,9 +227,18 @@ public class ShipHelm : MonoBehaviour
                 : new Vector2(
                     Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 
-            movedByServer = operatorPlayer.TrySteerShipNetworked(networkSync, input);
-
-            if (!movedByServer)
+            if (ServerOwnsShip)
+            {
+                // Only once the server has actually awarded us the wheel.
+                // While the claim is still in flight it would reject this
+                // anyway, and sending regardless is how the operator used to
+                // be decided by whoever transmitted last.
+                if (networkSync.IsLocalClaimGranted)
+                {
+                    SubmitSteerInput(input);
+                }
+            }
+            else
             {
                 steerOffset += input * (moveSpeed * Time.deltaTime);
                 steerOffset.x = Mathf.Clamp(steerOffset.x, -moveBounds.x, moveBounds.x);
@@ -199,7 +246,12 @@ public class ShipHelm : MonoBehaviour
             }
         }
 
-        if (movedByServer)
+        // NetworkShipHelmSync moves the ship and re-pins the seated player on
+        // the server every frame, and NetworkTransform on both replicates the
+        // result to every peer. Nothing below (local Transform writes, hull
+        // push-out, gluing the operator to the seat) may also run on ANY peer
+        // for such a ship -- see ServerOwnsShip.
+        if (ServerOwnsShip)
         {
             UpdatePrompt();
             return;
@@ -409,6 +461,19 @@ public class ShipHelm : MonoBehaviour
                 $"WASD TO STEER ",
                 this, InteractionPromptHUD.StationPriority);
         }
+        // Somebody else has the wheel, so Man() would refuse it. Say so
+        // rather than offering a key that silently does nothing -- an
+        // unexplained dead prompt is exactly how "the wheel is taken" reads
+        // as "the wheel is broken" to the third player to reach it.
+        else if (
+            playerInRange != null &&
+            ServerOwnsShip &&
+            !networkSync.IsHelmFree)
+        {
+            hud.Show(
+                "ANOTHER PIRATE IS STEERING",
+                this, InteractionPromptHUD.StationPriority);
+        }
         else if (playerInRange != null)
         {
             KeyBindings keys = playerInRange.Bindings;
@@ -431,10 +496,52 @@ public class ShipHelm : MonoBehaviour
         InteractionPromptHUD.Instance?.Hide(this);
     }
 
+    /// <summary>
+    /// Sends the operator's steering input on change, plus a slow heartbeat
+    /// to keep the server's stale-input timer alive.
+    /// </summary>
+    private void SubmitSteerInput(Vector2 input)
+    {
+        bool changed = input != lastSubmittedSteerInput;
+
+        if (!changed && Time.unscaledTime < nextSteerHeartbeatTime)
+        {
+            return;
+        }
+
+        lastSubmittedSteerInput = input;
+        nextSteerHeartbeatTime =
+            Time.unscaledTime + SteerInputHeartbeatSeconds;
+
+        operatorPlayer.TrySteerShipNetworked(networkSync, input);
+    }
+
     private void Man(PlayerCharacter player)
     {
+        // On a networked ship the wheel is a claimed seat, and taking it is
+        // not this machine's decision to make. Every peer runs its own copy
+        // of this component with its own private `Manned` flag, so without
+        // asking, two players on two machines could each seat themselves at
+        // the same wheel and both stream steering input at the server. See
+        // NetworkShipHelmSync's summary for what that did to the ship.
+        if (ServerOwnsShip)
+        {
+            if (!networkSync.IsHelmFree)
+            {
+                return;
+            }
+
+            networkSync.BeginLocalClaim();
+        }
+
         operatorPlayer = player;
         operatorBody = player.GetComponent<Rigidbody2D>();
+
+        // Never inherit the previous operator's last input: a fresh steersman
+        // must transmit their own before the ship moves, and the heartbeat
+        // clock restarts with them.
+        lastSubmittedSteerInput = Vector2.zero;
+        nextSteerHeartbeatTime = 0f;
 
         Vector3 seat = standPoint != null
             ? standPoint.position
@@ -462,8 +569,17 @@ public class ShipHelm : MonoBehaviour
             operatorPlayer.ExitStation();
         }
 
+        // Drop our own record of the claim too. Leave() is also how we react
+        // to the server revoking the seat, and leaving this set would let the
+        // "is the wheel still mine" check answer yes off stale local state.
+        if (networkSync != null)
+        {
+            networkSync.ClearLocalClaim();
+        }
+
         operatorPlayer = null;
         operatorBody = null;
+        lastSubmittedSteerInput = Vector2.zero;
 
         if (coopCamera != null)
         {
