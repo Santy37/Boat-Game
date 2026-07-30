@@ -9,7 +9,7 @@ namespace DeadmansTales.Networking
     public enum ShopStock
     {
         WeaponTier,
-        Upgrade,
+        ShipUpgrade,
         FullHeal,
     }
 
@@ -23,6 +23,13 @@ namespace DeadmansTales.Networking
     /// player buying three swords must not inflate the price for everyone
     /// else, and a shared counter would also let one rich player price the
     /// rest of the crew out of the shop.
+    ///
+    /// The purchase count itself lives on the buyer's own
+    /// NetworkPlayerLoadout rather than in a Dictionary here, so it carries
+    /// between the first and second shop islands -- each stall is its own
+    /// scene-placed NetworkObject, so a per-vendor-instance counter would
+    /// have quietly reset the price the moment a player walked into the
+    /// second island's shop.
     /// </summary>
     public sealed class NetworkShopVendor : NetworkInteractable2D
     {
@@ -31,7 +38,7 @@ namespace DeadmansTales.Networking
         private string vendorName = "Trader";
 
         [SerializeField]
-        private ShopStock stock = ShopStock.Upgrade;
+        private ShopStock stock = ShopStock.ShipUpgrade;
 
         [Header("Pricing")]
         [SerializeField]
@@ -46,14 +53,6 @@ namespace DeadmansTales.Networking
         [SerializeField]
         [Min(0)]
         private int purchaseLimitPerPlayer;
-
-        /// <summary>
-        /// Purchases made by each client at this stall. Server-side only —
-        /// it drives price and stock decisions the server alone makes.
-        /// </summary>
-        private readonly System.Collections.Generic.Dictionary<ulong, int>
-            purchasesByClient =
-                new System.Collections.Generic.Dictionary<ulong, int>();
 
         public string VendorName => vendorName;
 
@@ -79,7 +78,9 @@ namespace DeadmansTales.Networking
                         return "A hot meal and a sit down. Full health.";
 
                     default:
-                        return "Ship's kit. A lasting crew upgrade.";
+                        return
+                            $"Reinforce the hull. +{NetworkRunState.ShipSinkBonusPerUpgrade:0} " +
+                            $"patch capacity, +{NetworkRunState.ShipHealthBonusPerUpgrade:0} hull health.";
                 }
             }
         }
@@ -97,7 +98,7 @@ namespace DeadmansTales.Networking
 
                 return loadout == null
                     ? basePrice
-                    : PriceFor(GetPurchaseCount(loadout.OwnerClientId));
+                    : PriceFor(GetPurchaseCount(loadout));
             }
         }
 
@@ -108,7 +109,7 @@ namespace DeadmansTales.Networking
                 NetworkPlayerLoadout loadout = FindLocalLoadout();
 
                 return loadout != null &&
-                    IsSoldOut(GetPurchaseCount(loadout.OwnerClientId));
+                    IsSoldOut(loadout, GetPurchaseCount(loadout));
             }
         }
 
@@ -137,11 +138,9 @@ namespace DeadmansTales.Networking
                     return $"{vendorName}: {StockLabel()} - {basePrice} coins";
                 }
 
-                int purchases = GetPurchaseCount(
-                    localLoadout.OwnerClientId
-                );
+                int purchases = GetPurchaseCount(localLoadout);
 
-                if (IsSoldOut(purchases))
+                if (IsSoldOut(localLoadout, purchases))
                 {
                     return $"{vendorName}: Sold Out";
                 }
@@ -180,9 +179,9 @@ namespace DeadmansTales.Networking
                 return false;
             }
 
-            int purchases = GetPurchaseCount(interactor.OwnerClientId);
+            int purchases = GetPurchaseCount(loadout);
 
-            if (IsSoldOut(purchases))
+            if (IsSoldOut(loadout, purchases))
             {
                 return false;
             }
@@ -214,7 +213,7 @@ namespace DeadmansTales.Networking
             }
 
             ulong clientId = interactor.OwnerClientId;
-            int purchases = GetPurchaseCount(clientId);
+            int purchases = GetPurchaseCount(loadout);
             int price = PriceFor(purchases);
 
             // Spend first: if the purse cannot cover it nothing is granted.
@@ -231,8 +230,6 @@ namespace DeadmansTales.Networking
                 loadout.AddCoinsServer(price);
                 return;
             }
-
-            purchasesByClient[clientId] = purchases + 1;
 
             Debug.Log(
                 $"[Shop] Client {clientId} bought {StockLabel()} from " +
@@ -252,8 +249,8 @@ namespace DeadmansTales.Networking
                 case ShopStock.WeaponTier:
                     return loadout.GrantWeaponServer();
 
-                case ShopStock.Upgrade:
-                    return loadout.GrantUpgradeServer();
+                case ShopStock.ShipUpgrade:
+                    return loadout.GrantShipUpgradeServer();
 
                 case ShopStock.FullHeal:
                     PlayerHealth health =
@@ -265,6 +262,7 @@ namespace DeadmansTales.Networking
                     }
 
                     health.Heal(health.MaximumHealth);
+                    loadout.RecordHealPurchaseServer();
                     return true;
 
                 default:
@@ -280,17 +278,53 @@ namespace DeadmansTales.Networking
             );
         }
 
-        private bool IsSoldOut(int purchases)
+        /// <summary>
+        /// The sword shop has a hard cap independent of
+        /// <see cref="purchaseLimitPerPlayer"/>: Sword15 is the last sprite
+        /// in the sheet, so a maxed-out weapon tier always reads as sold
+        /// out here even if the limit field was left at its unlimited 0.
+        /// </summary>
+        private bool IsSoldOut(NetworkPlayerLoadout loadout, int purchases)
         {
+            if (
+                stock == ShopStock.WeaponTier &&
+                loadout != null &&
+                loadout.IsWeaponMaxed
+            )
+            {
+                return true;
+            }
+
             return purchaseLimitPerPlayer > 0 &&
                 purchases >= purchaseLimitPerPlayer;
         }
 
-        private int GetPurchaseCount(ulong clientId)
+        /// <summary>
+        /// How many times this player has already bought THIS stall's
+        /// goods. Read straight off the player's own loadout rather than a
+        /// per-vendor-instance counter so it carries between shop islands.
+        /// </summary>
+        private int GetPurchaseCount(NetworkPlayerLoadout loadout)
         {
-            return purchasesByClient.TryGetValue(clientId, out int count)
-                ? count
-                : 0;
+            if (loadout == null)
+            {
+                return 0;
+            }
+
+            switch (stock)
+            {
+                case ShopStock.WeaponTier:
+                    return loadout.WeaponTier.Value;
+
+                case ShopStock.ShipUpgrade:
+                    return loadout.ShipUpgradePurchases.Value;
+
+                case ShopStock.FullHeal:
+                    return loadout.HealPurchases.Value;
+
+                default:
+                    return 0;
+            }
         }
 
         private string StockLabel()

@@ -44,7 +44,23 @@ namespace DeadmansTales.Ship
                 NetworkVariableWritePermission.Server
             );
 
-        public float MaximumSinkLevel => Mathf.Max(1f, maximumSinkLevel);
+        /// <summary>
+        /// Base capacity plus whatever the crew has bought at the ship
+        /// shop this run (NetworkRunState.ShipSinkBonus persists across
+        /// scenes, so this stays boosted even though the ship itself is
+        /// rebuilt fresh each time Boat_Gameplay_2D/Kraken_Arena_2D loads).
+        /// </summary>
+        public float MaximumSinkLevel
+        {
+            get
+            {
+                float bonus = NetworkRunState.Instance != null
+                    ? NetworkRunState.Instance.ShipSinkBonus.Value
+                    : 0f;
+
+                return Mathf.Max(1f, maximumSinkLevel + bonus);
+            }
+        }
 
         public float SinkFraction =>
             Mathf.Clamp01(CurrentSinkLevel.Value / MaximumSinkLevel);

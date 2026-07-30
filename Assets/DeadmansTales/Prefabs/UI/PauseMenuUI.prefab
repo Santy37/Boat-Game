@@ -400,6 +400,7 @@ GameObject:
   - component: {fileID: 1120669728772701944}
   - component: {fileID: 1487733521871358176}
   - component: {fileID: 2244350241844102597}
+  - component: {fileID: 8302947561839274651}
   m_Layer: 5
   m_Name: SwordIcon
   m_TagString: Untagged
@@ -464,6 +465,34 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8302947561839274651
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 516413407299997773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6292d3bbe9ec1f489d38e28e141956d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  swordIcon: {fileID: 2244350241844102597}
+  swordSprites:
+  - {fileID: 131449278, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 23267520, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1383742100, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1259760662, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1041754904, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1145680292, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 503644337, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1936746835, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 607831742, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -460413151, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1008709038, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1169189359, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 2084996774, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1907593904, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
 --- !u!1 &958700387476144912
 GameObject:
   m_ObjectHideFlags: 0
