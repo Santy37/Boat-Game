@@ -791,6 +791,17 @@ namespace DeadmansTales.Networking
         /// An NGO disconnect reason outranks the exception message: if the
         /// host closed the connection, what the HOST said is the cause, and
         /// the join task's own fault is just the downstream symptom.
+        ///
+        /// A rejected handshake is a special case worth naming, because NGO
+        /// tells the client almost nothing about it. When the server refuses
+        /// a connection over a NetworkConfig mismatch it logs the reason on
+        /// the SERVER and simply closes the socket -- no disconnect reason
+        /// travels back, and OnClientDisconnectCallback never fires, because
+        /// this client was never established in the first place. All the
+        /// client can observe is "disconnected by server", which is what sent
+        /// us reading the host's console to find the answer. So when that is
+        /// all we have, say what it almost always means rather than leaving
+        /// the player with a dead end.
         /// </summary>
         private void ReportJoinFailure(Exception exception)
         {
@@ -805,18 +816,63 @@ namespace DeadmansTales.Networking
                 ? lastNgoDisconnectReason
                 : exception.Message;
 
+            bool refusedByHost =
+                droppedByHost ||
+                WasRefusedByHost(exception.Message);
+
             Debug.LogWarning(
                 "[Online Lobby] Join failed and local networking was reset. " +
                 $"Cause ({exception.GetType().Name}): {detail}",
                 this
             );
 
+            if (refusedByHost)
+            {
+                Debug.LogWarning(
+                    "[Online Lobby] The host refused this connection. NGO " +
+                    "does not send the reason to the client, so check the " +
+                    "HOST's console for the actual cause -- a 'NetworkConfig " +
+                    "mismatch' line there means the two machines are not " +
+                    "running the same version of the project. The network " +
+                    "prefab list is part of that configuration, so differing " +
+                    "checkouts or a stale build are enough to be rejected.",
+                    this
+                );
+            }
+
             SetState(
                 LobbyConnectionState.Error,
-                droppedByHost
-                    ? $"The host rejected the connection: {detail}"
+                refusedByHost
+                    ? "The host refused the connection. This is usually a " +
+                      "version mismatch -- make sure both machines are on " +
+                      "the same commit and rebuilt. See the host's console " +
+                      "for the exact reason."
                     : $"Could not join the lobby: {detail}"
             );
+        }
+
+        /// <summary>
+        /// Whether a join fault reads as "the host closed the connection on
+        /// us" rather than "the lobby could not be reached".
+        ///
+        /// Matched on the message because that is genuinely all NGO gives a
+        /// rejected client -- see ReportJoinFailure. Deliberately narrow: a
+        /// wrong or expired join code must still report itself as such, so
+        /// only phrases that specifically implicate the server count.
+        /// </summary>
+        private static bool WasRefusedByHost(string exceptionMessage)
+        {
+            if (string.IsNullOrWhiteSpace(exceptionMessage))
+            {
+                return false;
+            }
+
+            string message = exceptionMessage.ToLowerInvariant();
+
+            return
+                message.Contains("disconnected by server") ||
+                message.Contains("disconnect reason") ||
+                message.Contains("networkconfig mismatch");
         }
 
         private static string NormalizeJoinCode(string rawCode)
