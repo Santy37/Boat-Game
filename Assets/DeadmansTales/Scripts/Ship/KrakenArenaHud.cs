@@ -1,3 +1,4 @@
+using DeadmansTales.Networking;
 using UnityEngine;
 
 /// <summary>
@@ -14,6 +15,23 @@ public class KrakenArenaHud : MonoBehaviour
     // gone null this is a second, independent way to know the fight is won --
     // see OnGUI for why the Defeated event alone is not enough.
     private bool sawKraken;
+
+    // The victory portal has been used and the win screen is up.
+    private bool runCompleted;
+
+    private void OnEnable()
+    {
+        // Static event, so it outlives this scene -- OnDisable below MUST
+        // unsubscribe or this destroyed HUD is kept alive by the subscription
+        // and keeps drawing into the next run. Mirrors how BossDefeatedUI
+        // (the win screen this hands off to) manages the same event.
+        NetworkStagePortal.RunCompleted += HandleRunCompleted;
+    }
+
+    private void OnDisable()
+    {
+        NetworkStagePortal.RunCompleted -= HandleRunCompleted;
+    }
 
     private void Start()
     {
@@ -38,8 +56,48 @@ public class KrakenArenaHud : MonoBehaviour
         won = true;
     }
 
+    private void HandleRunCompleted()
+    {
+        runCompleted = true;
+    }
+
+    /// <summary>
+    /// Whether the run is finished and this HUD should be silent.
+    ///
+    /// The victory portal does NOT load a separate scene -- the win screen is
+    /// an overlay on top of the arena, which is exactly why this needs asking
+    /// at all: without it the "sail to the portal" banner keeps drawing over
+    /// the victory screen, still telling players to do the thing they just
+    /// did.
+    ///
+    /// Checked two ways for the same reason the kraken's death is: the
+    /// RunCompleted event is the immediate nudge, and NetworkRunState.Status
+    /// is the durable record that a peer joining or re-reading state later can
+    /// still see. Either one alone leaves a gap.
+    /// </summary>
+    private bool RunIsOver()
+    {
+        if (runCompleted)
+        {
+            return true;
+        }
+
+        NetworkRunState runState = NetworkRunState.Instance;
+
+        return
+            runState != null &&
+            runState.IsSpawned &&
+            runState.Status.Value == NetworkRunStatus.Completed;
+    }
+
     private void OnGUI()
     {
+        // Run's over -- the win screen owns the screen now.
+        if (RunIsOver())
+        {
+            return;
+        }
+
         // Belt-and-braces victory detection. The server zeroes the kraken's
         // health and despawns it in the same breath, and those are two
         // separate messages: if the despawn reaches a client first, that
