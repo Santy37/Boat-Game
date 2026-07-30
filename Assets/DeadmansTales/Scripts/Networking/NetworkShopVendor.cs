@@ -54,6 +54,14 @@ namespace DeadmansTales.Networking
         [Min(0)]
         private int purchaseLimitPerPlayer;
 
+        [Header("Purchase Audio")]
+        [SerializeField]
+        private AudioClip purchaseSound;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        private float purchaseVolume = 1f;
+
         public string VendorName => vendorName;
 
         /// <summary>This stall shows its own counter panel.</summary>
@@ -231,6 +239,8 @@ namespace DeadmansTales.Networking
                 return;
             }
 
+            PlayPurchaseSoundClientRpc();
+
             Debug.Log(
                 $"[Shop] Client {clientId} bought {StockLabel()} from " +
                 $"{vendorName} for {price} coins " +
@@ -326,6 +336,20 @@ namespace DeadmansTales.Networking
                     return 0;
             }
         }
+
+        [ClientRpc]
+        private void PlayPurchaseSoundClientRpc()
+        {
+            AudioSource source = GetComponent<AudioSource>();
+
+            if (source == null || purchaseSound == null)
+            {
+                return;
+            }
+
+            source.PlayOneShot(purchaseSound, purchaseVolume);
+        }
+
 
         private string StockLabel()
         {
