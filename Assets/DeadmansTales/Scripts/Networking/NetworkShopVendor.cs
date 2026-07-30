@@ -55,6 +55,12 @@ namespace DeadmansTales.Networking
         private int purchaseLimitPerPlayer;
 
         [Header("Purchase Audio")]
+        [Tooltip(
+            "Played for the BUYER when a sale actually goes through. Not " +
+            "played on a refused sale (cannot afford, sold out, already at " +
+            "full health), and not played on the other players' machines -- " +
+            "this is the buyer's own receipt, not an announcement to the crew."
+        )]
         [SerializeField]
         private AudioClip purchaseSound;
 
@@ -239,7 +245,7 @@ namespace DeadmansTales.Networking
                 return;
             }
 
-            PlayPurchaseSoundClientRpc();
+            PlayPurchaseSoundClientRpc(BuyerOnly(clientId));
 
             Debug.Log(
                 $"[Shop] Client {clientId} bought {StockLabel()} from " +
@@ -337,17 +343,60 @@ namespace DeadmansTales.Networking
             }
         }
 
+        /// <summary>
+        /// The buyer's "cha-ching". Sent to that one client rather than
+        /// broadcast, so a four-player crew standing at the same stall does not
+        /// all hear each other's receipts.
+        /// </summary>
         [ClientRpc]
-        private void PlayPurchaseSoundClientRpc()
+        private void PlayPurchaseSoundClientRpc(
+            ClientRpcParams rpcParams = default
+        )
         {
-            AudioSource source = GetComponent<AudioSource>();
-
-            if (source == null || purchaseSound == null)
+            if (purchaseSound == null)
             {
                 return;
             }
 
-            source.PlayOneShot(purchaseSound, purchaseVolume);
+            // PlayClipAtPoint rather than an AudioSource on this stall. None of
+            // the six vendor objects across the two shop scenes carries one, so
+            // a GetComponent<AudioSource>() version finds nothing and the sale
+            // is silent. This also matches how every other one-shot in the
+            // project is played (NetworkCannonball, DestructibleObstacle) and
+            // needs no per-scene wiring.
+            //
+            // Played AT THE LISTENER, not at the stall: the clip is imported as
+            // 3D, and the shop camera is fixed on the island rather than on the
+            // player, so a stall-positioned one-shot would be attenuated by
+            // however far apart those happen to be. A purchase confirmation is
+            // interface feedback -- it should sound the same wherever the stall
+            // is standing.
+            AudioListener listener = FindFirstObjectByType<AudioListener>();
+
+            Vector3 position = listener != null
+                ? listener.transform.position
+                : transform.position;
+
+            AudioSource.PlayClipAtPoint(
+                purchaseSound,
+                position,
+                purchaseVolume
+            );
+        }
+
+        /// <summary>
+        /// Addresses a ClientRpc to a single client -- the one that bought
+        /// something.
+        /// </summary>
+        private static ClientRpcParams BuyerOnly(ulong buyerClientId)
+        {
+            return new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds = new[] { buyerClientId }
+                }
+            };
         }
 
 

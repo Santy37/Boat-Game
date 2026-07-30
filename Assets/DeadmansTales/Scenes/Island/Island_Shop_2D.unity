@@ -45276,6 +45276,8 @@ MonoBehaviour:
   basePrice: 10
   priceIncreasePerPurchase: 10
   purchaseLimitPerPlayer: 0
+  purchaseSound: {fileID: 8300000, guid: d53f8efcc528e424ea165aff09434f98, type: 3}
+  purchaseVolume: 0.3
 --- !u!61 &1053385444
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -46428,6 +46430,8 @@ MonoBehaviour:
   basePrice: 15
   priceIncreasePerPurchase: 10
   purchaseLimitPerPlayer: 0
+  purchaseSound: {fileID: 8300000, guid: d53f8efcc528e424ea165aff09434f98, type: 3}
+  purchaseVolume: 0.3
 --- !u!61 &1240942170
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -48364,6 +48368,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LobbyRowboatInteraction
   interactionKey: 101
   gameplaySceneName: Island_After_Ocean_01_2D
+  serverRangeMargin: 1
 --- !u!61 &1907538491
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -51640,6 +51645,8 @@ MonoBehaviour:
   basePrice: 15
   priceIncreasePerPurchase: 10
   purchaseLimitPerPlayer: 0
+  purchaseSound: {fileID: 8300000, guid: d53f8efcc528e424ea165aff09434f98, type: 3}
+  purchaseVolume: 0.3
 --- !u!61 &2087499695
 BoxCollider2D:
   m_ObjectHideFlags: 0
