@@ -22,19 +22,12 @@ namespace DeadmansTales.UI
     public sealed class ShopScreenHUD : MonoBehaviour
     {
         private const float PanelWidth = 560f;
-        private const float PanelHeight = 232f;
-        private const float BottomMargin = 24f;
 
-        /// <summary>
-        /// Empty counter space. The stalls sell one line each for now; these
-        /// show the crew that the shop is meant to grow, and give Shay a
-        /// concrete layout to design real slots against.
-        /// </summary>
-        private static readonly string[] PlaceholderSlots =
-        {
-            "Powder & Shot",
-            "Charts",
-        };
+        // Shrunk by the 50f the "coming soon" placeholder counter row used to
+        // occupy, so the panel still ends just under its last line instead of
+        // leaving a band of empty box where those slots were.
+        private const float PanelHeight = 182f;
+        private const float BottomMargin = 24f;
 
         /// <summary>
         /// True while the pointer is over an open stall panel.
@@ -54,7 +47,6 @@ namespace DeadmansTales.UI
         private GUIStyle itemNameStyle;
         private GUIStyle detailStyle;
         private GUIStyle priceStyle;
-        private GUIStyle placeholderStyle;
         private GUIStyle iconStyle;
         private GUIStyle buyStyle;
         private GUIStyle buyDisabledStyle;
@@ -186,28 +178,6 @@ namespace DeadmansTales.UI
 
             y += 74f;
 
-            // --- placeholder counter space ---
-            float slotWidth = (width - 10f) / PlaceholderSlots.Length;
-
-            for (int index = 0; index < PlaceholderSlots.Length; index++)
-            {
-                Rect slot = new Rect(
-                    x + index * (slotWidth + 10f),
-                    y,
-                    slotWidth,
-                    44f
-                );
-
-                GUI.Box(slot, GUIContent.none);
-                GUI.Label(
-                    slot,
-                    $"{PlaceholderSlots[index]}\n(coming soon)",
-                    placeholderStyle
-                );
-            }
-
-            y += 50f;
-
             GUI.Label(
                 new Rect(x, y, width, 20f),
                 "Press E to buy  ·  walk away to leave the stall",
@@ -264,13 +234,6 @@ namespace DeadmansTales.UI
                 fontSize = 15,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleRight,
-            };
-
-            placeholderStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 11,
-                alignment = TextAnchor.MiddleCenter,
-                wordWrap = true,
             };
 
             iconStyle = new GUIStyle(GUI.skin.box)

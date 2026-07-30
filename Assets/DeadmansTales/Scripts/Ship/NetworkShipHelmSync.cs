@@ -51,6 +51,28 @@ namespace DeadmansTales.Ship
         private const float ClaimReplyTimeoutSeconds = 3f;
 
         /// <summary>
+        /// How long after being granted the wheel a client keeps trusting
+        /// that grant while the operator NetworkVariable is still catching
+        /// up.
+        ///
+        /// The grant reply and the NetworkVariable delta that carries the
+        /// same news are two separate messages, and the reply routinely
+        /// arrives first. Demanding that the variable already agree meant a
+        /// freshly-granted client reported "not the operator", never sent a
+        /// single input packet, and got its seat revoked by the server's own
+        /// stale-input timer about half a second later -- steering that
+        /// "works for a second and then kicks you off".
+        /// </summary>
+        private const float GrantSyncGraceSeconds = 1.5f;
+
+        /// <summary>
+        /// Extra slack on the server's stale-input timer for the very first
+        /// packet from a new operator, which still has half a round trip to
+        /// travel after the seat has already been awarded.
+        /// </summary>
+        private const float FirstInputGraceSeconds = 1f;
+
+        /// <summary>
         /// This machine's view of its own attempt to take the wheel.
         /// Deliberately NOT a NetworkVariable: it is local UI state about a
         /// request in flight, and only the requesting client ever reads it.
@@ -141,6 +163,7 @@ namespace DeadmansTales.Ship
 
         private HelmClaim localClaim;
         private float localClaimTimeoutTime;
+        private float grantSyncGraceUntil;
 
         // World position the ship sat at after the previous authoritative
         // move. The difference against the current one is how far the deck
@@ -176,11 +199,17 @@ namespace DeadmansTales.Ship
         /// True once the server has confirmed this machine holds the wheel.
         /// Steering input is only worth sending in this state; while the
         /// claim is still Pending the server would reject it anyway.
+        ///
+        /// Deliberately reads ONLY the server's grant reply and not the
+        /// operator NetworkVariable -- see GrantSyncGraceSeconds. The server
+        /// sets that variable synchronously inside ClaimHelmServerRpc before
+        /// it replies, so by the time this client has a grant in hand the
+        /// server already agrees; it is only the client's own replica that
+        /// may still be a message behind, and refusing to send input over
+        /// that is what lost the seat.
         /// </summary>
         public bool IsLocalClaimGranted =>
-            IsSpawned &&
-            localClaim == HelmClaim.Granted &&
-            operatorClientId.Value == NetworkManager.LocalClientId;
+            IsSpawned && localClaim == HelmClaim.Granted;
 
         /// <summary>
         /// True while this machine's bid for the wheel is still alive --
@@ -203,7 +232,21 @@ namespace DeadmansTales.Ship
                     return Time.unscaledTime < localClaimTimeoutTime;
                 }
 
-                return IsLocalClaimGranted;
+                if (localClaim != HelmClaim.Granted)
+                {
+                    return false;
+                }
+
+                // The replicated operator is the authority on whether we
+                // STILL hold the wheel -- that is how a server-side timeout
+                // or a steal reaches us. It just cannot be trusted for the
+                // first moment after a grant, while it is still in flight.
+                if (operatorClientId.Value == NetworkManager.LocalClientId)
+                {
+                    return true;
+                }
+
+                return Time.unscaledTime < grantSyncGraceUntil;
             }
         }
 
@@ -265,6 +308,7 @@ namespace DeadmansTales.Ship
         public void ClearLocalClaim()
         {
             localClaim = HelmClaim.None;
+            grantSyncGraceUntil = 0f;
         }
 
         /// <summary>
@@ -284,10 +328,12 @@ namespace DeadmansTales.Ship
             {
                 operatorClientId.Value = sender;
 
-                // Start them still, and give them a full stale window before
-                // the first input packet has to arrive.
+                // Start them still, and allow for the fact that their first
+                // input packet is still half a round trip away even though
+                // the seat is already theirs.
                 pendingSteerInput = Vector2.zero;
-                inputExpiryTime = Time.unscaledTime + inputStaleSeconds;
+                inputExpiryTime =
+                    Time.unscaledTime + inputStaleSeconds + FirstInputGraceSeconds;
             }
 
             ReplyClaimClientRpc(
@@ -316,6 +362,12 @@ namespace DeadmansTales.Ship
             }
 
             localClaim = granted ? HelmClaim.Granted : HelmClaim.Denied;
+
+            if (granted)
+            {
+                grantSyncGraceUntil =
+                    Time.unscaledTime + GrantSyncGraceSeconds;
+            }
         }
 
         /// <summary>

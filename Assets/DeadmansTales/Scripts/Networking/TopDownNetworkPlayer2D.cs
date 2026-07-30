@@ -390,6 +390,50 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
     }
 
     /// <summary>
+    /// Called on the owning client by <c>LobbyRowboatInteraction</c> when
+    /// this player interacts with the rowboat to leave the island.
+    ///
+    /// Only the server may start a networked scene load, and the rowboat is
+    /// a plain in-scene MonoBehaviour with no NetworkObject of its own, so
+    /// the request travels through this player object -- which IS a
+    /// networked object and can reach the server -- exactly like a manned
+    /// ShipCannon's fire request. Before this, a client pressing E got
+    /// nothing but a "only the host can start the voyage" log and had to
+    /// wait for the host.
+    /// </summary>
+    public void RequestSetSail()
+    {
+        if (!IsSpawned || !IsOwner)
+        {
+            return;
+        }
+
+        SetSailServerRpc();
+    }
+
+    [ServerRpc]
+    private void SetSailServerRpc()
+    {
+        LobbyRowboatInteraction rowboat =
+            FindFirstObjectByType<LobbyRowboatInteraction>();
+
+        if (rowboat == null)
+        {
+            Debug.LogWarning(
+                "[Rowboat] A client asked to set sail but the server has " +
+                "no rowboat in the current scene.",
+                this
+            );
+            return;
+        }
+
+        // The server re-checks range against its own authoritative copy of
+        // this player's position rather than trusting that the caller was
+        // really standing at the boat.
+        rowboat.RequestSetSailServer(transform.position);
+    }
+
+    /// <summary>
     /// Plant the player on a station seat, and stop the server walking them
     /// off it again.
     ///

@@ -274,7 +274,7 @@ MonoBehaviour:
   enemyShipPrefab: {fileID: 1320802733304463203, guid: 186325bbe509eea4093d0d6f69b717d2, type: 3}
   amount: 2
   interval: 4
-  shipSpeed: 2.5
+  shipSpeed: 1.2
   randomSpawnPoint: 1
   chosenSpawnPoint: 0
   crewPrefab: {fileID: 8918378950335595603, guid: 9fdb35f3310529b4ab48fdc3a0b8d991, type: 3}

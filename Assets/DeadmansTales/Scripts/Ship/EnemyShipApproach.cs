@@ -36,9 +36,17 @@ namespace DeadmansTales.Ship
     public sealed class EnemyShipApproach : NetworkBehaviour
     {
         [Header("Movement")]
+        [Tooltip(
+            "Units per second this ship closes on the player. Kept well " +
+            "below the player ship's own Move Speed (3 in Boat_Gameplay_2D) " +
+            "so steering away is actually a way out rather than a delay. " +
+            "The spawner overrides this per-run -- see " +
+            "NetworkEnemyShipSpawner2D.shipSpeed, which is the number to " +
+            "tune for the 2D boat scene."
+        )]
         [SerializeField]
         [Min(0f)]
-        private float approachSpeed = 2f;
+        private float approachSpeed = 1.2f;
 
         [Tooltip(
             "How close the ship gets, measured to the player ship. It stops " +

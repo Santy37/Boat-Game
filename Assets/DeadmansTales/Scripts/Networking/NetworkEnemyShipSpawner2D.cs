@@ -52,11 +52,15 @@ namespace DeadmansTales.Networking
 
         [Tooltip(
             "How fast each spawned ship approaches the player (units/sec). " +
-            "Overrides the Approach Speed on the ship prefab."
+            "Overrides the Approach Speed on the ship prefab, so THIS is the " +
+            "one number that decides enemy ship speed for a run. Keep it " +
+            "well under the player ship's Move Speed (3 in " +
+            "Boat_Gameplay_2D): at 2.5 the enemy closed almost as fast as " +
+            "the player could steer, so running was never an option."
         )]
         [SerializeField]
         [Min(0f)]
-        private float shipSpeed = 2f;
+        private float shipSpeed = 1.2f;
 
         [Tooltip(
             "ON: pick a random spawn point for each ship. " +

@@ -15,15 +15,41 @@ public class LobbyRowboatInteraction : MonoBehaviour
     private string gameplaySceneName =
         "Boat_Gameplay_2D";
 
+    [Header("Networking")]
+    [Tooltip(
+        "Extra slack, in world units, added around this trigger when the " +
+        "SERVER re-checks that a client asking to set sail really is " +
+        "standing at the rowboat. The client's own trigger membership is " +
+        "not evidence the server can take on faith."
+    )]
+    [SerializeField]
+    [Min(0f)]
+    private float serverRangeMargin = 1f;
+
     private TopDownNetworkPlayer2D
         localPlayerInRange;
 
+    private Collider2D triggerCollider;
+
+    // Server-side: the scene load is under way.
     private bool sceneLoadRequested;
+
+    // Client-side: we have asked the server to set sail and are waiting for
+    // the scene change. Kept separate because sceneLoadRequested is only
+    // ever true on the server, and without this a client would keep showing
+    // "Press E" (and keep re-sending) after it had already asked.
+    private bool sailRequestSent;
+    private float sailRequestRetryTime;
+
+    // If the server refuses -- it did not place us at the boat, or an enemy
+    // it can see is still alive -- no reply comes back, so the request has
+    // to lapse on its own. Without this the client would sit on "Setting
+    // Sail..." forever and could never press E again.
+    private const float SailRequestRetrySeconds = 2f;
 
     private void Awake()
     {
-        Collider2D triggerCollider =
-            GetComponent<Collider2D>();
+        triggerCollider = GetComponent<Collider2D>();
 
         if (!triggerCollider.isTrigger)
         {
@@ -42,7 +68,15 @@ public class LobbyRowboatInteraction : MonoBehaviour
             return;
         }
 
-        if (sceneLoadRequested)
+        if (
+            sailRequestSent &&
+            Time.unscaledTime >= sailRequestRetryTime
+        )
+        {
+            sailRequestSent = false;
+        }
+
+        if (sceneLoadRequested || sailRequestSent)
         {
             return;
         }
@@ -62,7 +96,99 @@ public class LobbyRowboatInteraction : MonoBehaviour
             return;
         }
 
+        // Either player may set sail. The host loads the scene directly; a
+        // client cannot start a networked scene load itself, so it asks the
+        // server through its own player object.
+        if (
+            NetworkManager.Singleton != null &&
+            NetworkManager.Singleton.IsServer
+        )
+        {
+            TrySetSail();
+            return;
+        }
+
+        sailRequestSent = true;
+        sailRequestRetryTime =
+            Time.unscaledTime + SailRequestRetrySeconds;
+
+        localPlayerInRange.RequestSetSail();
+    }
+
+    /// <summary>
+    /// Server-only entry point for a client's interact press, routed here by
+    /// <see cref="TopDownNetworkPlayer2D.RequestSetSail"/>. Re-validates
+    /// everything the client checked locally, because none of those checks
+    /// ran anywhere the server can vouch for.
+    /// </summary>
+    public void RequestSetSailServer(Vector3 requesterPosition)
+    {
+        if (
+            NetworkManager.Singleton == null ||
+            !NetworkManager.Singleton.IsServer
+        )
+        {
+            return;
+        }
+
+        if (sceneLoadRequested)
+        {
+            return;
+        }
+
+        if (!IsWithinServerRange(requesterPosition))
+        {
+            Debug.Log(
+                "[Rowboat] Ignoring a set-sail request from a player the " +
+                "server does not place at the rowboat.",
+                this
+            );
+
+            return;
+        }
+
+        int remainingEnemies = GetRemainingEnemyCount();
+
+        if (remainingEnemies > 0)
+        {
+            Debug.Log(
+                "[Rowboat] Ignoring a set-sail request: " +
+                remainingEnemies + " enemies remain.",
+                this
+            );
+
+            return;
+        }
+
         TrySetSail();
+    }
+
+    /// <summary>
+    /// Measured against the trigger's own bounds rather than an arbitrary
+    /// radius, so the server's idea of "at the rowboat" follows whatever
+    /// shape the designer gave the trigger.
+    /// </summary>
+    private bool IsWithinServerRange(Vector3 position)
+    {
+        if (triggerCollider == null)
+        {
+            return false;
+        }
+
+        Bounds area = triggerCollider.bounds;
+
+        area.Expand(
+            new Vector3(serverRangeMargin * 2f, serverRangeMargin * 2f, 0f)
+        );
+
+        // 2D comparison: the trigger's bounds are flat in z and players sit
+        // at whatever z their sorting needs, so a 3D Contains would reject
+        // everyone.
+        return
+            position.x >= area.min.x &&
+            position.x <= area.max.x &&
+            position.y >= area.min.y &&
+            position.y <= area.max.y;
     }
 
     private void OnTriggerEnter2D(
@@ -236,16 +362,17 @@ public class LobbyRowboatInteraction : MonoBehaviour
 
         string message;
 
-        if (sceneLoadRequested)
+        // Identical on the host and on a client, because setting sail now is
+        // too: the enemy count comes off Enemy.CurrentHealth, a
+        // NetworkVariable every peer can read, so a client reaches the same
+        // verdict the server will.
+        if (sceneLoadRequested || sailRequestSent)
         {
             message = "Setting Sail...";
         }
-        else if (
-            NetworkManager.Singleton != null &&
-            NetworkManager.Singleton.IsServer
-        )
+        else
         {
-            int remainingEnemies =GetRemainingEnemyCount();
+            int remainingEnemies = GetRemainingEnemyCount();
 
             if (remainingEnemies > 0)
             {
@@ -256,11 +383,6 @@ public class LobbyRowboatInteraction : MonoBehaviour
             {
                 message = "Press E to Set Sail";
             }
-        }
-        else
-        {
-            message =
-                "Waiting for the Host to Set Sail";
         }
 
         const float width = 320f;
