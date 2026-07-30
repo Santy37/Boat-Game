@@ -150,6 +150,57 @@ namespace DeadmansTales.Networking
                 NetworkVariableWritePermission.Server
             );
 
+        /// <summary>
+        /// How far along the current boat leg the voyage is, 0 to 1.
+        ///
+        /// Lives here for the same reason ShipSinkBonus does: the progress bar
+        /// is a scene-placed object rebuilt from scratch every time the boat
+        /// scene loads, and it cannot own authoritative state that clients
+        /// must agree on. It used to advance independently on every peer,
+        /// which meant a client's bar ran ahead through fights the host was
+        /// still resolving and reported the leg finished while the host was
+        /// mid-battle.
+        /// </summary>
+        public readonly NetworkVariable<float> LegProgress =
+            new NetworkVariable<float>(
+                0f,
+                NetworkVariableReadPermission.Everyone,
+                NetworkVariableWritePermission.Server
+            );
+
+        /// <summary>
+        /// How many of this leg's events (rock waves / pirate ships) the
+        /// SERVER has fully resolved. Clients complete their own matching
+        /// event only when this number rises, which is what stops a client
+        /// waiting out a fixed three-second pause and sailing on while the
+        /// host is still fighting.
+        /// </summary>
+        public readonly NetworkVariable<int> LegEventsCompleted =
+            new NetworkVariable<int>(
+                0,
+                NetworkVariableReadPermission.Everyone,
+                NetworkVariableWritePermission.Server
+            );
+
+        /// <summary>
+        /// Which boat level (1-based) the current leg is running, and so how
+        /// many events it contains. 0 means the server has not started a leg
+        /// yet, which clients treat as "wait".
+        ///
+        /// This has to be replicated because the level is chosen by a menu
+        /// button click that writes a plain local static
+        /// (<c>BoatLevelSelection.PendingLevel</c>). Only the host ever clicks
+        /// it -- a joining client's static stays 0 and falls back to the
+        /// prefab's default level, so the two peers built legs with different
+        /// numbers of fights even when they agreed on the random seed.
+        /// </summary>
+        public readonly NetworkVariable<int> LegLevel =
+            new NetworkVariable<int>(
+                0,
+                NetworkVariableReadPermission.Everyone,
+                NetworkVariableWritePermission.Server
+            );
+
         public bool IsInitialized =>
             IsSpawned &&
             MasterSeed.Value != 0;
@@ -375,6 +426,52 @@ namespace DeadmansTales.Networking
             );
         }
 
+        /// <summary>
+        /// Server-only: starts a fresh boat leg from zero at the given level.
+        /// Called by the boat scene's progress bar once it is ready, so leg two
+        /// does not begin already showing leg one's finished bar, and so
+        /// clients learn which level -- and therefore how many fights -- this
+        /// leg contains.
+        /// </summary>
+        public void BeginLegServer(int level)
+        {
+            RequireServer(nameof(BeginLegServer));
+
+            LegProgress.Value = 0f;
+            LegEventsCompleted.Value = 0;
+            LegLevel.Value = Mathf.Max(1, level);
+        }
+
+        /// <summary>
+        /// Server-only: publishes this frame's authoritative leg progress and
+        /// resolved-event count for every client's progress bar to follow.
+        /// </summary>
+        public void PublishLegProgressServer(
+            float progress01,
+            int eventsCompleted
+        )
+        {
+            RequireServer(nameof(PublishLegProgressServer));
+
+            float clamped = Mathf.Clamp01(progress01);
+
+            // Written only on change. A NetworkVariable set to the value it
+            // already holds still marks itself dirty, so assigning every frame
+            // would put an otherwise idle bar on the wire at the full tick
+            // rate for the whole voyage.
+            if (!Mathf.Approximately(LegProgress.Value, clamped))
+            {
+                LegProgress.Value = clamped;
+            }
+
+            int safeCount = Mathf.Max(0, eventsCompleted);
+
+            if (LegEventsCompleted.Value != safeCount)
+            {
+                LegEventsCompleted.Value = safeCount;
+            }
+        }
+
         public void ResetToLobbyServer()
         {
             RequireServer(nameof(ResetToLobbyServer));
@@ -387,6 +484,9 @@ namespace DeadmansTales.Networking
             ConfigVersion.Value = defaultConfigVersion;
             ShipSinkBonus.Value = 0f;
             ShipHealthBonus.Value = 0f;
+            LegProgress.Value = 0f;
+            LegEventsCompleted.Value = 0;
+            LegLevel.Value = 0;
         }
 
         private int GetConnectedPlayerCount()

@@ -56,6 +56,13 @@ public class ShipCannon : MonoBehaviour
 
     private bool Manned => operatorPlayer != null;
 
+    /// <summary>
+    /// True while a player on THIS machine is manning this cannon. Read by the
+    /// boat progress bar, which repositions and enlarges itself to suit the
+    /// zoomed-out gunnery view.
+    /// </summary>
+    public bool IsManned => Manned;
+
     private void Awake()
     {
         // Every collider on the object, not just the first one Unity hands

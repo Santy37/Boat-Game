@@ -153,13 +153,22 @@ public class PlayerCharacter : MonoBehaviour
     /// steering input to the server. Local (non-networked/split-screen)
     /// players return false so the caller can move the ship directly
     /// itself, exactly like <see cref="TryFireNetworkedCannon"/>.
+    ///
+    /// A null <paramref name="helm"/> also returns false. That is not a
+    /// defensive nicety -- it is the difference between a ship that moves
+    /// and one that does not. A scene whose ship has no
+    /// NetworkShipHelmSync (the Kraken arena, until it was given one) still
+    /// has networked PLAYERS, so checking only networkPlayer reported
+    /// "the server is handling it" for a ship no server component was
+    /// steering, and ShipHelm skipped its own local movement path on that
+    /// promise. The ship then sat still for everyone.
     /// </summary>
     public bool TrySteerShipNetworked(
         DeadmansTales.Ship.NetworkShipHelmSync helm,
         Vector2 rawInput
     )
     {
-        if (networkPlayer == null)
+        if (networkPlayer == null || helm == null)
         {
             return false;
         }
@@ -170,14 +179,14 @@ public class PlayerCharacter : MonoBehaviour
 
     /// <summary>
     /// Ask this player's authoritative side to tell the server it has
-    /// stepped away from the helm. Local players return false; there is
-    /// nothing networked to release.
+    /// stepped away from the helm. Local players (and ships with no
+    /// networked steering) return false; there is nothing to release.
     /// </summary>
     public bool TryStopSteeringShipNetworked(
         DeadmansTales.Ship.NetworkShipHelmSync helm
     )
     {
-        if (networkPlayer == null)
+        if (networkPlayer == null || helm == null)
         {
             return false;
         }

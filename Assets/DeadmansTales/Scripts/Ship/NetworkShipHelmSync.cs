@@ -65,11 +65,31 @@ namespace DeadmansTales.Ship
         [Min(0f)]
         private float inputStaleSeconds = 0.5f;
 
+        [Tooltip(
+            "Extra margin, in world units, added around the deck bounds when " +
+            "deciding who is 'aboard' and should be carried along with the " +
+            "ship. A little slack matters: a player standing right against " +
+            "the rail sits fractionally outside the deck collider, and " +
+            "without margin they would be dropped from the carry list for a " +
+            "frame and left behind by the moving deck."
+        )]
+        [SerializeField]
+        [Min(0f)]
+        private float aboardMargin = 0.75f;
+
         private Vector3 shipHome;
         private Vector2 steerOffset;
         private ulong? operatorClientId;
         private float inputExpiryTime;
         private Collider2D steeredHull;
+        private PlayerShipMarker marker;
+
+        // World position the ship sat at after the previous authoritative
+        // move. The difference against the current one is how far the deck
+        // travelled, which is exactly how far everyone standing on it has to
+        // be carried -- see CarryPassengersServer.
+        private Vector3 lastAppliedShipPosition;
+        private bool hasLastAppliedShipPosition;
 
         private void Awake()
         {
@@ -83,6 +103,8 @@ namespace DeadmansTales.Ship
             if (IsServer)
             {
                 ResolveSteeredHullServer();
+                lastAppliedShipPosition = transform.position;
+                hasLastAppliedShipPosition = true;
             }
         }
 
@@ -147,17 +169,143 @@ namespace DeadmansTales.Ship
                 return;
             }
 
-            // Before the operator is re-pinned below -- otherwise the
-            // steersman gets glued to a wheel that is about to be shoved
+            // Before anyone is repositioned below -- otherwise a passenger
+            // gets moved to match a deck that is about to be shoved
             // somewhere else this same frame. Mirrors the ordering the old
             // ShipHelm.LateUpdate used.
             PushOutOfEnemyHullsServer();
+
+            // Everyone standing on the deck rides along with it. This is what
+            // makes the ship feel like a floor rather than a picture sliding
+            // around underneath the crew, and it is why the enemy ship
+            // shoving the hull no longer leaves players behind (which, with
+            // the hull moving out from under them, read as being clipped off
+            // the ship).
+            CarryPassengersServer();
+
+            // Last, and separately from the general carry: the steersman is
+            // pinned to the exact wheel position rather than merely
+            // translated. They are not standing on the deck freely, they are
+            // fixed to a specific spot on it.
             PinOperatorServer();
         }
 
         private void ApplyPositionServer()
         {
             transform.localPosition = shipHome + (Vector3)steerOffset;
+        }
+
+        /// <summary>
+        /// Translates every player currently standing on this ship's deck by
+        /// however far the deck itself just moved.
+        ///
+        /// Deliberately a translation and not a re-parent. Re-parenting a
+        /// networked player under the ship would mean NGO has to replicate
+        /// the parent change and every peer has to agree on when it happened,
+        /// and the player's own NetworkTransform syncs in world space -- a
+        /// mid-run parent swap is exactly the kind of thing that makes a
+        /// player snap to a wrong position on one machine only. Applying the
+        /// delta keeps every player a plain, unparented, server-positioned
+        /// object, which is what the rest of this project already assumes.
+        /// </summary>
+        private void CarryPassengersServer()
+        {
+            Vector3 currentPosition = transform.position;
+
+            if (!hasLastAppliedShipPosition)
+            {
+                lastAppliedShipPosition = currentPosition;
+                hasLastAppliedShipPosition = true;
+                return;
+            }
+
+            Vector3 delta = currentPosition - lastAppliedShipPosition;
+            lastAppliedShipPosition = currentPosition;
+
+            if (delta.sqrMagnitude < 0.0000001f)
+            {
+                return;
+            }
+
+            Collider2D deck = ResolveDeckServer();
+
+            if (deck == null || !deck.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            // The deck collider was moved by the write above, but Physics2D
+            // keeps its own copy of collider positions and only refreshes it
+            // at the next physics step -- so the aboard test would otherwise
+            // be measured against the deck's location from last frame.
+            Physics2D.SyncTransforms();
+
+            Bounds aboard = deck.bounds;
+            aboard.Expand(new Vector3(aboardMargin * 2f, aboardMargin * 2f, 0f));
+
+            foreach (NetworkClient client in NetworkManager.ConnectedClientsList)
+            {
+                if (client?.PlayerObject == null)
+                {
+                    continue;
+                }
+
+                TopDownNetworkPlayer2D player =
+                    client.PlayerObject.GetComponent<TopDownNetworkPlayer2D>();
+
+                if (player == null)
+                {
+                    continue;
+                }
+
+                // The steersman is skipped: PinOperatorServer puts them on an
+                // exact spot immediately after this, so carrying them first
+                // would just be a wasted write.
+                if (
+                    operatorClientId.HasValue &&
+                    client.ClientId == operatorClientId.Value
+                )
+                {
+                    continue;
+                }
+
+                Vector3 playerPosition = player.transform.position;
+
+                // Compared in 2D: the deck's bounds are flat, and players sit
+                // at whatever z their sorting needs, so a 3D containment test
+                // would reject everyone.
+                if (
+                    playerPosition.x < aboard.min.x ||
+                    playerPosition.x > aboard.max.x ||
+                    playerPosition.y < aboard.min.y ||
+                    playerPosition.y > aboard.max.y
+                )
+                {
+                    continue;
+                }
+
+                player.PinToStationServer(
+                    new Vector2(
+                        playerPosition.x + delta.x,
+                        playerPosition.y + delta.y
+                    )
+                );
+            }
+        }
+
+        /// <summary>
+        /// The walkable deck bounds for the aboard test, resolved through the
+        /// ship's own PlayerShipMarker (which already falls back to the first
+        /// child EdgeCollider2D when the field was never wired).
+        /// </summary>
+        private Collider2D ResolveDeckServer()
+        {
+            if (marker == null)
+            {
+                marker = GetComponent<PlayerShipMarker>();
+            }
+
+            return marker == null ? null : marker.DeckBounds;
         }
 
         private void PinOperatorServer()

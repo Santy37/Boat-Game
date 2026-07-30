@@ -6,7 +6,23 @@ using UnityEngine;
 /// Owns the boat leg's progress bar: fills over time, positions the line /
 /// islands / ship, and spawns event icons on the line. Landing is handled
 /// elsewhere (e.g. the stage portal) - call <see cref="LandOnIsland"/>.
+///
+/// In multiplayer the SERVER owns the leg. It advances progress, decides when
+/// an event is really over (its spawner has nothing left alive), and publishes
+/// both to <see cref="NetworkRunState"/>; clients render what they are told.
+/// Every peer still builds its own copy of the icons, but from the run's shared
+/// seed, so the layout is identical everywhere. Before this, each peer ran the
+/// whole leg independently: layouts differed, and a client waited out a fixed
+/// three-second pause per event instead of the real fight, so it sailed on and
+/// announced the leg finished while the host was still mid-battle.
+///
+/// Runs after the default execution order so its LateUpdate lands AFTER the
+/// camera has moved for the frame. The bar is parented to the camera, so
+/// positioning it from a camera position that is about to change means the
+/// camera's own movement gets applied to it a second time -- which is what
+/// slid the bar off to one side once the camera started following a player.
 /// </summary>
+[DefaultExecutionOrder(200)]
 public class BoatLegProgress : MonoBehaviour
 {
     [Header("Progress")]
@@ -133,11 +149,21 @@ public class BoatLegProgress : MonoBehaviour
 
     private bool sailed;
     private Vector3 normalScale = Vector3.one;
-    private LocalCoopCamera coopCam;
+    private ShipHelm cachedHelm;
+    private ShipCannon[] cachedCannons;
     private readonly List<Transform> events = new List<Transform>();
     private readonly List<float> eventFractions = new List<float>();
     private readonly List<bool> eventIsEnemy = new List<bool>();
     private readonly List<bool> eventDone = new List<bool>();
+
+    // Icons are built once, and in multiplayer only once the run's shared seed
+    // has arrived -- so every peer lays the same leg out. Until then there is
+    // no leg to run yet.
+    private bool eventsBuilt;
+
+    // How many events this peer has finished. On a client this is compared
+    // against the server's count to decide when an event is really over.
+    private int eventsCompleted;
 
     private void Awake()
     {
@@ -156,7 +182,43 @@ public class BoatLegProgress : MonoBehaviour
             pirateShipIcon.gameObject.SetActive(false);
         }
 
-        SpawnEvents();
+        TryBuildEvents();
+    }
+
+    // ------------------------------------------------------- network roles
+
+    /// <summary>
+    /// The shared run state, but only once it is actually usable. Null in
+    /// single-player / local co-op, which keeps the whole original local code
+    /// path below intact for those modes.
+    /// </summary>
+    private static NetworkRunState Run
+    {
+        get
+        {
+            NetworkRunState run = NetworkRunState.Instance;
+            return run != null && run.IsSpawned ? run : null;
+        }
+    }
+
+    private static bool IsNetworkedLeg => Run != null;
+
+    private static bool IsLegServer
+    {
+        get
+        {
+            NetworkRunState run = Run;
+            return run != null && run.IsServer;
+        }
+    }
+
+    private static bool IsLegClient
+    {
+        get
+        {
+            NetworkRunState run = Run;
+            return run != null && !run.IsServer;
+        }
     }
 
     // The level this leg runs at: the one chosen in the menu if there is one,
@@ -179,11 +241,86 @@ public class BoatLegProgress : MonoBehaviour
         }
     }
 
-    private void SpawnEvents()
+    /// <summary>
+    /// Builds the event icons, if it can. In multiplayer this waits for the
+    /// run's shared seed, so it is retried from Update until it succeeds.
+    /// Returns true once the leg is laid out.
+    /// </summary>
+    private bool TryBuildEvents()
+    {
+        if (eventsBuilt)
+        {
+            return true;
+        }
+
+        // Single-player / local co-op: nothing to agree with anyone about, so
+        // Unity's own Random is fine and the leg starts immediately.
+        if (!IsNetworkedLeg)
+        {
+            SpawnEvents(ResolveLevel(), null);
+            eventsBuilt = true;
+            return true;
+        }
+
+        // Multiplayer: the layout MUST come from the run seed, or the host and
+        // client fight different battles at different points on the same bar.
+        BoatRunDirector director = BoatRunDirector.Instance;
+
+        if (director == null || !director.IsRunReady)
+        {
+            return false;
+        }
+
+        NetworkRunState run = NetworkRunState.Instance;
+
+        if (IsLegServer)
+        {
+            // Published BEFORE the layout is built, so a client that is
+            // already waiting can start building the moment it hears the
+            // level.
+            run.BeginLegServer(ResolveLevel());
+        }
+        else if (run.LegLevel.Value <= 0)
+        {
+            // The server has not started the leg yet. Building now would use
+            // this client's own (unset) level and lay out a different number
+            // of fights.
+            return false;
+        }
+
+        SpawnEvents(
+            run.LegLevel.Value,
+            director.CreateRandom(RandomStreamName)
+        );
+
+        eventsBuilt = true;
+        return true;
+    }
+
+    private const string RandomStreamName = "BoatLegEvents";
+
+    // Random source for the leg layout: the run's seeded stream in
+    // multiplayer, or Unity's global Random in single-player. Wrapped so
+    // SpawnEvents below reads identically either way.
+    private static float NextFloat(System.Random rng, float min, float max)
+    {
+        return rng == null
+            ? Random.Range(min, max)
+            : min + (float)rng.NextDouble() * (max - min);
+    }
+
+    private static int NextInt(System.Random rng, int minInclusive, int maxExclusive)
+    {
+        return rng == null
+            ? Random.Range(minInclusive, maxExclusive)
+            : rng.Next(minInclusive, maxExclusive);
+    }
+
+    private void SpawnEvents(int level, System.Random rng)
     {
         // Place exactly this level's event count, each independently a pirate
         // ship or an obstacle per Enemy Ship Chance.
-        int count = EventCountForLevel(ResolveLevel());
+        int count = EventCountForLevel(level);
 
         List<Transform> chosen = new List<Transform>();
 
@@ -206,7 +343,7 @@ public class BoatLegProgress : MonoBehaviour
 
         for (int i = 0; i < remaining; i++)
         {
-            chosen.Add(Random.value < enemyShipChance
+            chosen.Add(NextFloat(rng, 0f, 1f) < enemyShipChance
                 ? pirateShipIcon
                 : obstacleIcon);
         }
@@ -215,7 +352,7 @@ public class BoatLegProgress : MonoBehaviour
         // leg throws at you and the guaranteed rock always the second.
         for (int i = chosen.Count - 1; i > 0; i--)
         {
-            int swap = Random.Range(0, i + 1);
+            int swap = NextInt(rng, 0, i + 1);
             (chosen[i], chosen[swap]) = (chosen[swap], chosen[i]);
         }
 
@@ -234,7 +371,7 @@ public class BoatLegProgress : MonoBehaviour
             events.Add(clone.transform);
             // Random spot on the line, kept away from the start island and
             // spaced apart from the events already placed.
-            eventFractions.Add(PickSpacedFraction());
+            eventFractions.Add(PickSpacedFraction(rng));
             eventIsEnemy.Add(template == pirateShipIcon);
             eventDone.Add(false);
         }
@@ -244,15 +381,15 @@ public class BoatLegProgress : MonoBehaviour
     // from every event placed so far, so icons never overlap. Tries a number
     // of random spots; if the line is too crowded to satisfy the spacing it
     // falls back to the least-crowded spot it found rather than looping forever.
-    private float PickSpacedFraction()
+    private float PickSpacedFraction(System.Random rng)
     {
         const int attempts = 30;
-        float best = Random.Range(eventMinFraction, eventMaxFraction);
+        float best = NextFloat(rng, eventMinFraction, eventMaxFraction);
         float bestGap = -1f;
 
         for (int attempt = 0; attempt < attempts; attempt++)
         {
-            float candidate = Random.Range(eventMinFraction, eventMaxFraction);
+            float candidate = NextFloat(rng, eventMinFraction, eventMaxFraction);
 
             // Distance to the nearest already-placed event.
             float nearest = float.MaxValue;
@@ -281,6 +418,40 @@ public class BoatLegProgress : MonoBehaviour
 
     private void Update()
     {
+        // In multiplayer the leg cannot start until the shared seed has landed
+        // and the icons are laid out from it.
+        if (!TryBuildEvents())
+        {
+            return;
+        }
+
+        // A client renders the server's leg: progress and "is the fight over"
+        // both come down the wire.
+        if (IsLegClient)
+        {
+            UpdateAsClient();
+            return;
+        }
+
+        UpdateAsAuthority();
+
+        // Hand this frame's authoritative state to the clients.
+        if (IsLegServer)
+        {
+            NetworkRunState.Instance.PublishLegProgressServer(
+                progress01,
+                eventsCompleted
+            );
+        }
+    }
+
+    /// <summary>
+    /// Single-player, local co-op, and the host all run the real leg: they own
+    /// progress and they wait for the actual spawned enemies/rocks to be gone.
+    /// This is the original behaviour, unchanged.
+    /// </summary>
+    private void UpdateAsAuthority()
+    {
         // Paused at an event: hold the bar until the event is resolved.
         if (activeEvent >= 0)
         {
@@ -298,51 +469,44 @@ public class BoatLegProgress : MonoBehaviour
         }
 
         // Ship reached an event? -> pause, show its message, and spawn.
-        Vector2 shipPos = Vector2.Lerp(startSpot, endSpot, progress01);
-        for (int i = 0; i < events.Count; i++)
+        int reached = FindReachedEvent();
+
+        if (reached >= 0)
         {
-            if (eventDone[i] || events[i] == null)
+            activeEvent = reached;
+            currentMessage = eventIsEnemy[reached] ? enemyMessage : obstacleMessage;
+            messageHideTime = Time.time + messageDuration;
+
+            // Tell the matching spawner to spawn its stuff. This runs once
+            // per event (we return while paused). The spawners are
+            // server-guarded, so it is safe for every peer to call.
+            bool spawnerWired;
+            if (eventIsEnemy[reached])
             {
-                continue;
+                spawnerWired = enemyShipSpawner != null;
+                if (spawnerWired)
+                {
+                    enemyShipSpawner.Trigger();
+                }
+            }
+            else
+            {
+                spawnerWired = obstacleGenerator != null;
+                if (spawnerWired)
+                {
+                    obstacleGenerator.Trigger();
+                }
             }
 
-            Vector2 evPos = Vector2.Lerp(startSpot, endSpot, eventFractions[i]);
-            if (Vector2.Distance(shipPos, evPos) <= eventTriggerRange)
-            {
-                activeEvent = i;
-                currentMessage = eventIsEnemy[i] ? enemyMessage : obstacleMessage;
-                messageHideTime = Time.time + messageDuration;
-
-                // Tell the matching spawner to spawn its stuff. This runs once
-                // per event (we return while paused). The spawners are
-                // server-guarded, so it is safe for every client to call.
-                bool spawnerWired;
-                if (eventIsEnemy[i])
-                {
-                    spawnerWired = enemyShipSpawner != null;
-                    if (spawnerWired)
-                    {
-                        enemyShipSpawner.Trigger();
-                    }
-                }
-                else
-                {
-                    spawnerWired = obstacleGenerator != null;
-                    if (spawnerWired)
-                    {
-                        obstacleGenerator.Trigger();
-                    }
-                }
-
-                // The server waits for the spawned things to be cleared; a pure
-                // client (or an unwired event) just waits out a fixed pause so
-                // its bar never hangs.
-                bool isServer = BoatRunDirector.Instance != null &&
-                                BoatRunDirector.Instance.IsServer;
-                activeEventTimed = !(isServer && spawnerWired);
-                eventEndTime = Time.time + eventPauseDuration;
-                return;
-            }
+            // Only the networked server actually spawns anything, so only the
+            // server can wait for it to be cleared. Everything else -- an
+            // unwired event (the kraken arena's bar has no spawners) or a
+            // local/offline session, where the server-guarded spawners do
+            // nothing -- waits out a fixed pause instead of hanging forever
+            // on a fight that was never going to happen.
+            activeEventTimed = !(IsLegServer && spawnerWired);
+            eventEndTime = Time.time + eventPauseDuration;
+            return;
         }
 
         // Otherwise advance the bar.
@@ -350,6 +514,115 @@ public class BoatLegProgress : MonoBehaviour
         {
             progress01 = Mathf.Clamp01(progress01 + Time.deltaTime / legDuration);
         }
+    }
+
+    /// <summary>
+    /// A client's bar is a view of the server's leg. Progress is replicated
+    /// rather than advanced locally, and an event ends when the SERVER says it
+    /// ended -- never on a local timer, which is what used to let a client
+    /// skip a fight it could not see and declare the leg over.
+    /// </summary>
+    private void UpdateAsClient()
+    {
+        NetworkRunState run = NetworkRunState.Instance;
+
+        progress01 = Mathf.Clamp01(run.LegProgress.Value);
+
+        int serverCompleted = run.LegEventsCompleted.Value;
+
+        // The server has finished more events than this bar has cleared, so
+        // clear them. Normally that is the one event currently showing; the
+        // loop also covers a client that joined mid-leg or lagged badly enough
+        // to never register an event it has already sailed past.
+        while (eventsCompleted < serverCompleted)
+        {
+            if (activeEvent >= 0)
+            {
+                CompleteActiveEvent();
+                continue;
+            }
+
+            int next = FindNextPendingEvent();
+
+            if (next < 0)
+            {
+                // Nothing left locally to reconcile against, so stop rather
+                // than spinning.
+                eventsCompleted = serverCompleted;
+                break;
+            }
+
+            activeEvent = next;
+            CompleteActiveEvent();
+        }
+
+        // Show the event message while the server holds the bar at one. The
+        // client detects this locally off the replicated progress; the layout
+        // is seeded identically, so it lands on the same event the host is
+        // actually fighting.
+        if (activeEvent < 0)
+        {
+            int reached = FindReachedEvent();
+
+            if (reached >= 0)
+            {
+                activeEvent = reached;
+                currentMessage =
+                    eventIsEnemy[reached] ? enemyMessage : obstacleMessage;
+                messageHideTime = Time.time + messageDuration;
+            }
+        }
+        else if (currentMessage.Length > 0 && Time.time >= messageHideTime)
+        {
+            currentMessage = string.Empty;
+        }
+    }
+
+    // The first not-yet-done event the ship icon is currently close enough to
+    // trigger, or -1.
+    private int FindReachedEvent()
+    {
+        Vector2 shipPos = Vector2.Lerp(startSpot, endSpot, progress01);
+
+        for (int i = 0; i < events.Count; i++)
+        {
+            if (eventDone[i])
+            {
+                continue;
+            }
+
+            Vector2 evPos = Vector2.Lerp(startSpot, endSpot, eventFractions[i]);
+
+            if (Vector2.Distance(shipPos, evPos) <= eventTriggerRange)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    // The pending event earliest along the line. Events are fought in the order
+    // the ship sails past them, not in list order (the list is shuffled), so
+    // reconciling against the server's count has to pick by position.
+    private int FindNextPendingEvent()
+    {
+        int best = -1;
+
+        for (int i = 0; i < events.Count; i++)
+        {
+            if (eventDone[i])
+            {
+                continue;
+            }
+
+            if (best < 0 || eventFractions[i] < eventFractions[best])
+            {
+                best = i;
+            }
+        }
+
+        return best;
     }
 
     // Has the current event finished? Timed events wait out the pause; spawn
@@ -373,6 +646,7 @@ public class BoatLegProgress : MonoBehaviour
     {
         int i = activeEvent;
         eventDone[i] = true;
+        eventsCompleted++;
 
         if (events[i] != null)
         {
@@ -384,13 +658,46 @@ public class BoatLegProgress : MonoBehaviour
         currentMessage = string.Empty;
     }
 
+    /// <summary>
+    /// True while this machine's player is manning the helm or a cannon, which
+    /// moves and enlarges the bar to suit the zoomed-out station view.
+    ///
+    /// Asks the stations themselves rather than reading
+    /// LocalCoopCamera.HasZoomOverride as it used to. That flag lives on the
+    /// local split-screen camera rig, which is switched OFF in the networked
+    /// boat scene (the networked camera is Camera2DFollow) -- so in multiplayer
+    /// it reported whatever the disabled rig happened to hold and the bar
+    /// stopped agreeing with what the player was actually doing.
+    /// </summary>
     private bool IsManning()
     {
-        if (coopCam == null)
+        if (cachedHelm == null)
         {
-            coopCam = FindFirstObjectByType<LocalCoopCamera>();
+            cachedHelm = FindFirstObjectByType<ShipHelm>();
         }
-        return coopCam != null && coopCam.HasZoomOverride;
+
+        if (cachedHelm != null && cachedHelm.IsManned)
+        {
+            return true;
+        }
+
+        // Cannons are many and are never created at runtime in these scenes,
+        // so one lookup is enough.
+        if (cachedCannons == null || cachedCannons.Length == 0)
+        {
+            cachedCannons =
+                FindObjectsByType<ShipCannon>(FindObjectsSortMode.None);
+        }
+
+        foreach (ShipCannon cannon in cachedCannons)
+        {
+            if (cannon != null && cannon.IsManned)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // STEP 1: keep the whole bar pinned to the top-centre of the screen so the

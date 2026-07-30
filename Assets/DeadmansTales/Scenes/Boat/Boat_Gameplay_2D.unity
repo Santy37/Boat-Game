@@ -681,6 +681,7 @@ MonoBehaviour:
   pushOutOfEnemyHulls: 1
   hullSeparationSkin: 0
   inputStaleSeconds: 0.5
+  aboardMargin: 0.75
 --- !u!1 &330336143
 GameObject:
   m_ObjectHideFlags: 0
