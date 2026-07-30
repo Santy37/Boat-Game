@@ -169,9 +169,7 @@ namespace DeadmansTales.Networking
                     return $"Defeat All Enemies ({remaining} Remaining)";
                 }
 
-                // The boat leg has to actually finish before any exit opens,
-                // including the one that ends the run.
-                if (Leg != null && !Leg.IsComplete)
+                if (BoatLegGateBlocks)
                 {
                     return "NOT THERE YET...";
                 }
@@ -289,8 +287,7 @@ namespace DeadmansTales.Networking
                 return false;
             }
 
-            // If this scene has a boat-leg bar, block until it is complete.
-            if (Leg != null && !Leg.IsComplete)
+            if (BoatLegGateBlocks)
             {
                 return false;
             }
@@ -313,6 +310,28 @@ namespace DeadmansTales.Networking
                 return boatLeg;
             }
         }
+
+        /// <summary>
+        /// True while an unfinished boat leg should hold this portal shut.
+        ///
+        /// The gate exists so you cannot step off the boat before the voyage
+        /// leg has actually arrived somewhere. It deliberately does NOT apply
+        /// to a Completes Run portal: that is the boss arena's victory portal,
+        /// and the arena scene carries a BoatLegProgress of its own that is
+        /// only there for the fight's framing -- it has no islands, ship icon,
+        /// or spawners wired and it never "arrives" anywhere. Gating on it
+        /// meant that after the kraken was dead the victory portal still
+        /// reported "NOT THERE YET..." and refused to free your soul, because
+        /// it was waiting on a voyage that did not exist.
+        ///
+        /// The victory portal is not left ungated by this: requireKrakenDefeated
+        /// and requireAllEnemyShipsDefeated are what actually guard it, and both
+        /// are checked above.
+        /// </summary>
+        private bool BoatLegGateBlocks =>
+            !completesRun &&
+            Leg != null &&
+            !Leg.IsComplete;
 
         protected override void PerformInteractionServer(
             NetworkInteractionController2D interactor

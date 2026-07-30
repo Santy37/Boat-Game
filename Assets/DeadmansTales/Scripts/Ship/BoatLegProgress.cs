@@ -671,9 +671,24 @@ public class BoatLegProgress : MonoBehaviour
     /// </summary>
     private bool IsManning()
     {
-        if (cachedHelm == null)
+        // Re-resolved whenever the cached helm is gone OR turns out not to be
+        // the player's. FindFirstObjectByType would happily return an enemy
+        // ship's own ShipHelm (the EnemyShip prefab carries one), and enemy
+        // ships come and go all leg -- so a plain "cache the first one" lookup
+        // silently pointed at a helm nobody was steering, some of the time.
+        if (cachedHelm == null || !cachedHelm.SteersPlayerShip)
         {
-            cachedHelm = FindFirstObjectByType<ShipHelm>();
+            cachedHelm = null;
+
+            foreach (ShipHelm helm in
+                FindObjectsByType<ShipHelm>(FindObjectsSortMode.None))
+            {
+                if (helm != null && helm.SteersPlayerShip)
+                {
+                    cachedHelm = helm;
+                    break;
+                }
+            }
         }
 
         if (cachedHelm != null && cachedHelm.IsManned)

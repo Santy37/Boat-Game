@@ -25,7 +25,11 @@ public class ShipHelm : MonoBehaviour
     [Header("Camera")]
     [Tooltip("Camera size while steering (larger = zoomed out).")]
     [SerializeField] private float steeringCameraZoom = 20f;
-    [Tooltip("Used by the networked camera only.")]
+    [Tooltip(
+        "LEGACY -- no longer used. The networked camera's station zoom is " +
+        "snapped rather than eased so it stays in step with the boat progress " +
+        "bar, which snaps. See UpdateNetworkCameraZoom. Kept so existing " +
+        "scenes keep deserializing cleanly.")]
     [SerializeField] private float zoomLerpSpeed = 5f;
 
     [Header("Fallback Keys")]
@@ -79,6 +83,21 @@ public class ShipHelm : MonoBehaviour
     /// zoomed-out steering view.
     /// </summary>
     public bool IsManned => Manned;
+
+    /// <summary>
+    /// True only for the helm that steers the PLAYER's ship.
+    ///
+    /// This matters because the EnemyShip prefab carries a ShipHelm of its own
+    /// (it was built as a copy of the player's ship), so anything looking for
+    /// "the helm" with FindFirstObjectByType can just as easily be handed an
+    /// enemy's. Enemy ships are spawned and destroyed throughout a leg, which
+    /// makes that a moving target -- and an intermittent one, which is exactly
+    /// how it presented: the progress bar only sometimes noticed the player was
+    /// steering.
+    /// </summary>
+    public bool SteersPlayerShip => steersPlayerShip;
+
+    private bool steersPlayerShip;
 
     private void Awake()
     {
@@ -238,6 +257,11 @@ public class ShipHelm : MonoBehaviour
         {
             return;
         }
+
+        // Only reached when the steered ship really is the player's, so this
+        // doubles as the answer to "is this the player's helm" for anything
+        // that has to tell this helm apart from an enemy ship's copy.
+        steersPlayerShip = true;
 
         steeredHull = marker.Hitbox;
 
@@ -461,10 +485,17 @@ public class ShipHelm : MonoBehaviour
 
         float targetZoom = Manned ? steeringCameraZoom : defaultCameraZoom;
 
-        cameraFollow.OrthographicSize = Mathf.Lerp(
-            cameraFollow.OrthographicSize,
-            targetZoom,
-            zoomLerpSpeed * Time.deltaTime);
+        // Snapped, NOT eased -- deliberately, and for the same reason
+        // LocalCoopCamera snaps its own zoom (see FrameOrthographic's note):
+        // the boat progress bar repositions and rescales itself the instant a
+        // station is manned or released, and its two sets of values are each
+        // tuned to look right at ONE zoom level. Easing the camera between
+        // those levels while the bar has already jumped leaves the two
+        // disagreeing for the length of the ease, which reads as the bar
+        // sliding off to one side for a moment on mounting or leaving the
+        // wheel -- intermittently, since it only shows if you happen to be
+        // looking during those few tenths of a second.
+        cameraFollow.OrthographicSize = targetZoom;
     }
 
     private void OnTriggerEnter2D(Collider2D other)
