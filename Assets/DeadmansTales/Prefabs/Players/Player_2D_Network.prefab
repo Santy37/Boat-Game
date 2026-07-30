@@ -1118,8 +1118,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   localPlayerIndicator: {fileID: 0}
   healthBarFill: {fileID: 2748324308042006028}
-  localPlayerColor: {r: 0, g: 1, b: 1, a: 1}
-  otherPlayerColor: {r: 0, g: 1, b: 0, a: 1}
+  localPlayerColor: {r: 0, g: 1, b: 0, a: 1}
+  otherPlayerColor: {r: 0, g: 1, b: 1, a: 1}
 --- !u!1 &3920563249596062333
 GameObject:
   m_ObjectHideFlags: 0
