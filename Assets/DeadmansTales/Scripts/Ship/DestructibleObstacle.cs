@@ -82,6 +82,9 @@ public class DestructibleObstacle : NetworkBehaviour
     // fire exactly once even if both detection paths notice in the same step.
     private bool hitShip;
 
+    // Server-only: assigned by the generator that spawned this obstacle.
+    private BoatObstacleGenerator owningGenerator;
+
     private Texture2D pixel;
 
     private void Awake()
@@ -140,6 +143,16 @@ public class DestructibleObstacle : NetworkBehaviour
     /// Server-only: overrides the prefab's Drift Speed, so the spawner that
     /// created this obstacle can control how fast it closes on the ship.
     /// </summary>
+    /// <summary>
+    /// Server-only: the generator that spawned this obstacle, so it can be
+    /// asked whether its wave is already clearing before the hull-impact clip
+    /// plays. Null for an obstacle placed by hand, which then always plays.
+    /// </summary>
+    public void SetOwningGeneratorServer(BoatObstacleGenerator generator)
+    {
+        owningGenerator = generator;
+    }
+
     public void SetSpeedServer(float speed)
     {
         if (!IsServer)
@@ -270,7 +283,14 @@ public class DestructibleObstacle : NetworkBehaviour
 
         // Told to every peer before the despawn, so the crack of the rock on
         // the hull is heard by the whole crew and not just the server.
-        PlayHullImpactClientRpc(transform.position);
+        // Skip the clip if this wave is already down to its last rock: the
+        // impact would land at the exact instant the progress bar resumes and
+        // slides past the rock icon, which reads as the BAR making a
+        // destruction noise. The hit and its ship damage still happen.
+        if (owningGenerator == null || !owningGenerator.WaveClearing)
+        {
+            PlayHullImpactClientRpc(transform.position);
+        }
 
         DespawnSelf();
     }

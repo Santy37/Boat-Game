@@ -278,7 +278,7 @@ MonoBehaviour:
   randomSpawnPoint: 1
   chosenSpawnPoint: 0
   crewPrefab: {fileID: 8918378950335595603, guid: 9fdb35f3310529b4ab48fdc3a0b8d991, type: 3}
-  crewPerShip: 2
+  crewPerShip: 4
   crewLocalOffsets:
   - {x: -2, y: 0.3}
   - {x: 2, y: -0.3}
@@ -769,10 +769,10 @@ MonoBehaviour:
   obstacleGenerator: {fileID: 1847286367}
   eventTriggerRange: 1
   eventPauseDuration: 3
-  obstacleMessage: Man the cannons, Protect the ship!
-  enemyMessage: 'Pirates Are Attacking!!!! '
+  obstacleMessage: PROTECT THE SHIP
+  enemyMessage: ENEMIES ARE ATTACKING
   messageDuration: 5
-  arrivalMessage: LAND HOOOO!!!
+  arrivalMessage: PRESS E ON THE HATCH
   messagePrioritySeconds: 5
 --- !u!1 &362709374 stripped
 GameObject:

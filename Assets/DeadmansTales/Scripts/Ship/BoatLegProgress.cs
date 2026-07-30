@@ -100,16 +100,16 @@ public class BoatLegProgress : MonoBehaviour
     [Tooltip("Seconds the bar pauses at each event.")]
     [SerializeField] private float eventPauseDuration = 3f;
     [Tooltip("Message shown for OBSTACLE events.")]
-    [SerializeField] private string obstacleMessage = "Protect the ship!";
+    [SerializeField] private string obstacleMessage = "PROTECT THE SHIP";
     [Tooltip("Message shown for ENEMY SHIP events.")]
-    [SerializeField] private string enemyMessage = "Attack the pirates!";
+    [SerializeField] private string enemyMessage = "ATTACK THE ENEMIES";
     [Tooltip("Seconds the event message stays on screen. The bar still keeps " +
              "waiting for the event to clear even after the message hides.")]
     [SerializeField] private float messageDuration = 5f;
 
     [Header("Progress Bar - Arrival Message")]
     [Tooltip("Shown when the bar finishes (then the portal is usable).")]
-    [SerializeField] private string arrivalMessage = "You have arrived";
+    [SerializeField] private string arrivalMessage = "YOU HAVE ARRIVED";
     [Tooltip(
         "Seconds a freshly-raised centred message outranks every other prompt " +
         "so the player can't miss it, before it drops to the lowest priority.")]

@@ -102,6 +102,26 @@ public class BoatObstacleGenerator : MonoBehaviour
     }
 
     /// <summary>
+    /// True once this wave is down to its last obstacle, i.e. the event is
+    /// about to resolve and the progress bar is about to resume.
+    ///
+    /// Obstacles read this before playing their hull-impact clip. A rock that
+    /// reaches the ship at the very end lands its "heavy object impact" at the
+    /// same instant the bar starts moving again, which reads as the progress
+    /// bar itself making a destruction noise as it passes the rock icon. The
+    /// hit still happens and still damages the ship -- it just stops
+    /// announcing itself at the one moment it is guaranteed to be misread.
+    /// </summary>
+    public bool WaveClearing
+    {
+        get
+        {
+            activeObstacles.RemoveAll(obstacle => obstacle == null);
+            return !spawning && activeObstacles.Count <= 1;
+        }
+    }
+
+    /// <summary>
     /// Called by the boat progress bar when the ship reaches an obstacle event.
     /// Server-only; clients ignore it.
     /// </summary>
@@ -336,6 +356,10 @@ public class BoatObstacleGenerator : MonoBehaviour
         {
             // Let the generator dictate how fast obstacles move.
             obstacle.SetSpeedServer(obstacleSpeed);
+
+            // So the obstacle can ask whether the wave is already clearing
+            // before it plays its hull-impact clip.
+            obstacle.SetOwningGeneratorServer(this);
 
             // Lock the obstacle onto a straight line from its spawn point to
             // where the ship is right now. It never re-aims, so it does not
