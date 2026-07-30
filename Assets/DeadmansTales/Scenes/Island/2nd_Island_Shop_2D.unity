@@ -48363,7 +48363,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LobbyRowboatInteraction
   interactionKey: 101
-  gameplaySceneName: Island_After_Ocean_01_2D
+  gameplaySceneName: Kraken_Arena_2D
 --- !u!61 &1907538491
 BoxCollider2D:
   m_ObjectHideFlags: 0

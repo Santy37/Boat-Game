@@ -109,14 +109,12 @@ namespace DeadmansTales.Networking
 
                 case NetworkRewardKind.Weapon:
                 {
-                    NetworkPlayerLoadout playerLoadout =
-                        interactor.GetComponent<NetworkPlayerLoadout>();
-
-                    if (playerLoadout != null)
-                    {
-                        playerLoadout.GrantWeaponServer();
-                    }
-
+                    // Deliberately a no-op: weapon tier now only advances
+                    // through the sword shop (NetworkShopVendor). Chests
+                    // used to also call GrantWeaponServer() here, which let
+                    // a beach loot chest silently upgrade the blade before
+                    // the player ever visited a shop -- removed so the shop
+                    // is the sole source of weapon upgrades.
                     break;
                 }
 

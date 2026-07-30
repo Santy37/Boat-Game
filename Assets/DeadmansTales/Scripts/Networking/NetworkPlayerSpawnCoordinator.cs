@@ -21,6 +21,7 @@ namespace DeadmansTales.Networking
         private const string IslandStageSceneName =
             "Island_After_Ocean_01_2D";
         private const string ShopSceneName = "Island_Shop_2D";
+        private const string SecondShopSceneName = "2nd_Island_Shop_2D";
         private const string KrakenArenaSceneName = "Kraken_Arena_2D";
         private const string LevelOneSceneName = "Level_1_Crab_Beach_2D";
 
@@ -40,6 +41,7 @@ namespace DeadmansTales.Networking
             BoatSceneName,
             IslandStageSceneName,
             ShopSceneName,
+            SecondShopSceneName,
             KrakenArenaSceneName,
             LevelOneSceneName,
         };

@@ -45,7 +45,23 @@ namespace DeadmansTales.Ship
                 NetworkVariableWritePermission.Server
             );
 
-        public float MaximumHealth => Mathf.Max(1f, maximumHealth);
+        /// <summary>
+        /// Base capacity plus whatever the crew has bought at the ship
+        /// shop this run (NetworkRunState.ShipHealthBonus persists across
+        /// scenes, so this stays boosted even though the ship itself is
+        /// rebuilt fresh each time Boat_Gameplay_2D/Kraken_Arena_2D loads).
+        /// </summary>
+        public float MaximumHealth
+        {
+            get
+            {
+                float bonus = NetworkRunState.Instance != null
+                    ? NetworkRunState.Instance.ShipHealthBonus.Value
+                    : 0f;
+
+                return Mathf.Max(1f, maximumHealth + bonus);
+            }
+        }
 
         public bool IsSunk => IsSpawned && CurrentHealth.Value <= 0f;
 

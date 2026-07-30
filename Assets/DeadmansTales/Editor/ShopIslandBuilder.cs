@@ -197,8 +197,8 @@ public static class ShopIslandBuilder
             "Rusty the Smith",
             ShopStock.WeaponTier,
             49,
-            25,
             15,
+            10,
             0,
             -4,
             "stall_red"
@@ -209,10 +209,10 @@ public static class ShopIslandBuilder
         new VendorSpec(
             "Vendor_Quartermaster",
             "Quartermaster Vex",
-            ShopStock.Upgrade,
+            ShopStock.ShipUpgrade,
             4,
-            30,
-            20,
+            15,
+            10,
             0,
             0,
             "stall_blue"
@@ -222,8 +222,8 @@ public static class ShopIslandBuilder
             "Ol' Sally",
             ShopStock.FullHeal,
             55,
-            15,
-            5,
+            10,
+            10,
             0,
             4,
             "stall_green"

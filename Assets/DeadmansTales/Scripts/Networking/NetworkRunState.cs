@@ -1,4 +1,5 @@
 using System;
+using DeadmansTales.Ship;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -40,6 +41,12 @@ namespace DeadmansTales.Networking
     [RequireComponent(typeof(NetworkObject))]
     public sealed class NetworkRunState : NetworkBehaviour
     {
+        /// <summary>How much the ship shop adds to sink-meter capacity per purchase.</summary>
+        public const float ShipSinkBonusPerUpgrade = 100f;
+
+        /// <summary>How much the ship shop adds to hull health capacity per purchase.</summary>
+        public const float ShipHealthBonusPerUpgrade = 50f;
+
         public static NetworkRunState Instance
         {
             get;
@@ -115,6 +122,30 @@ namespace DeadmansTales.Networking
         public readonly NetworkVariable<int> ConfigVersion =
             new NetworkVariable<int>(
                 1,
+                NetworkVariableReadPermission.Everyone,
+                NetworkVariableWritePermission.Server
+            );
+
+        /// <summary>
+        /// Total sink-meter capacity the crew has bought at the ship shop
+        /// this run, added on top of NetworkShipSinkMeter's own base
+        /// maximum. Lives here rather than on the ship itself because the
+        /// ship is a scene-placed object that only exists in the boat and
+        /// kraken-arena scenes and is rebuilt fresh each time -- this
+        /// persists across every scene so the upgrade survives visiting a
+        /// shop island and sailing on.
+        /// </summary>
+        public readonly NetworkVariable<float> ShipSinkBonus =
+            new NetworkVariable<float>(
+                0f,
+                NetworkVariableReadPermission.Everyone,
+                NetworkVariableWritePermission.Server
+            );
+
+        /// <summary>Total hull health capacity the crew has bought this run.</summary>
+        public readonly NetworkVariable<float> ShipHealthBonus =
+            new NetworkVariable<float>(
+                0f,
                 NetworkVariableReadPermission.Everyone,
                 NetworkVariableWritePermission.Server
             );
@@ -271,6 +302,8 @@ namespace DeadmansTales.Networking
             ActivePlayerCount.Value = GetConnectedPlayerCount();
             ConfigId.Value = new FixedString64Bytes(safeConfigId);
             ConfigVersion.Value = safeConfigVersion;
+            ShipSinkBonus.Value = 0f;
+            ShipHealthBonus.Value = 0f;
 
             Debug.Log(
                 "[Run State] New run initialized.\n" +
@@ -307,6 +340,41 @@ namespace DeadmansTales.Networking
             ActivePlayerCount.Value = GetConnectedPlayerCount();
         }
 
+        /// <summary>
+        /// Applies one ship shop purchase: raises the crew-wide sink-meter
+        /// and hull capacity bonuses, and -- if the player's ship happens
+        /// to already be loaded in the current scene -- tops up its current
+        /// values by the same amount so the purchase feels immediate rather
+        /// than only applying the next time the ship is (re)spawned.
+        /// </summary>
+        public void GrantShipUpgradeServer()
+        {
+            RequireServer(nameof(GrantShipUpgradeServer));
+
+            ShipSinkBonus.Value += ShipSinkBonusPerUpgrade;
+            ShipHealthBonus.Value += ShipHealthBonusPerUpgrade;
+
+            PlayerShipMarker playerShip = FindFirstObjectByType<PlayerShipMarker>();
+
+            if (playerShip != null)
+            {
+                NetworkShipSinkMeter sinkMeter =
+                    playerShip.GetComponent<NetworkShipSinkMeter>();
+                sinkMeter?.RepairServer(ShipSinkBonusPerUpgrade);
+
+                NetworkShipHealth shipHealth =
+                    playerShip.GetComponent<NetworkShipHealth>();
+                shipHealth?.RepairServer(ShipHealthBonusPerUpgrade);
+            }
+
+            Debug.Log(
+                "[Run State] Ship upgrade purchased.\n" +
+                $"Sink capacity bonus: {ShipSinkBonus.Value:0}\n" +
+                $"Hull health bonus: {ShipHealthBonus.Value:0}",
+                this
+            );
+        }
+
         public void ResetToLobbyServer()
         {
             RequireServer(nameof(ResetToLobbyServer));
@@ -317,6 +385,8 @@ namespace DeadmansTales.Networking
             ActivePlayerCount.Value = GetConnectedPlayerCount();
             ConfigId.Value = new FixedString64Bytes(defaultConfigId);
             ConfigVersion.Value = defaultConfigVersion;
+            ShipSinkBonus.Value = 0f;
+            ShipHealthBonus.Value = 0f;
         }
 
         private int GetConnectedPlayerCount()

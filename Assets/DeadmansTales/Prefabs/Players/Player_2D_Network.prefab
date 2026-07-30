@@ -482,6 +482,7 @@ GameObject:
   - component: {fileID: 2932199444318579540}
   - component: {fileID: 4424567147886695379}
   - component: {fileID: 4780224153321714005}
+  - component: {fileID: 5461827930947162583}
   m_Layer: 0
   m_Name: Player_2D_Network
   m_TagString: Untagged
@@ -904,6 +905,34 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &5461827930947162583
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3388892594036479966}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f4c1e6a9d3b4a2f8e7c0b5d1a6f3c92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  swordRenderer: {fileID: 2508380306022232439}
+  swordSprites:
+  - {fileID: 131449278, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 23267520, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1383742100, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1259760662, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1041754904, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1145680292, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 503644337, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1936746835, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 607831742, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -460413151, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1008709038, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1169189359, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 2084996774, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1907593904, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
 --- !u!114 &8434005522542735720
 MonoBehaviour:
   m_ObjectHideFlags: 0

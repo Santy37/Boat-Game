@@ -20,6 +20,16 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
     public const float MoveSpeedPerUpgrade = 0.1f;
     public const float MaxHealthPerUpgrade = 25f;
     public const int MaxFood = 5;
+
+    /// <summary>
+    /// Weapon tier 0 shows Sword2 from the "2D Pixel Art Icons Swords"
+    /// sheet (the blade the crew already starts with) through tier
+    /// <see cref="MaxWeaponTier"/>, which shows Sword15 -- the last sprite
+    /// in that sheet. The sword shop can never sell past that point.
+    /// </summary>
+    public const int BaseSwordSpriteNumber = 2;
+    public const int MaxSwordSpriteNumber = 15;
+    public const int MaxWeaponTier = MaxSwordSpriteNumber - BaseSwordSpriteNumber;
     [Header("Food")]
     [SerializeField]
     [Min(1f)]
@@ -66,6 +76,43 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
+
+    /// <summary>
+    /// How many times THIS player has bought the ship shop's hull/patch
+    /// upgrade. Tracked per player (like every other shop price) so the
+    /// price keeps climbing for them specifically, and on the player's own
+    /// NetworkObject so it carries between the first and second shop
+    /// islands rather than resetting with each stall's own scene instance.
+    /// The actual bonus this buys lives on NetworkRunState, since it
+    /// upgrades the crew's one shared ship, not this player individually.
+    /// </summary>
+    public readonly NetworkVariable<int> ShipUpgradePurchases =
+        new NetworkVariable<int>(
+            0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+    /// <summary>How many hot meals this player has bought at the shop.</summary>
+    public readonly NetworkVariable<int> HealPurchases =
+        new NetworkVariable<int>(
+            0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+    /// <summary>
+    /// Running total of coins this player has ever spent, across every
+    /// stall on every shop island. Purely informational for now (stats/UI);
+    /// never decremented.
+    /// </summary>
+    public readonly NetworkVariable<int> TotalCoinsSpent =
+        new NetworkVariable<int>(
+            0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
     public float BonusDamage =>
         Mathf.Max(0, WeaponTier.Value) * DamagePerWeaponTier;
 
@@ -74,6 +121,19 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
 
     public float BonusMaxHealth =>
         Mathf.Max(0, HealthUpgrades.Value) * MaxHealthPerUpgrade;
+
+    /// <summary>True once the sword shop has nothing left to sell this player.</summary>
+    public bool IsWeaponMaxed => WeaponTier.Value >= MaxWeaponTier;
+
+    /// <summary>
+    /// Which sprite in the "2D Pixel Art Icons Swords" sheet the HUD should
+    /// show for this player's current weapon tier.
+    /// </summary>
+    public int CurrentSwordSpriteNumber => Mathf.Clamp(
+        BaseSwordSpriteNumber + WeaponTier.Value,
+        BaseSwordSpriteNumber,
+        MaxSwordSpriteNumber
+    );
 
     /// <summary>Server-only: adds plundered coins to this player.</summary>
     public bool AddCoinsServer(int amount)
@@ -135,13 +195,19 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
         }
 
         Coins.Value -= price;
+        TotalCoinsSpent.Value += price;
         return true;
     }
 
-    /// <summary>Server-only: raises this player's weapon tier by one.</summary>
+    /// <summary>
+    /// Server-only: raises this player's weapon tier by one, up to
+    /// <see cref="MaxWeaponTier"/> (Sword15, the last blade in the sheet).
+    /// Returns false once already maxed so a vendor never takes coins for
+    /// a sharpen that has nothing left to do.
+    /// </summary>
     public bool GrantWeaponServer()
     {
-        if (!IsSpawned || !IsServer)
+        if (!IsSpawned || !IsServer || IsWeaponMaxed)
         {
             return false;
         }
@@ -150,10 +216,53 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
 
         Debug.Log(
             $"[Loadout] {name} reached weapon tier {WeaponTier.Value} " +
-            $"(+{BonusDamage} damage).",
+            $"(Sword{CurrentSwordSpriteNumber}, +{BonusDamage} damage).",
             this
         );
         return true;
+    }
+
+    /// <summary>
+    /// Server-only: funds a ship shop purchase. The price this player pays
+    /// climbs with <see cref="ShipUpgradePurchases"/> like any other stall,
+    /// but the actual hull/patch capacity this buys is shared crew-wide on
+    /// <see cref="DeadmansTales.Networking.NetworkRunState"/> rather than on
+    /// this player, since there is only one ship.
+    /// </summary>
+    public bool GrantShipUpgradeServer()
+    {
+        if (!IsSpawned || !IsServer)
+        {
+            return false;
+        }
+
+        ShipUpgradePurchases.Value++;
+
+        DeadmansTales.Networking.NetworkRunState runState =
+            DeadmansTales.Networking.NetworkRunState.Instance;
+
+        if (runState != null && runState.IsSpawned && runState.IsServer)
+        {
+            runState.GrantShipUpgradeServer();
+        }
+
+        Debug.Log(
+            $"[Loadout] {name} funded a ship upgrade " +
+            $"(purchase #{ShipUpgradePurchases.Value}).",
+            this
+        );
+        return true;
+    }
+
+    /// <summary>Server-only: records a hot meal bought at the shop, for pricing.</summary>
+    public void RecordHealPurchaseServer()
+    {
+        if (!IsSpawned || !IsServer)
+        {
+            return;
+        }
+
+        HealPurchases.Value++;
     }
 
     /// <summary>
