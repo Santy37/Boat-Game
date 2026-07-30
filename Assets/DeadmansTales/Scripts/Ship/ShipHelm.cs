@@ -167,14 +167,43 @@ public class ShipHelm : MonoBehaviour
             networkSync = ship.GetComponent<NetworkShipHelmSync>();
         }
 
+        // Sets steersPlayerShip, which the camera wiring below depends on.
         ResolveSteeredHull();
 
-        coopCamera = FindFirstObjectByType<LocalCoopCamera>();
-        cameraFollow = FindFirstObjectByType<Camera2DFollow>();
-
-        if (cameraFollow != null)
+        // ONLY the helm that steers the player's ship touches the camera.
+        //
+        // The EnemyShip prefab carries a ShipHelm of its own, so every enemy
+        // ship spawned into the leg brings another one, and each was
+        // resolving the same single Camera2DFollow and writing its zoom every
+        // frame from UpdateNetworkCameraZoom. Two things went wrong with
+        // that, and together they are the "camera stays zoomed out after you
+        // step off the wheel" bug:
+        //
+        // An enemy helm is never manned, so it wrote defaultCameraZoom every
+        // frame -- and defaultCameraZoom is snapshotted right here in Awake,
+        // meaning whatever the camera happened to be at the moment that
+        // enemy ship SPAWNED. Spawn one while somebody is steering and it
+        // captured the zoomed-out steering value, then pinned the camera
+        // there for the rest of its life. Leaving the wheel restored the
+        // real default for exactly one frame before the enemy helm put it
+        // back. That is why it was intermittent: it depended on whether a
+        // spawn happened to land during steering.
+        //
+        // Even with a correct snapshot they still fought -- player helm
+        // writing the steering zoom and enemy helms writing the default,
+        // every frame, with script execution order deciding the winner.
+        //
+        // Leaving these null on an enemy helm is enough; every use site
+        // already null-guards them.
+        if (steersPlayerShip)
         {
-            defaultCameraZoom = cameraFollow.OrthographicSize;
+            coopCamera = FindFirstObjectByType<LocalCoopCamera>();
+            cameraFollow = FindFirstObjectByType<Camera2DFollow>();
+
+            if (cameraFollow != null)
+            {
+                defaultCameraZoom = cameraFollow.OrthographicSize;
+            }
         }
     }
 
@@ -594,7 +623,12 @@ public class ShipHelm : MonoBehaviour
 
     private void UpdateNetworkCameraZoom()
     {
-        if (cameraFollow == null)
+        // Stated here as well as in Awake (which leaves cameraFollow null on
+        // an enemy helm) because this is the method that actually did the
+        // damage: several helms all writing one camera's zoom every frame.
+        // Re-adding the camera lookup for every helm must not be enough to
+        // bring that back.
+        if (!steersPlayerShip || cameraFollow == null)
         {
             return;
         }
