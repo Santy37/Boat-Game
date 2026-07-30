@@ -67,16 +67,7 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
 
     private void UpdateDeathScreen(float health)
     {
-        bool isOnlineMultiplayer =
-            OnlineLobbyService.Instance != null &&
-            OnlineLobbyService.Instance.IsInSession;
-
-        // This panel is for the player's OWN death only, and only outside an
-        // online session: one player going down in co-op is that player's
-        // problem and the crew fights on. Losing the SHIP is the run's other
-        // lose state and is handled entirely by ShipSunkUI, which has its own
-        // panel -- watching for it here as well would pop two panels at once.
-        bool playerDied = !isOnlineMultiplayer && health <= 0f;
+        bool playerDied = health <= 0f;
 
         if (!playerDied)
         {
@@ -91,8 +82,6 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
                 deathPanel.SetActive(false);
             }
 
-            // Only unblock the pause menu if the death screen
-            // had previously blocked it.
             if (deathScreenIsBlocking)
             {
                 deathScreenIsBlocking = false;
@@ -102,7 +91,6 @@ public sealed class SinglePlayerDeathScreenUI : MonoBehaviour
             return;
         }
 
-        // Only close/block the pause menu when the player actually dies.
         if (!deathScreenIsBlocking)
         {
             deathScreenIsBlocking = true;
