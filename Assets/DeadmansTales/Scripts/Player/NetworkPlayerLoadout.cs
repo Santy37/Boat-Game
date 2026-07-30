@@ -25,6 +25,9 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
     [Min(1f)]
     private float foodHealAmount = 25f;
 
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip eatingSound;
+
     public readonly NetworkVariable<int> WeaponTier =
         new NetworkVariable<int>(
             0,
@@ -108,6 +111,16 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
         );
 
         return true;
+    }
+
+
+    [Rpc(SendTo.Owner)]
+    private void PlayEatingSoundRpc()
+    {
+        if (audioSource != null && eatingSound != null)
+        {
+            audioSource.PlayOneShot(eatingSound);
+        }
     }
     /// <summary>
     /// Server-only: spends coins if the player can afford it. Returns false
@@ -241,8 +254,9 @@ public sealed class NetworkPlayerLoadout : NetworkBehaviour
         {
             return;
         }
-
         FoodCount.Value--;
+
+        PlayEatingSoundRpc();
 
         Debug.Log(
             $"[Food Inventory] {name} used food. " +
