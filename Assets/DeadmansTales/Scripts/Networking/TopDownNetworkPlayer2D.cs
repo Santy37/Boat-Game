@@ -140,6 +140,33 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Server only: continuously re-pins a seated player to a moving
+    /// station anchor -- specifically the ship's wheel while
+    /// <see cref="DeadmansTales.Ship.NetworkShipHelmSync"/> is steering the
+    /// ship itself. Unlike <see cref="TeleportToSpawnServer"/> this does not
+    /// touch the movement-lock timers or call NetworkTransform.Teleport: it
+    /// runs every server tick while seated, and a normal position write
+    /// already replicates smoothly through this object's own NetworkTransform,
+    /// exactly like every other server-authoritative position write in
+    /// FixedUpdate below.
+    /// </summary>
+    public void PinToStationServer(Vector2 worldPosition)
+    {
+        if (!IsSpawned || !IsServer)
+        {
+            return;
+        }
+
+        rb.position = worldPosition;
+
+        transform.position = new Vector3(
+            worldPosition.x,
+            worldPosition.y,
+            transform.position.z
+        );
+    }
+
     private void Update()
     {
         if (!IsSpawned || !IsOwner)
@@ -329,6 +356,37 @@ public class TopDownNetworkPlayer2D : NetworkBehaviour
         }
 
         ball.LaunchServer(velocity);
+    }
+
+    /// <summary>
+    /// Called on the owning client by a manned <c>ShipHelm</c> to submit
+    /// this frame's steering input. Routed through the server exactly like
+    /// cannon fire, so every peer sees the same ship move instead of each
+    /// client quietly moving its own local copy that nobody else ever saw.
+    /// </summary>
+    public void RequestSteerShip(NetworkShipHelmSync helm, Vector2 rawInput)
+    {
+        if (!IsSpawned || !IsOwner || helm == null)
+        {
+            return;
+        }
+
+        helm.SubmitSteerInputServerRpc(rawInput);
+    }
+
+    /// <summary>
+    /// Called on the owning client by <c>ShipHelm</c> when the player steps
+    /// away from the helm, so the server stops treating them as the
+    /// operator.
+    /// </summary>
+    public void RequestStopSteeringShip(NetworkShipHelmSync helm)
+    {
+        if (!IsSpawned || !IsOwner || helm == null)
+        {
+            return;
+        }
+
+        helm.StopSteerServerRpc();
     }
 
     /// <summary>

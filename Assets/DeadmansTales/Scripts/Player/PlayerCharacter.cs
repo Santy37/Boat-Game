@@ -148,6 +148,44 @@ public class PlayerCharacter : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Ask this player's authoritative side to submit this frame's ship
+    /// steering input to the server. Local (non-networked/split-screen)
+    /// players return false so the caller can move the ship directly
+    /// itself, exactly like <see cref="TryFireNetworkedCannon"/>.
+    /// </summary>
+    public bool TrySteerShipNetworked(
+        DeadmansTales.Ship.NetworkShipHelmSync helm,
+        Vector2 rawInput
+    )
+    {
+        if (networkPlayer == null)
+        {
+            return false;
+        }
+
+        networkPlayer.RequestSteerShip(helm, rawInput);
+        return true;
+    }
+
+    /// <summary>
+    /// Ask this player's authoritative side to tell the server it has
+    /// stepped away from the helm. Local players return false; there is
+    /// nothing networked to release.
+    /// </summary>
+    public bool TryStopSteeringShipNetworked(
+        DeadmansTales.Ship.NetworkShipHelmSync helm
+    )
+    {
+        if (networkPlayer == null)
+        {
+            return false;
+        }
+
+        networkPlayer.RequestStopSteeringShip(helm);
+        return true;
+    }
+
     /// <summary>Release from a station and restore movement.</summary>
     public void ExitStation()
     {

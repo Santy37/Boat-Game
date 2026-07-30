@@ -497,6 +497,8 @@ GameObject:
   - component: {fileID: 235887350}
   - component: {fileID: 235887349}
   - component: {fileID: 235887351}
+  - component: {fileID: 324302987023522836}
+  - component: {fileID: 781292173266495501}
   m_Layer: 0
   m_Name: Ship
   m_TagString: Untagged
@@ -615,6 +617,70 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.PlayerShipMarker
   hitbox: {fileID: 1361659284}
   deckBounds: {fileID: 0}
+--- !u!114 &324302987023522836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 235887345}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkTransform
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkTransformExpanded: 0
+  AutoOwnerAuthorityTickOffset: 1
+  PositionInterpolationType: 0
+  RotationInterpolationType: 0
+  ScaleInterpolationType: 0
+  PositionLerpSmoothing: 1
+  PositionMaxInterpolationTime: 0.1
+  RotationLerpSmoothing: 1
+  RotationMaxInterpolationTime: 0.1
+  ScaleLerpSmoothing: 1
+  ScaleMaxInterpolationTime: 0.1
+  AuthorityMode: 0
+  TickSyncChildren: 0
+  UseUnreliableDeltas: 0
+  SyncPositionX: 1
+  SyncPositionY: 1
+  SyncPositionZ: 1
+  SyncRotAngleX: 1
+  SyncRotAngleY: 1
+  SyncRotAngleZ: 1
+  SyncScaleX: 1
+  SyncScaleY: 1
+  SyncScaleZ: 1
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 0
+  SwitchTransformSpaceWhenParented: 0
+  Interpolate: 1
+  SlerpPosition: 0
+--- !u!114 &781292173266495501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 235887345}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2a9fe666ca744d5885cff3439c6c948, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::DeadmansTales.Ship.NetworkShipHelmSync
+  standPoint: {fileID: 2125084019}
+  moveSpeed: 3
+  moveBounds: {x: 5, y: 3}
+  pushOutOfEnemyHulls: 1
+  hullSeparationSkin: 0
+  inputStaleSeconds: 0.5
 --- !u!1 &330336143
 GameObject:
   m_ObjectHideFlags: 0
@@ -1036,12 +1102,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 379537960}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a435bf3b92499e0449d74e0d0fb128e8, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::Camera2DFollow
-  followLocalPlayer: 0
+  followLocalPlayer: 1
   islandCenter: {x: 2, y: 12}
   clampToBounds: 0
   movementBounds: {fileID: 0}
@@ -1176,10 +1242,10 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 379537960}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3f6995804ca4eae4eab32880807f6a6d, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::LocalCoopCamera
   enableZoom: 0
   fixedZoom: 10

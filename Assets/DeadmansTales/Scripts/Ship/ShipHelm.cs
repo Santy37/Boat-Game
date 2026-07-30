@@ -50,6 +50,14 @@ public class ShipHelm : MonoBehaviour
     private PlayerCharacter operatorPlayer;
     private Rigidbody2D operatorBody;
 
+    // Resolved once: the ship's own networked steering component, if it has
+    // one. Present only on ships that are actually multiplayer-networked
+    // (see Boat_Gameplay_2D's Ship root); null on a purely local ship (or an
+    // enemy ship's own copy of this helm). When set, a networked operator's
+    // input is forwarded there instead of being applied to the Transform
+    // directly -- see LateUpdate.
+    private NetworkShipHelmSync networkSync;
+
     private Vector3 shipHome;
     private Vector2 steerOffset;
 
@@ -94,6 +102,7 @@ public class ShipHelm : MonoBehaviour
         if (ship != null)
         {
             shipHome = ship.localPosition;
+            networkSync = ship.GetComponent<NetworkShipHelmSync>();
         }
 
         ResolveSteeredHull();
@@ -138,6 +147,15 @@ public class ShipHelm : MonoBehaviour
 
     private void LateUpdate()
     {
+        // True once this frame's input was handed to the server instead of
+        // applied here -- a networked operator's ship. NetworkShipHelmSync
+        // moves the ship and re-pins the seated player every server tick,
+        // and NetworkTransform on both replicates the result to every peer,
+        // so nothing below (local Transform writes, hull push-out, gluing
+        // the operator to the seat) should also run: it would just fight
+        // the incoming replication with a stale local guess.
+        bool movedByServer = false;
+
         if (Manned)
         {
             Vector2 input = operatorPlayer.Bindings != null
@@ -145,10 +163,23 @@ public class ShipHelm : MonoBehaviour
                 : new Vector2(
                     Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 
-            steerOffset += input * (moveSpeed * Time.deltaTime);
-            steerOffset.x = Mathf.Clamp(steerOffset.x, -moveBounds.x, moveBounds.x);
-            steerOffset.y = Mathf.Clamp(steerOffset.y, -moveBounds.y, moveBounds.y);
+            movedByServer = operatorPlayer.TrySteerShipNetworked(networkSync, input);
+
+            if (!movedByServer)
+            {
+                steerOffset += input * (moveSpeed * Time.deltaTime);
+                steerOffset.x = Mathf.Clamp(steerOffset.x, -moveBounds.x, moveBounds.x);
+                steerOffset.y = Mathf.Clamp(steerOffset.y, -moveBounds.y, moveBounds.y);
+            }
         }
+
+        if (movedByServer)
+        {
+            UpdatePrompt();
+            return;
+        }
+
+        // ---- Local / split-screen ship: unchanged from before. ----
 
         // Hold the steered spot, but only once there is one to hold.
         //
@@ -396,6 +427,7 @@ public class ShipHelm : MonoBehaviour
     {
         if (operatorPlayer != null)
         {
+            operatorPlayer.TryStopSteeringShipNetworked(networkSync);
             operatorPlayer.ExitStation();
         }
 
