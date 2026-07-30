@@ -105,6 +105,18 @@ namespace DeadmansTales.Networking
         private string pendingJoinCode = string.Empty;
         private bool servicesReady;
         private bool isBusy;
+
+        // Why NGO itself dropped us during the last join attempt.
+        //
+        // This matters because the interesting failure is not the one the
+        // join task reports. A join can get far enough for the transport to
+        // connect -- the host sees the player appear -- and only then be
+        // closed by the host, at which point the SDK's join task faults with
+        // something generic. NGO records the host's actual stated reason in
+        // NetworkManager.DisconnectReason, which nothing was reading, so the
+        // one piece of information that explains the failure was thrown away
+        // every time.
+        private string lastNgoDisconnectReason = string.Empty;
         private LobbyConnectionState connectionState =
             LobbyConnectionState.Offline;
 
@@ -306,6 +318,18 @@ namespace DeadmansTales.Networking
                 "Joining online lobby..."
             );
 
+            // Listen for an NGO-level disconnect for the duration of the join
+            // only. If the host drops us mid-handshake this is the one place
+            // the real reason is still available.
+            NetworkManager networkManager = NetworkManager.Singleton;
+            lastNgoDisconnectReason = string.Empty;
+
+            if (networkManager != null)
+            {
+                networkManager.OnClientDisconnectCallback +=
+                    HandleJoinTimeDisconnect;
+            }
+
             try
             {
                 JoinSessionOptions options = BuildJoinOptions();
@@ -333,8 +357,49 @@ namespace DeadmansTales.Networking
             }
             finally
             {
+                if (networkManager != null)
+                {
+                    networkManager.OnClientDisconnectCallback -=
+                        HandleJoinTimeDisconnect;
+                }
+
                 SetBusy(false);
             }
+        }
+
+        /// <summary>
+        /// Records the host's stated reason for closing our connection while
+        /// a join was still in flight.
+        /// </summary>
+        private void HandleJoinTimeDisconnect(ulong clientId)
+        {
+            NetworkManager networkManager = NetworkManager.Singleton;
+
+            if (networkManager == null)
+            {
+                return;
+            }
+
+            // On a client this fires for our own disconnect; ignore anything
+            // else so a host-side callback cannot overwrite the reason.
+            if (
+                networkManager.IsClient &&
+                clientId != networkManager.LocalClientId
+            )
+            {
+                return;
+            }
+
+            string reason = networkManager.DisconnectReason;
+
+            lastNgoDisconnectReason =
+                string.IsNullOrWhiteSpace(reason)
+                    ? "the host closed the connection without giving a " +
+                      "reason, which usually means the two machines are not " +
+                      "running the same build (NetworkManager has " +
+                      "ForceSamePrefabs enabled, so a differing network " +
+                      "prefab list is rejected on connect)"
+                    : reason;
         }
 
         public async Task<bool> LeaveLobbyAsync()
@@ -711,17 +776,46 @@ namespace DeadmansTales.Networking
             );
         }
 
+        /// <summary>
+        /// Reports why a join failed, using the most specific reason
+        /// available.
+        ///
+        /// This used to discard the exception entirely and always claim
+        /// "Lobby not found. Check the code and try again." That is right for
+        /// exactly one cause -- a genuinely wrong code -- and actively
+        /// misleading for every other, which is why a join that got as far as
+        /// connecting (the host watched the player appear and then vanish)
+        /// still read as a bad code and sent everyone hunting the wrong
+        /// problem.
+        ///
+        /// An NGO disconnect reason outranks the exception message: if the
+        /// host closed the connection, what the HOST said is the cause, and
+        /// the join task's own fault is just the downstream symptom.
+        /// </summary>
         private void ReportJoinFailure(Exception exception)
         {
+            // Full exception, not just Message -- the type and stack are what
+            // distinguish a bad code from a rejected handshake.
+            Debug.LogException(exception, this);
+
+            bool droppedByHost =
+                !string.IsNullOrWhiteSpace(lastNgoDisconnectReason);
+
+            string detail = droppedByHost
+                ? lastNgoDisconnectReason
+                : exception.Message;
+
             Debug.LogWarning(
-                "[Online Lobby] Join failed and local networking was reset: " +
-                exception.Message,
+                "[Online Lobby] Join failed and local networking was reset. " +
+                $"Cause ({exception.GetType().Name}): {detail}",
                 this
             );
 
             SetState(
                 LobbyConnectionState.Error,
-                "Lobby not found. Check the code and try again."
+                droppedByHost
+                    ? $"The host rejected the connection: {detail}"
+                    : $"Could not join the lobby: {detail}"
             );
         }
 
