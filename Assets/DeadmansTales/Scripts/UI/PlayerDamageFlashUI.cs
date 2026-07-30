@@ -39,6 +39,17 @@ public sealed class PlayerDamageFlashUI : MonoBehaviour
     [Range(0f, 1f)]
     private float deathAlpha = 1f;
 
+    [Header("Audio")]
+    [SerializeField]
+    private AudioSource audioSource;
+
+    [SerializeField]
+    private AudioClip damageSound;
+
+    [SerializeField]
+    [Range(0f, 1f)]
+    private float damageSoundVolume = 1f;
+
     private PlayerHealth localPlayerHealth;
     private float damageIntensity;
     private float lastDamageTime;
@@ -51,6 +62,11 @@ public sealed class PlayerDamageFlashUI : MonoBehaviour
             damageFlash.alpha = 0f;
             damageFlash.interactable = false;
             damageFlash.blocksRaycasts = false;
+        }
+
+        if (audioSource == null)
+        {
+            audioSource = GetComponent<AudioSource>();
         }
     }
 
@@ -138,6 +154,18 @@ public sealed class PlayerDamageFlashUI : MonoBehaviour
         )
         {
             return;
+        }
+
+        if (
+    currentHealth < previousHealth &&
+    audioSource != null &&
+    damageSound != null
+)
+        {
+            audioSource.PlayOneShot(
+                damageSound,
+                damageSoundVolume
+            );
         }
 
         // Death ignores the normal cap and uses Death Alpha.

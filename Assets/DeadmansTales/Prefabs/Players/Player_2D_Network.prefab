@@ -302,7 +302,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 88b1cbe3caa3fee4b8b103b5edd7aba9, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 0.29
+  m_Volume: 0.05
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -584,7 +584,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1805936517
+  GlobalObjectIdHash: 3054261716
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -735,8 +735,8 @@ MonoBehaviour:
   attackOffset: {x: 0, y: 0.35}
   maximumTargetsPerSwing: 4
   audioSource: {fileID: 2651938207332921320}
-  swordSwingClip: {fileID: 8300000, guid: 88b1cbe3caa3fee4b8b103b5edd7aba9, type: 3}
-  swordHitClip: {fileID: 8300000, guid: 7c47b20bb9874304a809dc5580d403ba, type: 3}
+  swordSwingClip: {fileID: 8300000, guid: a11cf6df664274448aa7b166f9657115, type: 3}
+  swordHitClip: {fileID: 8300000, guid: ffc0aa6c936067c4799e1e9ff0a1896c, type: 3}
 --- !u!114 &7869521657022404248
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -905,34 +905,6 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &5461827930947162583
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3388892594036479966}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8f4c1e6a9d3b4a2f8e7c0b5d1a6f3c92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  swordRenderer: {fileID: 2508380306022232439}
-  swordSprites:
-  - {fileID: 131449278, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 23267520, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: -1383742100, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: -1259760662, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: -1041754904, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 1145680292, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 503644337, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 1936746835, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 607831742, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: -460413151, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 1008709038, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 1169189359, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 2084996774, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
-  - {fileID: 1907593904, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
 --- !u!114 &8434005522542735720
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1102,6 +1074,34 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &5461827930947162583
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3388892594036479966}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f4c1e6a9d3b4a2f8e7c0b5d1a6f3c92, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  swordRenderer: {fileID: 2508380306022232439}
+  swordSprites:
+  - {fileID: 131449278, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 23267520, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1383742100, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1259760662, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -1041754904, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1145680292, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 503644337, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1936746835, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 607831742, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: -460413151, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1008709038, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1169189359, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 2084996774, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
+  - {fileID: 1907593904, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
 --- !u!1 &3920563249596062333
 GameObject:
   m_ObjectHideFlags: 0
