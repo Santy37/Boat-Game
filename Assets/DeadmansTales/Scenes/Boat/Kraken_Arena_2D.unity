@@ -885,10 +885,10 @@ MonoBehaviour:
   obstacleGenerator: {fileID: 0}
   eventTriggerRange: 2.5
   eventPauseDuration: 3
-  obstacleMessage: Protect the ship!
-  enemyMessage: Attack the pirates!
+  obstacleMessage: PROTECT THE SHIP
+  enemyMessage: ATTACK THE PIRATES
   messageDuration: 5
-  arrivalMessage: You have arrived
+  arrivalMessage: 
   messagePrioritySeconds: 5
 --- !u!1 &235887345
 GameObject:

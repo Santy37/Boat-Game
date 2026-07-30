@@ -176,9 +176,61 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1005144453857706643, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1005144453857706643, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1005144453857706643, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1005144453857706643, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1998385158893126955, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_SortingOrder
+      value: 150
+      objectReference: {fileID: 0}
+    - target: {fileID: 5286758517416854015, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5286758517416854015, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5286758517416854015, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5286758517416854015, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6671314386521608051, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
       propertyPath: m_Name
       value: PauseMenuUI
+      objectReference: {fileID: 0}
+    - target: {fileID: 7491892823956986627, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7491892823956986627, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7491892823956986627, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7491892823956986627, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8549483651688832747, guid: ffec0ef6815bf0540b4142f4a7ae2d0b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -46429,10 +46481,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3f6995804ca4eae4eab32880807f6a6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalCoopCamera
+  enableZoom: 1
+  fixedZoom: 8
   padding: 3
   minZoom: 6
   maxZoom: 14
   smooth: 5
+  frameOffset: {x: 0, y: 0}
   zOffset: -10
   leashPlayers: 1
   leashMargin: 1

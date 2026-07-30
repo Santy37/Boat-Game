@@ -203,7 +203,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 100
+  m_SortingOrder: 200
   m_TargetDisplay: 0
 --- !u!114 &7464954193465984745
 MonoBehaviour:
@@ -475,8 +475,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a6292d3bbe9ec1f489d38e28e141956d, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   swordIcon: {fileID: 2244350241844102597}
   swordSprites:
   - {fileID: 131449278, guid: 6eb16e372762d6b4cb708c44ebfab931, type: 3}
@@ -1999,7 +1999,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: eaa8e67267d04d27b1b02fbb0db2b397, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinCounterHUD
   coinCountText: {fileID: 8285628286661686519}
 --- !u!1 &4920745984550456624

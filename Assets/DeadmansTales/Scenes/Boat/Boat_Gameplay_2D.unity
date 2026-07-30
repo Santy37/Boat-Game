@@ -770,7 +770,7 @@ MonoBehaviour:
   eventTriggerRange: 1
   eventPauseDuration: 3
   obstacleMessage: PROTECT THE SHIP
-  enemyMessage: ENEMIES ARE ATTACKING
+  enemyMessage: ATTACK THE ENEMIES
   messageDuration: 5
   arrivalMessage: PRESS E ON THE HATCH
   messagePrioritySeconds: 5
