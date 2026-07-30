@@ -278,7 +278,7 @@ MonoBehaviour:
   randomSpawnPoint: 1
   chosenSpawnPoint: 0
   crewPrefab: {fileID: 8918378950335595603, guid: 9fdb35f3310529b4ab48fdc3a0b8d991, type: 3}
-  crewPerShip: 5
+  crewPerShip: 4
   crewLocalOffsets:
   - {x: -2, y: 0.3}
   - {x: 2, y: -0.3}
